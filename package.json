@@ -1,0 +1,12 @@
+{
+  "name": "use-sul-widget-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "dev": "wrangler dev -c wrangler.dev.toml",
+    "deploy:staging": "wrangler deploy -c wrangler.dev.toml",
+    "deploy:production": "wrangler deploy -c wrangler.production.toml"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}
