@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 2F, rollout único): Worker `use-sul-widget` em produção com `ENABLE_WIDGET=true` **somente** em `/usesul/product/serra-catarinense`; smoke off/dry/on, Turbo, clique e retorno, 390 px e compra anônima aprovados. Recursos de preview removidos. Ver [`fase-2f-rollout.md`](fase-2f-rollout.md).
+>
 > Atualização (Fase 2E, Etapa 1B): Worker isolado `use-sul-widget-preview` implantado e Preview `etapa1-fixture` ativo; testes de edge e sonda de `Content-Encoding` em [`fase-2e-preview-edge.md`](fase-2e-preview-edge.md). **Parado antes da Etapa 2.**
 >
 > Atualização (Fase 2D, Etapa 1): Preview isolado criado, **sem URL ativa** (bloqueio); nenhuma evidência de edge ainda. Ver [`fase-2d-preview-isolado.md`](fase-2d-preview-isolado.md) e as opções A/B/C.
