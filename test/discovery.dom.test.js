@@ -320,7 +320,7 @@ test('accessibility wiring: labelled region, combobox/listbox roles, live status
   // todo seletor é escopado à raiz exclusiva (nada global que atinja botões/cards nativos)
   for (const rule of css.split('}').map((r) => r.trim()).filter(Boolean)) {
     const selector = rule.split('{')[0]; if (selector.startsWith('@media')) continue;
-    assert.ok(selector.split(',').every((s) => s.trim().startsWith('[data-origens-discovery]')), selector);
+    assert.ok(selector.split(',').every((s) => /^\[data-origens-discovery(\]|=)/.test(s.trim())), selector);
   }
 });
 

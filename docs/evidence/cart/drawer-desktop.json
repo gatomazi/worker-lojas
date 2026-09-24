@@ -1,0 +1,92 @@
+{
+ "vh": 900,
+ "vw": 1280,
+ "chain": [
+  {
+   "el": "turbo-frame#cart.",
+   "pos": "static",
+   "disp": "inline",
+   "tx": "",
+   "ov": "visible",
+   "rect": [
+    890,
+    0,
+    390,
+    900
+   ],
+   "data": []
+  },
+  {
+   "el": "div.cart-drawer.z-50.open",
+   "pos": "fixed",
+   "disp": "block",
+   "tx": "transformed",
+   "ov": "visible",
+   "rect": [
+    890,
+    0,
+    390,
+    900
+   ],
+   "data": []
+  },
+  {
+   "el": "div.",
+   "pos": "static",
+   "disp": "block",
+   "tx": "",
+   "ov": "visible",
+   "rect": [
+    0,
+    -418,
+    1280,
+    2834
+   ],
+   "data": []
+  },
+  {
+   "el": "body.font-poppins",
+   "pos": "static",
+   "disp": "block",
+   "tx": "",
+   "ov": "hidden",
+   "rect": [
+    0,
+    -418,
+    1280,
+    2834
+   ],
+   "data": []
+  }
+ ],
+ "checkoutBtn": {
+  "top": 836,
+  "bottom": 884,
+  "h": 48
+ },
+ "footer": {
+  "top": 651,
+  "bottom": 900,
+  "h": 249
+ },
+ "main": {
+  "top": 48,
+  "bottom": 651,
+  "h": 603
+ },
+ "mainOverflow": "auto 603/603",
+ "footerPos": "static",
+ "btnVisibleInViewport": true,
+ "checkoutForm": {
+  "action": "/usesul/cart/checkout_cart_items",
+  "method": "post",
+  "turbo": "false",
+  "hasCsrf": true,
+  "btnAttrs": [
+   "id=checkout-btn",
+   "data-action=click->tracking#trackClick click->ink-store--segment#trackEv",
+   "data-event-name=finish_cart_click",
+   "class=bg-store-button text-base text-store-button-font font-medium"
+  ]
+ }
+}

@@ -3,7 +3,7 @@
 //   "" (vazia)        -> [] (nenhum módulo)
 //   nome desconhecido -> [] e status "invalid" (a lista INTEIRA é descartada)
 // As features NÃO ampliam páginas: quem autoriza páginas continua sendo só WIDGET_ALLOWLIST (Worker e loader).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search'];
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

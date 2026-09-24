@@ -9,7 +9,8 @@ const ORIGIN = 'https://useorigens.com.br';
 const INDEX_URL = ORIGIN + '/api/cidades/sul';
 const INDEX_TTL_MS = 5 * 60 * 1000;
 const INDEX_STALE_MS = 24 * 60 * 60 * 1000;
-const INDEX_TIMEOUT_MS = 3000;
+const INDEX_FETCH_CEILING_MS = 10_000; // teto da busca do índice (continua em segundo plano e aquece o cache)
+const REQUEST_WAIT_MS = 3000;          // o visitante espera no máximo isto; depois recebe 502 e o cliente mostra o fallback
 const INDEX_MAX_CHARS = 600_000;
 const INDEX_MAX_ITEMS = 5000;
 const INDEX_MIN_ITEMS = 100;
@@ -43,7 +44,7 @@ export function createSearchGateway({ upstream = (request, init) => fetch(reques
 
   async function loadIndex() {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), INDEX_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), INDEX_FETCH_CEILING_MS);
     try {
       // Pedido novo e sem cabeçalhos do visitante: nunca Cookie/Authorization.
       const response = await upstream(new Request(INDEX_URL, { method: 'GET', headers: { accept: 'application/json' } }), {
@@ -62,23 +63,33 @@ export function createSearchGateway({ upstream = (request, init) => fetch(reques
     }
   }
 
-  async function getIndex() {
+  async function getIndex(ctx) {
     if (cache && now() - cache.at < INDEX_TTL_MS) return cache.prepared;
-    inflight ??= loadIndex().then(
-      (fresh) => { cache = fresh; inflight = null; return fresh; },
-      (error) => { inflight = null; throw error; }
-    );
+    if (!inflight) {
+      inflight = loadIndex().then(
+        (fresh) => { cache = fresh; inflight = null; return fresh; },
+        (error) => { inflight = null; throw error; }
+      );
+      inflight.catch(() => {}); // a falha é tratada por quem espera; isto evita rejeição sem tratamento se ninguém mais espera
+    }
+    const pending = inflight;
+    let timer;
+    const tooSlow = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('index slow')), REQUEST_WAIT_MS); });
     try {
-      return (await inflight).prepared;
+      return (await Promise.race([pending, tooSlow])).prepared;
     } catch (error) {
+      // Lento demais para ESTE pedido: a busca do índice segue em segundo plano (waitUntil) e aquece o cache para os próximos.
+      if (error && error.message === 'index slow' && ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(pending.catch(() => {}));
       // Índice velho é melhor que nenhum resultado, por até 24 h.
       if (cache && now() - cache.at < INDEX_STALE_MS) return cache.prepared;
       throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
   return {
-    async handle(request) {
+    async handle(request, ctx) {
       if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } });
       const q = new URL(request.url).searchParams.get('q');
       const query = typeof q === 'string' ? q.trim() : '';
@@ -86,7 +97,7 @@ export function createSearchGateway({ upstream = (request, init) => fetch(reques
 
       let prepared;
       try {
-        prepared = await getIndex();
+        prepared = await getIndex(ctx);
       } catch (error) {
         console.warn(JSON.stringify({ event: 'use-origens.search-index-error', reason: String(error && error.message).slice(0, 40) }));
         return json({ error: 'unavailable' }, 502);

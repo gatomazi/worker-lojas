@@ -6,8 +6,6 @@ export const DRAWER_WATCH = String.raw`
     host: null,
     observer: null,
     ac: null,
-    loading: null,
-    failed: false,
     mounted: false,
 
     mount() {
@@ -44,31 +42,14 @@ export const DRAWER_WATCH = String.raw`
         return;
       }
       if (wrapper.querySelector('[data-origens-discovery]')) return;
-      this.ensureApi().then((api) => {
-        if (!api) return;
+      loadDiscovery().then((api) => {
+        if (!api || !api.mount) return;
         const current = document.getElementById('modal-wrapper');
         // Revalida depois do carregamento assíncrono: rota, drawer ainda aberto e sem duplicar.
         if (!allowedNow() || !this.isOpen(current) || current.querySelector('[data-origens-discovery]')) return;
         api.mount({ wrapper: current });
         this.mounted = true;
       });
-    },
-
-    ensureApi() {
-      if (window.__useOrigensDiscovery) return Promise.resolve(window.__useOrigensDiscovery);
-      if (this.failed) return Promise.resolve(null);
-      if (!this.loading) {
-        this.loading = new Promise((resolve) => {
-          const script = document.createElement('script');
-          script.src = '/__origens/discovery.js?v=__VERSION__';
-          script.async = true;
-          script.setAttribute('data-use-origens-discovery', '__VERSION__');
-          script.onload = () => { const api = window.__useOrigensDiscovery || null; if (!api) this.failed = true; resolve(api); };
-          script.onerror = () => { this.failed = true; resolve(null); };
-          document.head.appendChild(script);
-        });
-      }
-      return this.loading;
     },
 
     unmount() {

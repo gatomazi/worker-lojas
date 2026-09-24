@@ -19,14 +19,20 @@ const LIVE = process.argv.includes('--live'); // contra a produção REAL (sem W
 const mobile = WIDTH < 768;
 const label = arg('--width') ? 'w' + WIDTH : mode;
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 
 const mf = LIVE ? null : new Miniflare({
   modulesRoot: SRC, modules: FILES.map((f) => ({ type: 'ESModule', path: SRC + f })), compatibilityDate: '2026-08-01',
   bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: P, WIDGET_FEATURES: 'return-link,post-add-discovery,city-search' },
   // Storefront REAL para o índice de cidades; nada mais sai do Worker local.
-  outboundService: (req) => (new URL(req.url).host === 'useorigens.com.br' ? fetch(req.url, { headers: { accept: 'application/json' } }) : new Response('no', { status: 404 }))
+  // Índice de cidades: storefront REAL; se ele estiver indisponível neste momento, cai no snapshot real versionado (test/fixtures/search).
+  outboundService: async (req) => {
+    if (new URL(req.url).host !== 'useorigens.com.br') return new Response('no', { status: 404 });
+    try { const r = await fetch(req.url, { headers: { accept: 'application/json' } }); if (r.ok) return r; } catch (_) { /* cai no snapshot */ }
+    console.log('INFO storefront indisponível agora: índice servido pelo snapshot real versionado');
+    return new Response(readFileSync(new URL('../test/fixtures/search/cidades-sul.json', import.meta.url)), { headers: { 'content-type': 'application/json' } });
+  }
 });
 let searchMode = 'ok'; const searchLog = [];
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: false, args: ['--window-size=1300,950'] });

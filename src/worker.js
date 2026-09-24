@@ -2,6 +2,7 @@ import { buildLoaderSource, buildDiscoverySource, LOADER_VERSION } from './loade
 import { parseAllowlist } from './allowlist.js';
 import { parseFeatures } from './features.js';
 import { createSearchGateway } from './search-gateway.js';
+import { createCartRefs } from './cart-ref.js';
 
 const HOST = 'www.usesul.com.br';
 // Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
@@ -9,6 +10,7 @@ const PRODUCT_PAGE = /^\/usesul\/product\/(?!__)[^/]+\/?$/;
 const LOADER_PATH = '/__origens/loader.js';
 const DISCOVERY_PATH = '/__origens/discovery.js';
 const SEARCH_PATH = '/__origens/search';
+const CART_REF_PATH = '/__origens/cart-ref';
 const HEALTH_PATH = '/__origens/health';
 const LOADER_TAG = '<script src="' + LOADER_PATH + '?v=' + LOADER_VERSION +
   '" defer data-cfasync="false" data-use-origens-widget="' + LOADER_VERSION + '"></script>';
@@ -74,8 +76,10 @@ function serveDiscovery(request, mode, features) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
-  if (mode !== 'true' || !features.features.includes('post-add-discovery')) return javascript(request, DISABLED_JS, 'no-store');
-  return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search') }), 'public, max-age=60');
+  const postAdd = features.features.includes('post-add-discovery');
+  const cart = features.features.includes('cart-discovery');
+  if (mode !== 'true' || (!postAdd && !cart)) return javascript(request, DISABLED_JS, 'no-store');
+  return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search'), postAdd, cart }), 'public, max-age=60');
 }
 
 async function injectLoader(request, url, mode, allowlist, upstream) {
@@ -122,9 +126,9 @@ async function injectLoader(request, url, mode, allowlist, upstream) {
 
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
-export function createWorker(upstream, { gateway = createSearchGateway() } = {}) {
+export function createWorker(upstream, { gateway = createSearchGateway(), cartRefs = createCartRefs() } = {}) {
   return {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
       const url = new URL(request.url);
       const mode = widgetMode(env);
       const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
@@ -151,8 +155,14 @@ export function createWorker(upstream, { gateway = createSearchGateway() } = {})
       if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist, features);
       if (url.pathname === DISCOVERY_PATH) return serveDiscovery(request, mode, features);
       // Gateway de busca: só com a flag ligada E a feature city-search; caso contrário a INK responde (404 dela).
+      // Ponte do espelho do carrinho: só com true + cart-mirror (e o KV CART_REFS provisionado); senão a INK responde.
+      if (url.pathname === CART_REF_PATH || url.pathname.startsWith(CART_REF_PATH + '/')) {
+        if (mode !== 'true' || !features.features.includes('cart-mirror')) return passThrough(request, upstream);
+        if (url.pathname === CART_REF_PATH) return cartRefs.create(request, { kv: env.CART_REFS, allowedPaths: allowlist.paths, origin: 'https://' + HOST });
+        return cartRefs.read(request, { kv: env.CART_REFS, token: url.pathname.slice(CART_REF_PATH.length + 1) });
+      }
       if (url.pathname === SEARCH_PATH) {
-        return mode === 'true' && features.features.includes('city-search') ? gateway.handle(request) : passThrough(request, upstream);
+        return mode === 'true' && features.features.includes('city-search') ? gateway.handle(request, ctx) : passThrough(request, upstream);
       }
 
       // Sem nenhum módulo liberado não há o que injetar (fail-closed).

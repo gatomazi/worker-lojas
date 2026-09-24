@@ -14,7 +14,8 @@ test('empty WIDGET_FEATURES means no module at all', () => {
 });
 
 test('known names are accepted, trimmed, ordered and de-duplicated', () => {
-  assert.deepEqual(parseFeatures(' city-search , return-link,post-add-discovery,return-link '), { status: 'ok', features: FEATURE_NAMES });
+  assert.deepEqual(parseFeatures(' city-search , return-link,post-add-discovery,return-link '), { status: 'ok', features: ['return-link', 'post-add-discovery', 'city-search'] });
+  assert.deepEqual(parseFeatures('cart-discovery,city-search'), { status: 'ok', features: ['city-search', 'cart-discovery'] });
   assert.deepEqual(parseFeatures('post-add-discovery'), { status: 'ok', features: ['post-add-discovery'] });
 });
 

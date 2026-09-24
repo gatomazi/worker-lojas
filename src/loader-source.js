@@ -1,10 +1,13 @@
 // Loader entregue pelo próprio Worker, no mesmo hostname da loja (www.usesul.com.br). Um ÚNICO ponto de entrada,
-// composto por módulos independentes (src/loader/*): runtime, return-link e post-add-discovery (este carrega
+// composto por módulos independentes (src/loader/*): runtime, return-link, post-add-discovery e cart-discovery (estes carregam
 // discovery.js sob demanda). Só entram no bundle os módulos liberados por WIDGET_FEATURES.
 // A allowlist é embutida na entrega (defesa em profundidade): o Turbo Drive mantém o JS vivo entre páginas.
 import { RUNTIME_HEAD, RUNTIME_TAIL } from './loader/runtime.js';
 import { RETURN_LINK } from './loader/return-link.js';
 import { DRAWER_WATCH } from './loader/drawer-watch.js';
+import { CART_WATCH } from './loader/cart-watch.js';
+import { DISCOVERY_LOADER } from './loader/discovery-loader.js';
+import { CART_MIRROR } from './loader/cart-mirror.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
@@ -16,7 +19,10 @@ export { buildDiscoverySource };
 export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES) {
   const parts = [RUNTIME_HEAD];
   if (features.includes('return-link')) parts.push(RETURN_LINK);
+  if (features.includes('post-add-discovery') || features.includes('cart-discovery')) parts.push(DISCOVERY_LOADER);
   if (features.includes('post-add-discovery')) parts.push(DRAWER_WATCH);
+  if (features.includes('cart-discovery')) parts.push(CART_WATCH);
+  if (features.includes('cart-mirror')) parts.push(CART_MIRROR);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
     .replaceAll('__VERSION__', () => LOADER_VERSION)

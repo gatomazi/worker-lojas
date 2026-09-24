@@ -49,21 +49,42 @@ test('after the TTL the index is refreshed; if the refresh fails the stale index
   assert.equal((await gw.handle(req('curitiba'))).status, 502);
 });
 
-test('a hanging storefront is aborted after 3 s and answered as 502 (no hang), logging no query', async (t) => {
+test('a hanging storefront: the visitor waits at most 3 s (502), the index fetch is aborted only at 10 s and logs no query', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const lines = [];
   const warn = console.warn; console.warn = (line) => lines.push(String(line));
+  let aborted = false;
   try {
-    const gw = createSearchGateway({ upstream: (_r, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))) });
+    const gw = createSearchGateway({ upstream: (_r, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => { aborted = true; reject(new Error('aborted')); })) });
     const pending = gw.handle(req('curitiba SEGREDO'));
     await Promise.resolve();
     t.mock.timers.tick(3000);
     const res = await pending;
     assert.equal(res.status, 502);
+    assert.equal(aborted, false); // o pedido ao índice continua em segundo plano
+    t.mock.timers.tick(7000);
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(aborted, true);
   } finally { console.warn = warn; }
-  assert.equal(lines.length, 1);
-  assert.deepEqual(Object.keys(JSON.parse(lines[0])).sort(), ['event', 'reason']);
-  assert.ok(!/curitiba|SEGREDO/.test(lines[0]));
+  assert.ok(lines.length >= 1);
+  for (const line of lines) { assert.deepEqual(Object.keys(JSON.parse(line)).sort(), ['event', 'reason']); assert.ok(!/curitiba|SEGREDO/.test(line)); }
+});
+
+test('a slow storefront (5 s) fails the first request but WARMS the cache in the background: the next request is answered', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let release; const gate = new Promise((resolve) => { release = resolve; });
+  const waited = [];
+  const gw = createSearchGateway({ upstream: async () => { await gate; return ok(); } });
+  const pending = gw.handle(req('curitiba'), { waitUntil: (p) => waited.push(p) });
+  await Promise.resolve();
+  t.mock.timers.tick(3000);
+  assert.equal((await pending).status, 502);
+  assert.equal(waited.length, 1);           // ctx.waitUntil segura a busca do índice
+  release();                                // o storefront responde depois de 5 s
+  await Promise.all(waited);
+  const next = await gw.handle(req('joinville'));
+  assert.equal(next.status, 200);
+  assert.equal((await next.json()).results[0].name, 'Joinville');
 });
 
 test('the request sent upstream has no visitor headers and asks JSON; results are capped at 5', async () => {
