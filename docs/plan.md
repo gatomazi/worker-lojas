@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 2E, Etapa 1B): Worker isolado `use-sul-widget-preview` implantado e Preview `etapa1-fixture` ativo; testes de edge e sonda de `Content-Encoding` em [`fase-2e-preview-edge.md`](fase-2e-preview-edge.md). **Parado antes da Etapa 2.**
+>
 > Atualização (Fase 2D, Etapa 1): Preview isolado criado, **sem URL ativa** (bloqueio); nenhuma evidência de edge ainda. Ver [`fase-2d-preview-isolado.md`](fase-2d-preview-isolado.md) e as opções A/B/C.
 >
 > Atualização (Fase 2C): `WIDGET_ALLOWLIST` fail-closed implementada e testada localmente; plano de ativação e rollback em [`fase-2c-allowlist.md`](fase-2c-allowlist.md). Nada publicado; push bloqueado (identidade SSH efetiva é `gtomazi`).

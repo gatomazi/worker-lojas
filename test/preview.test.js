@@ -113,6 +113,8 @@ test('preview config is isolated: own name, no routes, no bindings, safe vars in
   assert.equal(name(preview), 'use-sul-widget-preview');
   assert.match(preview, /^main\s*=\s*"src\/preview-entry\.js"/m);
   assert.match(prod, /^main\s*=\s*"src\/worker\.js"/m);
+  assert.match(preview, /^workers_dev\s*=\s*true/m);
+  assert.match(preview, /^preview_urls\s*=\s*true/m);
   const code = preview.replace(/^\s*#.*$/gm, '');
   assert.doesNotMatch(code, /routes|\broute\b|custom_domain|zone_name|zone_id|kv_namespaces|d1_databases|r2_buckets|queues|services|secrets|hyperdrive|durable_objects|\[assets\]|\.melioffice|usesul\.com\.br/i);
   for (const block of ['vars', 'previews.vars']) {

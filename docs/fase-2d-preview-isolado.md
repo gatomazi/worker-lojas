@@ -1,6 +1,8 @@
 # Fase 2D — Etapa 1: Worker Preview isolado
 
-**Status: PARCIAL / BLOQUEADO na URL do Preview.** O Preview foi criado na Cloudflare, mas **não tem URL ativa**; por isso **nenhum teste foi executado no edge**. Ativar a URL exige `wrangler deploy` (proibido por esta etapa) ou um ajuste no painel. Parei e peço nova aprovação (seção 7).
+> **Superado por [`fase-2e-preview-edge.md`](fase-2e-preview-edge.md)** (opção B aprovada e executada; URLs ativas, testes de edge feitos).
+
+**Status (na data deste documento): PARCIAL / BLOQUEADO na URL do Preview.** O Preview foi criado na Cloudflare, mas **não tem URL ativa**; por isso **nenhum teste foi executado no edge**. Ativar a URL exige `wrangler deploy` (proibido por esta etapa) ou um ajuste no painel. Parei e peço nova aprovação (seção 7).
 
 Data: 2026-09-24. Branch `feature/ink-loader-fase2a`. Commits locais: `84421a4` (allowlist) → `d22e017` (entrada de preview) → commit desta rodada de documentação/config (ver `git log`). **Nada enviado ao GitHub.**
 
