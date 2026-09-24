@@ -13,9 +13,11 @@ const IMG = 'https://gcp-images.majestic.ink.rsvcloud.com/images/product_art/fin
 const item = (id, qty, price, name = 'Serra Catarinense') => '<li class="main-list__item"><img src="' + IMG + '" alt="Imagem do produto"><div class="item-wrapper"><header><div class="item-details"><p>' + name + '</p><p>Preta</p><p>M</p></div>' +
   '<div class="price-details"><div class="price"><span>' + price + '</span></div></div></header><div class="item-details__footer"><form data-turbo="true" data-ink-store--cart-product-id-value="4932916" data-ink-store--cart-product-variant-value="Preta-Masculino-M" data-ink-store--cart-id-value="cart_item_' + id + '" action="/usesul/cart/item" method="post">' +
   '<div id="quantity-buttons"><input class="quantity-input" type="text" value="' + qty + '" name="cart_item[quantity]"></div></form></div></div></li>';
-const frame = (n, rows, subtotal) => '<turbo-frame id="cart"><div><div class="cart-drawer__header"><span>Carrinho <span id="quantity-header" data-quantityheader="' + n + '">(' + n + ' produto' + (n === 1 ? '' : 's') + ')</span></span></div>' +
-  '<div class="cart-drawer__main"><ul>' + rows + '</ul></div><div class="cart-drawer__footer"><div class="footer-details" data-ink-store--cart-discount-value="0.0" data-ink-store--cart-subtotal-value="' + subtotal + '"><span id="amount">x</span></div></div></div></turbo-frame>';
+const frame = (n, rows, subtotal, discount = '0.0', total = '') => '<turbo-frame id="cart"><div><div class="cart-drawer__header"><span>Carrinho <span id="quantity-header" data-quantityheader="' + n + '">(' + n + ' produto' + (n === 1 ? '' : 's') + ')</span></span></div>' +
+  '<div class="cart-drawer__main"><ul>' + rows + '</ul></div><div class="cart-drawer__footer"><div class="footer-details" data-ink-store--cart-discount-value="' + discount + '" data-ink-store--cart-subtotal-value="' + subtotal + '"><span id="amount">x</span>' + (total ? '<div class="flex justify-between"><p>Total</p><span class="flex flex-col"><p>' + total + '</p><span>ou 5x de R$ 79,92</span></span></div>' : '') + '</div></div></div></turbo-frame>';
 const ONE = frame(1, item(1, 1, 'R$ 109,90'), '109.9');
+const promoItem = (id) => '<li class="main-list__item"><img src="' + IMG + '"><div class="item-details"><p>Serra Catarinense</p><p>Preta</p><p>M</p></div><div class="price-details"><div class="price"><span><del>R$ 109,90</del></span><span>R$ 99,90</span></div></div><form data-ink-store--cart-product-id-value="4932916" data-ink-store--cart-product-variant-value="v' + id + '"><input name="cart_item[quantity]" value="1"></form></li>';
+const PROMO = frame(4, [1, 2, 3, 4].map(promoItem).join(''), '439.6', '40.0', 'R$ 399,60');
 const TWO_QTY = frame(2, item(1, 2, 'R$ 219,80'), '219.8');
 const EMPTY = '<turbo-frame id="cart"><turbo-frame id="cart"><div><header class="cart-drawer__header"><span>(0 produtos)</span></header><div class="empty-cart"><span>Seu carrinho está vazio</span></div></div></turbo-frame></turbo-frame>';
 const PAGE = (cart) => PRODUCT.replace('</main>', '<div class="cart-drawer">' + cart + '</div></main>');
@@ -39,7 +41,7 @@ test('reads the real-shaped cart structurally and syncs ONE snapshot (credential
   const p = t.posts[0];
   assert.equal(p.url, '/__origens/cart-ref'); assert.equal(p.method, 'POST'); assert.equal(p.credentials, 'omit'); assert.deepEqual(Object.keys(p.headers), ['content-type']);
   const body = JSON.parse(p.body);
-  assert.deepEqual(body, { v: 1, count: 1, items: [{ productId: '4932916', name: 'Serra Catarinense', color: 'Preta', size: 'M', variant: 'Preta-Masculino-M', quantity: 1, linePriceText: 'R$ 109,90', linePrice: 109.9, image: IMG }], subtotal: 109.9, discount: 0 });
+  assert.deepEqual(body, { v: 1, count: 1, items: [{ productId: '4932916', name: 'Serra Catarinense', color: 'Preta', size: 'M', variant: 'Preta-Masculino-M', quantity: 1, linePriceText: 'R$ 109,90', linePrice: 109.9, listPriceText: '', listPrice: null, image: IMG }], subtotal: 109.9, discount: 0, totalText: '', total: null });
   assert.ok(!/csrf|authenticity|cookie|token/i.test(p.body));
 });
 
@@ -54,7 +56,7 @@ test('a quantity change is a new snapshot; identical state does not re-post (ide
 
 test('removing the last item posts the empty snapshot (so the mirror clears); an empty cart with no prior ref posts nothing', async () => {
   const t = setup(); await tick(1300); setCart(t.doc, EMPTY); await tick(1300);
-  assert.equal(t.posts.length, 2); assert.deepEqual(JSON.parse(t.posts[1].body), { v: 1, count: 0, items: [], subtotal: null, discount: null });
+  assert.equal(t.posts.length, 2); assert.deepEqual(JSON.parse(t.posts[1].body), { v: 1, count: 0, items: [], subtotal: null, discount: null, totalText: '', total: null });
   const fresh = setup({ cart: EMPTY }); await tick(1300); assert.equal(fresh.posts.length, 0);
 });
 
@@ -98,4 +100,14 @@ test('the mirror module reads only: no click interception on native controls, no
   const module = src.slice(src.indexOf('MIRROR_ENDPOINT'));
   for (const forbidden of [/document\.cookie|localStorage|sessionStorage|indexedDB/, /innerHTML|insertAdjacentHTML|document\.write|\beval\(/, /\/usesul\/cart\/item|checkout_cart_items|\/usesul\/cart\?/, /authenticity_token|csrf/i, /\.click\(\)|\.submit\(/]) assert.doesNotMatch(module, forbidden, String(forbidden));
   assert.match(module, /credentials: 'omit'/);
+});
+
+test('quantity promotion: the EFFECTIVE line price is read (not the struck list price), list price and the displayed total are kept separately', async () => {
+  const t = setup({ cart: PROMO }); await tick(1300);
+  assert.equal(t.posts.length, 1);
+  const body = JSON.parse(t.posts[0].body);
+  assert.equal(body.count, 4); assert.equal(body.items.length, 4);
+  for (const it of body.items) { assert.equal(it.linePriceText, 'R$ 99,90'); assert.equal(it.linePrice, 99.9); assert.equal(it.listPriceText, 'R$ 109,90'); assert.equal(it.listPrice, 109.9); }
+  assert.deepEqual(body.items.map((i) => i.variant), ['v1', 'v2', 'v3', 'v4']); // variantes diferentes = linhas diferentes, todas preservadas
+  assert.equal(body.subtotal, 439.6); assert.equal(body.discount, 40); assert.equal(body.totalText, 'R$ 399,60'); assert.equal(body.total, 399.6);
 });

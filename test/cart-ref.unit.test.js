@@ -111,3 +111,18 @@ test('a per-IP limiter slows down trivial abuse (POST 20/min, GET 120/min)', asy
   t += 61_000;
   assert.equal((await refs.create(post(snapshot(), ip), ctxFor(kv))).status, 201); // janela renovada
 });
+
+test('promotion fields: list price and the displayed total are kept when well-formed, dropped/rejected when not', () => {
+  const item = { ...snapshot().items[0], linePriceText: 'R$ 99,90', linePrice: 99.9, listPriceText: 'R$ 109,90', listPrice: 109.9 };
+  const clean = validateSnapshot(snapshot({ items: [item], subtotal: 439.6, discount: 40, total: 399.6, totalText: 'R$ 399,60' }));
+  assert.equal(clean.items[0].listPriceText, 'R$ 109,90'); assert.equal(clean.items[0].listPrice, 109.9); assert.equal(clean.total, 399.6); assert.equal(clean.totalText, 'R$ 399,60');
+  const dropped = validateSnapshot(snapshot({ items: [{ ...item, listPriceText: 'lixo', listPrice: 5 }], totalText: '<b>x</b>', total: null }));
+  assert.equal(dropped.items[0].listPriceText, undefined); assert.equal(dropped.items[0].listPrice, undefined); assert.equal(dropped.totalText, undefined); assert.equal(dropped.total, undefined);
+  assert.equal(validateSnapshot(snapshot({ total: -1 })), null); assert.equal(validateSnapshot(snapshot({ total: 'x' })), null);
+});
+
+test('a real-sized cart (12 different variants) is accepted; 21 are refused', () => {
+  const rows = (n) => Array.from({ length: n }, (_, i) => ({ ...snapshot().items[0], variant: 'v' + i, color: 'c' + i }));
+  assert.equal(validateSnapshot(snapshot({ count: 12, items: rows(12) })).items.length, 12);
+  assert.equal(validateSnapshot(snapshot({ count: 21, items: rows(21) })), null);
+});

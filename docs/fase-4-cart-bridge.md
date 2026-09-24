@@ -38,7 +38,7 @@ Sessão anônima descartável, janela visível, só observação (`scripts/cart-
 
 ### Campos que conseguimos obter (DOM)
 
-`#quantity-header[data-quantityheader]` (quantidade total) · por item (`li.main-list__item`): `form[data-ink-store--cart-product-id-value]` (id do produto), `…-product-variant-value` (ex.: `Preta-Masculino-M`), `…-id-value` (id do item), `.item-details p` (nome, cor, tamanho), `input[name="cart_item[quantity]"]`, `.price-details span` (**preço da linha**, já × quantidade), `img[src]` (CDN da INK) · rodapé: `.footer-details[data-ink-store--cart-subtotal-value|discount-value]`, `#amount`. **Não há total final nem frete confiáveis** (dependem de CEP/cupom).
+`#quantity-header[data-quantityheader]` (quantidade total) · por item (`li.main-list__item`): `form[data-ink-store--cart-product-id-value]` (id do produto), `…-product-variant-value` (ex.: `Preta-Masculino-M`), `…-id-value` (id do item), `.item-details p` (nome, cor, tamanho), `input[name="cart_item[quantity]"]`, `.price-details` (**preço efetivo da linha**, já × quantidade; **com promoção por quantidade** o preço cheio vem riscado em `<span><del>…</del></span>` e o efetivo em outro `<span>`), `img[src]` (CDN da INK) · rodapé: `.footer-details[data-ink-store--cart-subtotal-value|discount-value]` (subtotal = soma dos preços cheios; desconto) e o **Total exibido** como texto (`<p>Total</p>` + valor). **Frete:** não aparece sem CEP. O espelho **lê** o total exibido, **nunca calcula** preço, desconto ou frete.
 
 ### Estrutura visual do drawer (base do posicionamento)
 
@@ -52,9 +52,19 @@ Sessão anônima descartável, janela visível, só observação (`scripts/cart-
 
 Feature `cart-discovery` (fail-closed). Bloco **compacto** "Procurar outra cidade / Continue escolhendo sem perder seu carrinho." com **[Buscar cidade ou estado]** (abre o painel de busca no toque) e **[Explorar vitrine]** (→ `https://useorigens.com.br/sul`). Reusa integralmente o gateway `/__origens/search`, o ranking e o índice do storefront (placeholder "Busque cidade ou estado"); no carrinho mostra **no máximo 3 resultados**, com "Fechar busca" que restaura o layout.
 
-**Posição:** dentro do `ul` dos itens, como último item (`li[role=none]`, `flex:0 0 auto`), **na área rolável** e **nunca no rodapé**. Descoberta importante: `.cart-drawer__main` é flex em linha e um irmão do `<ul>` **espremia o item** (preço cortado); o QA visual pegou isso e o bloco foi movido para dentro do `ul`. O rodapé (cupom, CEP, totais) e o `#checkout-btn` **não são tocados** e nunca mudam de posição (medido). Carrinho vazio: o bloco entra no `.empty-cart`, antes das recomendações.
+**Posição:** dentro do `ul` dos itens (`li[role=none]`, `flex:0 0 auto`), **na área rolável** e **nunca no rodapé**. **1–2 itens:** no fim da lista, abaixo dos itens. **3 ou mais itens:** no **topo** da lista, em versão **densa** (`o-dense`: sem texto de apoio, ações numa linha) — medido com 8 variantes, no fim da lista o bloco ficava ~940 px abaixo da dobra de uma área de 471 px, praticamente invisível. Descoberta importante: `.cart-drawer__main` é flex em linha e um irmão do `<ul>` **espremia o item** (preço cortado); o QA visual pegou isso e o bloco foi movido para dentro do `ul`. O rodapé (cupom, CEP, totais) e o `#checkout-btn` **não são tocados** e nunca mudam de posição (medido). Carrinho vazio: o bloco entra no `.empty-cart`, antes das recomendações.
 
 Abertura: pelo ícone **e** por "Ver carrinho" (ambos só adicionam a classe `open`; a detecção observa essa classe e o subárvore do drawer). Remonta idempotente a cada re-render do frame (quantidade/remoção); desmonta ao fechar e ao sair da rota.
+
+
+### 2.1 Carrinho com muitos itens (8 variantes diferentes da Serra)
+
+Pergunta do proprietário depois da primeira versão: "teve teste com 8 itens diferentes?". **Não**: todos os testes anteriores tinham 1 linha. Refeito com `scripts/qa-cart-many.mjs` (8 combinações de modelo/cor/tamanho da Serra = 8 linhas; sessão anônima; Worker/KV locais), que encontrou **dois problemas reais** (ambos corrigidos):
+
+1. **Bloco invisível:** no fim da lista de 8 linhas ele ficava ~940 px abaixo da dobra ⇒ regra "3+ itens ⇒ topo, denso" (acima).
+2. **Preço errado no espelho:** com 3+ peças a INK aplica **promoção por quantidade** ("LEVANDO 3 PEÇAS: R$ 25 OFF | 4 PEÇAS: R$ 40 OFF | …"): cada linha mostra o preço cheio **riscado** e o efetivo, e o rodapé mostra "Desconto". O leitor pegava o primeiro `<span>` (o **riscado**). Corrigido: `linePriceText` = preço efetivo; `listPriceText` = cheio (opcional); `total`/`totalText` = total **exibido** pela INK. Validado: subtotal, desconto e total do snapshot **iguais** aos da INK (subtotal 769,30 · desconto 85,00 · total exibido R$ 684,30, com 7 linhas riscadas de 7).
+
+Resultado com 8 variantes (desktop 1280 e mobile 390: **14/14** cada; 320×640: **14/14**): 1 bloco no topo da lista e visível **sem rolar**; a lista rola dentro do painel de itens (`mainScroll` 1044/471 no desktop) e o **rodapé com "Finalizar compra" fica imóvel e visível**; item nativo não espremido (largura igual com e sem o bloco); busca aberta com resultados utilizável; quantidade `+` na 1ª linha (re-render do frame com 8 itens) mantém 1 bloco; remover uma linha pela lixeira nativa ⇒ 7 itens, 1 bloco; **espelho com 7 itens idêntico ao carrinho real** (nome, cor, tamanho, quantidade, preço efetivo, preço cheio, variante) e 7 variantes distintas preservadas. A 320×640 o rodapé promocional da INK (banner de cupom em várias linhas) deixa só **211 px** para os itens: o bloco cabe acima da dobra, e com a busca aberta o campo e o 1º resultado ficam utilizáveis (o painel rola); o checkout permanece visível e imóvel. Limite do snapshot: **20 itens** (testado: 12 aceitos, 21 recusados).
 
 ## 3. P2 — Página de produto (avaliação; sem mudança)
 
@@ -89,8 +99,8 @@ Melhoria de resiliência descoberta no caminho: o gateway de busca **continua bu
 
 ## 7. Testes
 
-### Locais (nesta máquina) — `npm test`: **183 testes, 183 aprovados, 0 falhos, 0 ignorados**
-137 anteriores + `cart-discovery.dom` (20), `cart-mirror.dom` (9), `cart-ref.unit` (10), `cart-ref.workerd` (6) e ajustes do gateway. Cobrem: mount/unmount, drawer aberto por ícone e por "Ver carrinho", re-render do frame, fechamento/reabertura, observer idempotente (25 mutações → 1 bloco), mudança de quantidade, remoção, carrinho vazio, 1 e vários itens, busca sem resultado e falha do gateway, altura baixa, Turbo, carga direta fora da Serra, gating por flag, rodapé/checkout byte a byte idênticos, intenção de abrir o carrinho (limitada), schema/token/TTL/rate limit/Origin/Referer do `cart-ref`.
+### Locais (nesta máquina) — `npm test`: **190 testes, 190 aprovados, 0 falhos, 0 ignorados**
+137 anteriores + `cart-discovery.dom` (24, incluindo 3–12 itens), `cart-mirror.dom` (10, incluindo promoção), `cart-ref.unit` (12), `cart-ref.workerd` (6) e ajustes do gateway. Cobrem: mount/unmount, posição fim/topo conforme o nº de itens, drawer aberto por ícone e por "Ver carrinho", re-render do frame, fechamento/reabertura, observer idempotente (25 mutações → 1 bloco), mudança de quantidade, remoção, carrinho vazio, 1 e vários itens, busca sem resultado e falha do gateway, altura baixa, Turbo, carga direta fora da Serra, gating por flag, rodapé/checkout byte a byte idênticos, intenção de abrir o carrinho (limitada), schema/token/TTL/rate limit/Origin/Referer do `cart-ref`.
 
 ### Navegador real (INK real + Worker local em `/__origens/*`; sessão anônima; janela visível) — `scripts/qa-cart.mjs`
 
@@ -106,13 +116,13 @@ Depois de navegação Turbo entre produtos, o **ícone do carrinho mobile não a
 
 ## 8. Evidências
 
-`docs/evidence/cart/`: **antes** — `before-cart-desktop.jpg`, `before-cart-mobile.jpg`, `before-cart-empty-desktop.jpg`, `before-cart-open-by-ver-desktop.jpg`, `before-cart-page-desktop.jpg` (o fragmento sem layout de `/usesul/cart`), `drawer-desktop.json`, `item-outerhtml.txt`. **Depois (build local sobre a INK real)** — `after-cart-drawer-*`, `after-cart-search-open-*`, `after-cart-search-results-*`, `after-cart-search-empty-*`, `after-cart-search-error-*`, `after-cart-empty-*` em `desktop` (1280), `mobile` (390), `w1440`, `w768`, `w440`, `w320`. Conferidas visualmente; sem dados pessoais.
+`docs/evidence/cart/` (inclui `after-cart-many-*` com 8 itens em desktop, mobile e 320): **antes** — `before-cart-desktop.jpg`, `before-cart-mobile.jpg`, `before-cart-empty-desktop.jpg`, `before-cart-open-by-ver-desktop.jpg`, `before-cart-page-desktop.jpg` (o fragmento sem layout de `/usesul/cart`), `drawer-desktop.json`, `item-outerhtml.txt`. **Depois (build local sobre a INK real)** — `after-cart-drawer-*`, `after-cart-search-open-*`, `after-cart-search-results-*`, `after-cart-search-empty-*`, `after-cart-search-error-*`, `after-cart-empty-*` em `desktop` (1280), `mobile` (390), `w1440`, `w768`, `w440`, `w320`. Conferidas visualmente; sem dados pessoais.
 
 ## 9. Respostas objetivas
 
 - **Como a INK expõe o carrinho?** `turbo-frame#cart` no DOM (server-rendered + Turbo), sem JSON; mutações por `POST` com CSRF.
 - **Fonte escolhida / confiável?** `turbo-frame#cart`; confiável enquanto o markup existir; falha segura (`null`) se mudar.
-- **Campos obtidos?** produto, nome, variante, cor, tamanho, quantidade, preço da linha, imagem, subtotal/desconto, quantidade total. Sem total final nem frete.
+- **Campos obtidos?** produto, nome, variante, cor, tamanho, quantidade, preço efetivo da linha, preço cheio riscado (quando há promoção), imagem, subtotal, desconto, **total exibido pela INK** (lido, não calculado) e quantidade total. Sem frete (não aparece sem CEP).
 - **Detecção de mudanças?** `MutationObserver` + eventos Turbo; só na página autorizada.
 - **Cart mirror implementado / como sincroniza?** Worker + loader + KV sim (testado ponta a ponta local); **desligado**; sincroniza por token novo a cada mudança (debounce 800 ms), TTL 30 min. **Storefront não alterado.**
 - **Risco de estado desatualizado?** Sim (inerente); rótulo de idade obrigatório.

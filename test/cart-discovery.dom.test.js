@@ -251,3 +251,45 @@ test('short viewports: the compact cart block hides its supporting text (scoped 
   const css = t.doc.querySelector('style[data-origens-discovery-style]').textContent;
   assert.match(css, /@media \(max-height:700px\)\{\[data-origens-discovery="cart"\] \.o-lead\{display:none\}/);
 });
+
+// ---- muitos itens (variantes diferentes): o bloco vai para o topo da lista, denso
+const manyRows = (n) => Array.from({ length: n }, (_, i) => item(i + 1, 1, 'R$ 109,90')).join('');
+const cartWith = (n) => CART_ITEMS.replace(item(1), manyRows(n)).replace('(1 produto)', '(' + n + ' produtos)');
+async function openWith(n) { const t = setup(); await tick(); setFrame(t.doc, cartWith(n)); openDrawer(t.doc); await tick(400); return t; }
+
+test('1-2 items: the block stays at the END of the list (below the items)', async () => {
+  for (const n of [1, 2]) {
+    const t = await openWith(n);
+    const root = t.doc.querySelector('[data-origens-discovery="cart"]');
+    assert.equal(root.parentElement.parentElement.lastElementChild, root.parentElement, n + ' item(s)'); assert.equal(root.classList.contains('o-dense'), false);
+  }
+});
+
+test('3+ items (8 distinct variants): ONE dense block as the FIRST entry of the list, items untouched and in order', async () => {
+  for (const n of [3, 8, 12]) {
+    const t = await openWith(n);
+    assert.equal(roots(t.doc), 1, n + ' items');
+    const root = t.doc.querySelector('[data-origens-discovery="cart"]');
+    const list = t.doc.querySelector('.cart-drawer__main > ul');
+    assert.equal(list.firstElementChild, root.parentElement); assert.equal(root.classList.contains('o-dense'), true);
+    assert.equal(list.querySelectorAll('li.main-list__item').length, n);
+    assert.deepEqual([...list.querySelectorAll('li.main-list__item .item-details p:first-child')].map((p) => p.textContent.trim()), Array.from({ length: n }, (_, i) => 'Serra Catarinense ' + (i + 1)));
+    assert.equal(root.closest('.cart-drawer__footer'), null);
+    assert.equal(t.doc.querySelectorAll('.cart-drawer__footer form').length, 2); assert.ok(t.doc.getElementById('checkout-btn'));
+  }
+});
+
+test('re-render across the 3-item threshold moves the block (top <-> end) with exactly one block each time', async () => {
+  const t = await openWith(2); assert.equal(t.doc.querySelector('[data-origens-discovery="cart"]').classList.contains('o-dense'), false);
+  setFrame(t.doc, cartWith(5)); await tick(400); assert.equal(roots(t.doc), 1); assert.equal(t.doc.querySelector('[data-origens-discovery="cart"]').classList.contains('o-dense'), true);
+  setFrame(t.doc, cartWith(2)); await tick(400); assert.equal(roots(t.doc), 1); assert.equal(t.doc.querySelector('[data-origens-discovery="cart"]').classList.contains('o-dense'), false);
+});
+
+test('dense mode keeps search, toggle and CTA working with many items; native rows/footer stay byte-identical', async () => {
+  const t = await openWith(8); const before = native(t.doc);
+  const root = t.doc.querySelector('[data-origens-discovery="cart"]'); root.querySelector('.o-toggle').click(); type(t.w, root.querySelector('.o-input'), 'cid'); await tick(450);
+  assert.equal(root.querySelectorAll('.o-item').length, 3);
+  assert.deepEqual(native(t.doc), before);
+  root.querySelector('.o-close').click(); assert.equal(root.querySelector('.o-panel').hidden, true);
+  assert.match(t.doc.querySelector('style[data-origens-discovery-style]').textContent, /\.o-dense \.o-lead\{display:none\}/);
+});

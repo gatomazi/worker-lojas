@@ -34,6 +34,9 @@ export function validateSnapshot(input) {
     if (!name || quantity === null || linePrice === null || typeof raw.productId !== 'string' || !/^\d{1,12}$/.test(raw.productId)) return null;
     const item = { productId: raw.productId, name, color: clean(raw.color, 40), size: clean(raw.size, 40), variant: clean(raw.variant, 120), quantity, linePrice };
     if (typeof raw.linePriceText === 'string' && PRICE_TEXT.test(raw.linePriceText.trim())) item.linePriceText = raw.linePriceText.trim();
+    // Preço cheio riscado (promoção por quantidade), opcional.
+    if (typeof raw.listPriceText === 'string' && PRICE_TEXT.test(raw.listPriceText.trim())) item.listPriceText = raw.listPriceText.trim();
+    const listPrice = money(raw.listPrice); if (listPrice !== null && item.listPriceText) item.listPrice = listPrice;
     if (typeof raw.image === 'string') {
       try {
         const url = new URL(raw.image);
@@ -45,7 +48,11 @@ export function validateSnapshot(input) {
   const subtotal = input.subtotal === null || input.subtotal === undefined ? null : money(input.subtotal);
   const discount = input.discount === null || input.discount === undefined ? null : money(input.discount);
   if (subtotal === undefined || (input.subtotal != null && subtotal === null) || (input.discount != null && discount === null)) return null;
-  return { v: 1, count, items, subtotal, discount };
+  // Total EXIBIDO pela INK (opcional): guardado só como informação, nunca calculado aqui.
+  const out = { v: 1, count, items, subtotal, discount };
+  if (input.total !== null && input.total !== undefined) { const total = money(input.total); if (total === null) return null; out.total = total; }
+  if (typeof input.totalText === 'string' && PRICE_TEXT.test(input.totalText.trim())) out.totalText = input.totalText.trim();
+  return out;
 }
 
 function newToken(random) {

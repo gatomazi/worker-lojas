@@ -58,6 +58,9 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     '[data-origens-discovery] .o-panel{margin-top:10px}',
     '[data-origens-discovery] .o-panel[hidden]{display:none}',
     '[data-origens-discovery] .o-close{display:block;margin:8px 0 0 auto;min-height:44px;padding:8px 12px;border:0;background:transparent;color:' + OLIVE + ';font-size:13px;font-weight:500;text-decoration:underline;cursor:pointer}',
+    '[data-origens-discovery="cart"].o-dense{margin:8px 12px;padding:8px 12px}',
+    '[data-origens-discovery="cart"].o-dense .o-lead{display:none}',
+    '[data-origens-discovery="cart"].o-dense .o-title{margin-bottom:6px;font-size:14px}',
     '@media (max-width:767px){[data-origens-discovery]{margin:12px 0 0;padding:14px}[data-origens-discovery="cart"]{margin:12px 12px 12px}[data-origens-discovery] .o-cta{min-height:48px}}',
     '@media (max-height:700px){[data-origens-discovery="cart"] .o-lead{display:none}[data-origens-discovery="cart"]{padding:10px 12px}}',
     '@media (max-height:700px){[data-origens-discovery].o-has-results .o-eyebrow,[data-origens-discovery].o-has-results .o-lead{display:none}[data-origens-discovery].o-has-results .o-status{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0)}}',
@@ -348,7 +351,10 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
         slot.setAttribute('data-origens-slot', '');
         slot.style.cssText = 'flex:0 0 auto;list-style:none;margin:0;padding:0;width:100%';
         slot.appendChild(root);
-        list.appendChild(slot);
+        // Poucos itens: o bloco fica no FIM da lista (abaixo dos itens). 3 ou mais: no TOPO e em versão densa, senão ficaria
+        // centenas de pixels abaixo da dobra (medido: 8 linhas = ~940 px). Em ambos os casos vive na área rolável, nunca no rodapé.
+        if (list.querySelectorAll('li.main-list__item').length >= 3) { list.insertBefore(slot, list.firstChild); root.classList.add('o-dense'); }
+        else list.appendChild(slot);
         return slot;
       }
       const sold = empty.querySelector('#most_sold_frame');

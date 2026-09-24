@@ -37,16 +37,18 @@ Habilitação: `ENABLE_WIDGET=true` **e** `WIDGET_FEATURES` contendo `cart-mirro
   "items": [{
     "productId": "4932916", "name": "Serra Catarinense", "color": "Preta", "size": "M",
     "variant": "Preta-Masculino-M", "quantity": 2,
-    "linePriceText": "R$ 219,80", "linePrice": 219.8,
+    "linePriceText": "R$ 199,80", "linePrice": 199.8,
+    "listPriceText": "R$ 219,80", "listPrice": 219.8,
     "image": "https://gcp-images.majestic.ink.rsvcloud.com/images/product_art/final_image/<hash>.jpg"
   }],
-  "subtotal": 219.8, "discount": 0,
+  "subtotal": 219.8, "discount": 20, "total": 199.8, "totalText": "R$ 199,80",
   "ageSeconds": 42, "expiresInSeconds": 1758
 }
 ```
 
-- `linePrice`/`linePriceText` é o **valor da linha** exibido pela INK (já multiplicado pela quantidade). Não derive preço unitário.
-- `subtotal`/`discount` vêm dos `data-*` da INK; **não há total nem frete** (dependem de CEP/cupom e só a INK calcula).
+- `linePrice`/`linePriceText` é o **preço efetivo da linha** exibido pela INK (já × quantidade e já com promoção por quantidade). `listPrice`/`listPriceText` (opcional) é o preço cheio **riscado**: só existe quando há promoção. Não derive preço unitário.
+- `subtotal` (soma dos preços cheios) e `discount` vêm dos `data-*` da INK. `total`/`totalText` (opcional) é o **total exibido** pela INK, lido do DOM: o storefront **nunca** recalcula nada. **Frete não existe** no snapshot (só aparece na INK depois do CEP).
+- Carrinhos reais têm várias linhas (cada variante é uma linha): até **20 itens** por snapshot.
 - Carrinho vazio: `count: 0, items: []` (é o que "limpa" o espelho).
 - A imagem só é aceita se for `https` no host da CDN da INK; o `next.config` do storefront hoje só libera `/images/product_v2/**` — **é preciso liberar também `/images/product_art/**`** para exibir essas miniaturas.
 

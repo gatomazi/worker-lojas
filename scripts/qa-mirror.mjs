@@ -30,7 +30,7 @@ await page.route('**/__origens/**', async (route) => {
 });
 const wait = (ms) => page.waitForTimeout(ms);
 const readRef = async (ref) => { const r = await mf.dispatchFetch(HOST + '/__origens/cart-ref/' + ref); return { status: r.status, body: r.status === 200 ? await r.json() : null }; };
-const domCart = () => page.evaluate(() => { const f = document.querySelector('.cart-drawer turbo-frame#cart'); return { header: document.getElementById('quantity-header')?.getAttribute('data-quantityheader'), name: f?.querySelector('.item-details p')?.textContent.trim(), price: f?.querySelector('.price-details span')?.textContent.trim(), qty: f?.querySelector('input[name="cart_item[quantity]"]')?.value, img: f?.querySelector('li.main-list__item img')?.getAttribute('src'), subtotal: document.getElementById('amount')?.textContent.trim() }; });
+const domCart = () => page.evaluate(() => { const f = document.querySelector('.cart-drawer turbo-frame#cart'); return { header: document.getElementById('quantity-header')?.getAttribute('data-quantityheader'), name: f?.querySelector('.item-details p')?.textContent.trim(), price: [...(f?.querySelectorAll('.price-details span') || [])].filter((x) => !x.querySelector('del') && !x.closest('del')).pop()?.textContent.trim(), qty: f?.querySelector('input[name="cart_item[quantity]"]')?.value, img: f?.querySelector('li.main-list__item img')?.getAttribute('src'), subtotal: document.getElementById('amount')?.textContent.trim() }; });
 
 await page.goto(HOST + P, { waitUntil: 'load' }); await wait(3500);
 check('build local ativo com cart-mirror', await page.evaluate(() => window.__useOrigens.features.includes('cart-mirror')));
