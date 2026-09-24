@@ -7,6 +7,8 @@ name = "use-sul-widget-preview"
 main = "src/preview-entry.js"
 compatibility_date = "2026-08-01"
 workers_dev = false
+# URL pública em workers.dev SOMENTE para este Preview (fixture + sonda de metadados, sem dados sensíveis).
+preview_urls = true
 
 [vars]
 ENABLE_WIDGET = "false"

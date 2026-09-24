@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 2D, Etapa 1): Preview isolado criado, **sem URL ativa** (bloqueio); nenhuma evidência de edge ainda. Ver [`fase-2d-preview-isolado.md`](fase-2d-preview-isolado.md) e as opções A/B/C.
+>
 > Atualização (Fase 2C): `WIDGET_ALLOWLIST` fail-closed implementada e testada localmente; plano de ativação e rollback em [`fase-2c-allowlist.md`](fase-2c-allowlist.md). Nada publicado; push bloqueado (identidade SSH efetiva é `gtomazi`).
 >
 > Atualização (Fase 2B, proxy `www` ativo): smoke, revisão do Worker, bloqueios e rollout progressivo em [`fase-2b-smoke.md`](fase-2b-smoke.md). Próxima aprovação: conferir painel Cloudflare e autorizar preview isolado.
