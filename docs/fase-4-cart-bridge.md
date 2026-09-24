@@ -4,9 +4,12 @@ Data: 2026-09-24/25. Branch `feature/ink-loader-fase2a`. Commits **só locais** 
 
 ## Estado de produção (leia primeiro)
 
-> **STATUS DO DEPLOY: `__DEPLOY_STATUS__`**
+> **STATUS DO DEPLOY: `PUBLICADO: cart-discovery ATIVO na Serra Catarinense (2026-09-24). cart-mirror OFF, sem KV.`
 >
-> Produção verificada antes do deploy: Worker `use-sul-widget`, health `version 3.0`, `widget_features = return-link, post-add-discovery, city-search`, allowlist de 1 caminho. O `wrangler` estava deslogado; a publicação exige o login OAuth do proprietário.
+> - **Worker** `use-sul-widget`, versão ativa (100%) `26fd5c8d-e1d3-4381-80ed-1a24d5ad45d4` (loader 4.0). Health efetivo: `widget_mode true`, `allowlist ok (1)`, `widget_features = return-link, post-add-discovery, city-search, cart-discovery`. Allowlist: só `/usesul/product/serra-catarinense`. `wrangler.production.toml` segue fail-closed (não alterado); sem binding `CART_REFS`; `cart-mirror` não está em `WIDGET_FEATURES` (`/__origens/cart-ref/*` responde 404 da INK).
+> - **Houve um rollback automático na primeira tentativa** (versões `cbb30201` → `850e669b` → rollback `66ef1897`, que voltou para `return-link,post-add-discovery,city-search`): o gate do QA ao vivo em **320×640 com 2 itens** reprovou "busca aberta: campo visível". Diagnóstico: o produto abre o painel corretamente, mas (a) o campo/resultados podiam ficar abaixo da dobra da lista rolável e (b) a própria medição do QA escondia o bloco com `display:none`, o painel encolhia e o navegador zerava o `scrollTop`. Correção no commit `e3dca2a`: `reveal()` rola **só o painel de itens** até o bloco caber ao abrir a busca e ao mostrar resultados; a medição do QA passou a restaurar o scroll. Segunda tentativa: estágio 1 `a6ad5376` (smoke 30/30) → estágio 2 `26fd5c8d` (smoke 30/30) → QA ao vivo completo, **sem nenhuma falha e sem novo rollback**.**
+>
+> Antes do deploy: health `version 3.0`, `return-link, post-add-discovery, city-search`, allowlist de 1 caminho. O login OAuth foi feito pelo proprietário; o `wrangler` é deslogado ao final da rodada.
 
 Comando pronto (com rollback automático): `bash scripts/rollout-cart.sh`.
 
@@ -112,7 +115,30 @@ Falhas encontradas e corrigidas pela própria QA: (1) bloco espremia o item (fle
 Depois de navegação Turbo entre produtos, o **ícone do carrinho mobile não abre o drawer** (o controller Stimulus da INK falha ao conectar: `Error connecting controller TypeError…`). Reproduzido em produtos **sem** o Worker. A QA recarrega a página nesse passo. Também preexistem `Identifier 'buttons' has already been declared` e `Identifier 'eventIDViewContent' …`.
 
 ### Edge / produção
-`__EDGE_RESULTS__`
+**Smoke edge** (`rollout-smoke.mjs on`): estágio 1 = 30/30; estágio 2 = 30/30. Fora da Serra: 7 produtos, `/usesul`, `/usesul/products`, `/usesul/cart` (404), `/usesul/checkout` (404): **0 loader / 0 referência a `__origens`**; Serra: 1 loader; `discovery.js` sob demanda contém o módulo do carrinho.
+
+**QA ao vivo (INK real, edge real, Chrome visível, sessão anônima descartável; `--live`)** — por viewport: carrinho vazio + 1 item + fluxos (`qa-cart`: 29 checks), 2 itens (12), 3 itens (14, densa no topo) e **8 variantes** (14, densa no topo, lista rola dentro do painel). Resultado, todos **0 FALHAS**:
+
+| Viewport | vazio+1 item | 2 itens | 3 itens | 8 variantes |
+|----------|--------------|---------|---------|-------------|
+| 1440 | 29/29 | 12/12 | 14/14 | 14/14 |
+| 1280 | 29/29 | 12/12 | 14/14 | 14/14 |
+| 768 | 29/29 | 12/12 | 14/14 | 14/14 |
+| 440 | 29/29 | 12/12 | 14/14 | 14/14 |
+| 390 | 29/29 | 12/12 | 14/14 | 14/14 |
+| 320×640 | 29/29 | 12/12 | 14/14 | 14/14 |
+
+Mais `qa-drawer` (drawer pós-adição, regressão) desktop 24/24 e mobile 24/24. Cobre: abertura pelo ícone e por "Ver carrinho", `?origens_open_cart=1`, quantidade +, remoção, fechar/reabrir, busca fechada/aberta/resultado/vazia/erro do gateway (502 simulado só no cliente), Enter → storefront → volta com carrinho idêntico, Turbo Serra → outro produto → Serra (1→0→1; 0 bloco/0 estilo fora da Serra), estado vazio.
+
+**Invariantes verificados em todas as rodadas:** "Finalizar compra" visível e imóvel; rodapé nativo na mesma posição com a busca aberta e fechada; subtotal, desconto e total exibidos pela INK **idênticos** antes do bloco, com o bloco montado e depois de usar a busca; sem overflow horizontal novo; 1 bloco (sem duplicar após re-render); nenhum erro de console atribuível ao Worker/loader (só os preexistentes da INK).
+
+**QA promocional (somente leitura, sem calcular nada):** 3 peças → subtotal 329,70 / desconto 25,00 / total 304,70; 8 peças → subtotal 879,20 / desconto 85,00 / total 794,20 (linhas com preço cheio riscado + preço efetivo). Tudo idêntico antes/depois do bloco.
+
+**Divulgação (não é falha):** com barras de rolagem *clássicas* (Playwright/Chrome desktop emulando mobile), a altura extra do bloco pode fazer a INK exibir a barra nativa do painel e o item ficar 12 px mais estreito (390: 390→378; 440: 440→428; 320: 320→308). O gate literal "largura igual com o bloco invisível ocupando o mesmo espaço" passa (308=308 etc.); em celulares reais a barra é *overlay* e não ocupa largura.
+
+**Claude in Chrome (somente leitura):** loader 4.0, 4 features, 1 script/1 link, 0 bloco antes de abrir o drawer, 1 bloco dentro de `li` ao abrir, "Finalizar compra" visível, Turbo Serra → outro produto: 0 UI; carrinho do proprietário não alterado.
+
+**Capturas ao vivo:** `docs/evidence/cart/after-cart-*-live.jpg` e `after-cart-n{2,3,8}-*-live.jpg` (top / block / search-results por viewport).
 
 ## 8. Evidências
 

@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 4, rollout): **`cart-discovery` ATIVO em produção só na Serra** (versão `26fd5c8d`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery`, allowlist de 1 caminho; `cart-mirror` OFF, sem KV). 1ª tentativa teve rollback automático (gate 320×640 com 2 itens; correção `e3dca2a`); 2ª tentativa: QA ao vivo 6 viewports × (vazio+1, 2, 3, 8 variantes) + drawer, 0 falhas. Ver [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md) e [`plano-storefront-useorigens.md`](plano-storefront-useorigens.md).
+>
 > Atualização (Fase 4, carrinho): auditoria do carrinho da INK (fonte = `turbo-frame#cart`), `cart-discovery` no drawer do carrinho (29/29 em 6 viewports), leitor + espelho `cart-mirror`/`cart-ref` prontos e desligados, checkout NÃO reproduzido (POST+CSRF) — storefront usará "Ir para meu carrinho" (drawer nativo). Ver [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md) e [`storefront-cart-mirror-contract.md`](storefront-cart-mirror-contract.md).
 >
 > Atualização (Fase 3, rollout em produção): **drawer + busca real ativos SOMENTE na Serra** (versão `87293a28`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search`); edge, navegador real (1280/390/320/768/1440) e jornada com retorno ao storefront aprovados; sem rollback. Ver [`fase-3-rollout-producao.md`](fase-3-rollout-producao.md).
