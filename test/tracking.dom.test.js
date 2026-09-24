@@ -45,6 +45,19 @@ test('return link: marks the URL with the fixed enum + slug and emits exactly ON
   click(t.w, link); assert.equal(t.events.length, 2, 'one click = one event (a second click is a second event, never a duplicate of the first)');
 });
 
+const DRAWER = '<div class="cart-drawer"><turbo-frame id="cart"><div class="cart-drawer__main"><ul></ul></div></turbo-frame></div><button id="shopping-cart-menu-desk" type="button">carrinho</button>';
+const NOTICE = '<div class="cookie-acceptance" data-controller="ink-store--cookie-acceptance"><button id="accept">Aceitar cookies</button></div>';
+test('with the INK cookie notice still on screen nothing is measured (the origin marker is still set); once the visitor accepts it, measurement starts', async () => {
+  const t = setup({ extraBody: NOTICE }); await tick();
+  const link = t.doc.getElementById('use-origens-return-link');
+  click(t.w, link);
+  assert.equal(t.events.length, 0); assert.equal(sf(link.href).searchParams.get('origens_src'), 'ink_product_return');
+  t.doc.querySelector('.cookie-acceptance').remove(); // o controller da INK remove o aviso ao aceitar
+  click(t.w, link); assert.equal(t.events.length, 1);
+  const off = setup({ search: '?origens_open_cart=1', extraBody: NOTICE + DRAWER }); off.doc.getElementById('shopping-cart-menu-desk').addEventListener('click', () => off.doc.querySelector('.cart-drawer').classList.add('open')); await tick(2500);
+  assert.equal(off.events.filter((e) => e[1] === 'origens_native_cart_opened').length, 0, 'the native-cart event also waits for the notice to be accepted');
+});
+
 test('cart drawer and post-add blocks use their own entry_point; the cart_ref token never reaches the event', async () => {
   const t = setup({ extraBody: block('cart') + block('post-add') }); await tick(1400);
   const [cart, post] = [...t.doc.querySelectorAll('[data-origens-discovery]')];
@@ -107,7 +120,6 @@ test('Turbo: allowed A -> allowed B -> not allowed -> Serra: mounted where allow
   click(t.w, t.doc.getElementById('use-origens-return-link')); assert.equal(t.events.length, 1); assert.equal(t.events[0][2].product_slug, 'serra-catarinense');
 });
 
-const DRAWER = '<div class="cart-drawer"><turbo-frame id="cart"><div class="cart-drawer__main"><ul></ul></div></turbo-frame></div><button id="shopping-cart-menu-desk" type="button">carrinho</button>';
 test('origens_native_cart_opened: only AFTER the native drawer is really open, once, entry_point storefront_return; the param is consumed', async () => {
   const t = setup({ search: '?origens_open_cart=1', extraBody: DRAWER });
   const opener = t.doc.getElementById('shopping-cart-menu-desk');

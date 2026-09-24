@@ -2,14 +2,22 @@
 // esses links com um ENUM fixo de origem (`origens_src`, `origens_p`) para o storefront contar a chegada (`origens_storefront_arrived`).
 // Caminho de despacho ÚNICO: o `gtag` que a própria INK já carrega, com `send_to` = a propriedade GA4 já presente na página (a mesma do
 // storefront). Não instala nenhuma tag, não cria cookie nem armazenamento e nunca bloqueia a navegação: tudo é melhor esforço e falha calado.
-// A INK não expõe consentimento próprio (as tags dela disparam sem CMP); este módulo só segue o que a página da INK já faz.
+// Consentimento: a INK só tem um aviso informativo de cookies (`.cookie-acceptance`, com o botão "Aceitar cookies"; ele NÃO condiciona as tags
+// dela). Como único sinal existente, as medições aqui só saem depois que o visitante aceitou esse aviso (o elemento some da página); o
+// marcador de origem nos links vai sempre, porque não é medição: quem conta a chegada é o storefront, sob o consentimento dele.
+// Para medir também sem aceite, basta trocar REQUIRE_INK_COOKIE_NOTICE_ACCEPTED para false.
 // Nunca envia: cart_ref, conteúdo do carrinho, URL completa/query, texto de busca, cookies ou qualquer dado pessoal.
 export const TRACKING = String.raw`
   const GA_MEASUREMENT_ID = 'G-8GYTEJ1F77';
+  const REQUIRE_INK_COOKIE_NOTICE_ACCEPTED = true;
   const ENTRY_POINTS = ['ink_cart_drawer', 'ink_post_add', 'ink_product_return', 'storefront_return'];
   const SRC_PARAM = 'origens_src';
   const PRODUCT_PARAM = 'origens_p';
 
+  // O aviso de cookies da INK ainda na tela = o visitante não aceitou (ao aceitar, o próprio controller da INK remove o elemento).
+  function inkCookieNoticeAccepted() {
+    return !REQUIRE_INK_COOKIE_NOTICE_ACCEPTED || !document.querySelector('.cookie-acceptance, [data-controller~="ink-store--cookie-acceptance"]');
+  }
   // Só mede se a INK realmente carregou o gtag.js dessa propriedade nesta página (senão o evento iria para o vazio ou para outra propriedade).
   function gaWired() {
     return typeof window.gtag === 'function' && !!document.querySelector('script[src*="googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID + '"]');
@@ -22,7 +30,7 @@ export const TRACKING = String.raw`
   // Parâmetros de baixa cardinalidade e sem dados pessoais. Retorna se o evento foi entregue ao gtag.
   function track(name, entryPoint) {
     try {
-      if (!allowedNow() || !ENTRY_POINTS.includes(entryPoint) || !gaWired()) return false;
+      if (!allowedNow() || !ENTRY_POINTS.includes(entryPoint) || !gaWired() || !inkCookieNoticeAccepted()) return false;
       const params = { send_to: GA_MEASUREMENT_ID, entry_point: entryPoint, region: 'sul', transport_type: 'beacon' };
       const slug = currentProductSlug();
       if (slug) params.product_slug = slug;
