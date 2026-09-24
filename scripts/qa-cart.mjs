@@ -6,6 +6,7 @@
 // o carrinho é alterado SÓ na sessão de teste (o "−" da lixeira remove o item de teste). Banner de cookies não é aceito.
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync } from 'node:fs';
+import { LOADER_VERSION } from '../src/loader-source.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 const LIVE = process.argv.includes('--live');
@@ -63,7 +64,7 @@ const clickIcon = () => page.evaluate(() => { const b = [...document.querySelect
 const closeDrawer = () => page.evaluate(() => { const d = document.querySelector('.cart-drawer'); const x = d && [...d.querySelectorAll('button')].find((b) => b.querySelector('svg') && /close|fechar/i.test((b.getAttribute('data-action') || '') + (b.getAttribute('aria-label') || '') + b.id)); if (x) x.click(); else if (d) d.classList.remove('open'); });
 
 await page.goto(HOST + P, { waitUntil: 'load' }); await wait(3500);
-check((LIVE ? 'loader de PRODUÇÃO' : 'build local') + ' ativo (v3.0) com cart-discovery', (await page.evaluate(() => window.__useOrigensLoader)) === '3.0' && (await page.evaluate(() => window.__useOrigens.features.includes('cart-discovery'))));
+check((LIVE ? 'loader de PRODUÇÃO' : 'build local') + ' ativo (v' + LOADER_VERSION + ') com cart-discovery', (await page.evaluate((v) => window.__useOrigensLoader === v, LOADER_VERSION)) && (await page.evaluate(() => window.__useOrigens.features.includes('cart-discovery'))));
 await page.evaluate(() => document.querySelector('#add-to-cart-desk')?.scrollIntoView({ block: 'center' }));
 await page.waitForFunction(() => !!document.getElementById('4932916-model-Masculino'), null, { timeout: 30000 });
 await page.locator('label[for="4932916-model-Masculino"]').click(); await page.locator('label[for="4932916-color-Preta"]').click(); await page.locator('label[for="4932916-size-M"]').click();
@@ -150,6 +151,11 @@ for (let i = 0; i < 2; i++) { await page.evaluate(() => document.querySelector('
 await page.waitForFunction(() => !!document.querySelector('.cart-drawer .empty-cart'), null, { timeout: 15000 }); await wait(1200);
 g = await G(); await shot('empty');
 check('carrinho vazio: bloco no estado vazio (1), sem "Finalizar compra" (a INK o remove), nada quebrado', g.empty && g.roots === 1 && g.checkout === null, JSON.stringify({ roots: g.roots, empty: g.empty }));
+// ---- intenção "abrir o carrinho" (será usada pelo storefront: "Ir para meu carrinho")
+await page.goto(HOST + P + '?origens_open_cart=1', { waitUntil: 'load' });
+await page.waitForSelector('.cart-drawer.open', { timeout: 15000 }); await wait(1200);
+check('?origens_open_cart=1 abre o drawer NATIVO do carrinho e limpa o parâmetro da URL', (await page.evaluate(() => !!document.querySelector('.cart-drawer.open') && !location.search.includes('origens_open_cart'))));
+check('com o drawer aberto pela intenção: 1 bloco nosso, nada quebrado', (await G()).roots === 1);
 const ours = errors.filter((e) => /use.?origens|origens-discovery|__origens/i.test(e));
 check('console: nenhum erro atribuível ao nosso código', ours.length === 0, ours.join(' | '));
 console.log('INFO erros preexistentes da INK:', [...new Set(errors.filter((e) => !/origens/i.test(e)).map((e) => e.slice(0, 60)))].join(' | '));

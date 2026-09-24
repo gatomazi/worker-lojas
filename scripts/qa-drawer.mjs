@@ -4,7 +4,8 @@
 //   PW_PATH=/tmp/pw node scripts/qa-drawer.mjs <desktop|mobile> [--out docs/evidence/drawer] [--tag after]
 // Sessão anônima descartável, janela visível; não abre checkout; no mobile o banner de cookies não é aceito (clique programático).
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { LOADER_VERSION } from '../src/loader-source.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 const { Miniflare } = process.argv.includes('--live') ? { Miniflare: null } : await import(process.env.MINIFLARE || 'miniflare');
@@ -69,7 +70,7 @@ const R = () => page.evaluate(() => {
 const cartLen = () => page.evaluate(async () => (await (await fetch('/usesul/cart', { headers: { Accept: 'text/html' } })).text()).length);
 
 await page.goto(HOST + P, { waitUntil: 'load' }); await page.waitForTimeout(3500);
-check((LIVE ? 'loader de PRODUÇÃO' : 'build local do loader') + ' ativo na página real (v3.0)', (await page.evaluate(() => window.__useOrigensLoader)) === '3.0');
+check((LIVE ? 'loader de PRODUÇÃO' : 'build local do loader') + ' ativo na página real (v' + LOADER_VERSION + ')', (await page.evaluate(() => window.__useOrigensLoader)) === LOADER_VERSION);
 check('link "← Voltar a procurar" segue presente (1)', (await page.locator('#use-origens-return-link').count()) === 1);
 const mobileHs = mobile ? await page.evaluate(() => document.documentElement.scrollWidth) : null;
 

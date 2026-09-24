@@ -59,6 +59,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     '[data-origens-discovery] .o-panel[hidden]{display:none}',
     '[data-origens-discovery] .o-close{display:block;margin:8px 0 0 auto;min-height:44px;padding:8px 12px;border:0;background:transparent;color:' + OLIVE + ';font-size:13px;font-weight:500;text-decoration:underline;cursor:pointer}',
     '@media (max-width:767px){[data-origens-discovery]{margin:12px 0 0;padding:14px}[data-origens-discovery="cart"]{margin:12px 12px 12px}[data-origens-discovery] .o-cta{min-height:48px}}',
+    '@media (max-height:700px){[data-origens-discovery="cart"] .o-lead{display:none}[data-origens-discovery="cart"]{padding:10px 12px}}',
     '@media (max-height:700px){[data-origens-discovery].o-has-results .o-eyebrow,[data-origens-discovery].o-has-results .o-lead{display:none}[data-origens-discovery].o-has-results .o-status{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0)}}',
     '@media (prefers-reduced-motion:reduce){[data-origens-discovery] *{transition:none!important;animation:none!important}}'
   ].join('');

@@ -210,3 +210,44 @@ test('CSS keeps [hidden] effective on the toggle (author display:flex must not d
   assert.match(css, /\.o-toggle\[hidden\]\{display:none\}/);
   assert.match(css, /\.o-panel\[hidden\]\{display:none\}/);
 });
+
+// ---- intenção "abrir o carrinho" (storefront -> INK): ?origens_open_cart=1 na página autorizada
+function setupIntent(search, { path = ALLOWED, openerVisible = true, opensOnClick = true } = {}) {
+  const dom = new JSDOM(PAGE, { url: HOST + path + search, runScripts: 'outside-only', pretendToBeVisual: true });
+  const w = dom.window;
+  w.HTMLElement.prototype.getClientRects = function () { return this.id && this.id.startsWith('shopping-cart-menu') && !openerVisible ? [] : [{}]; };
+  let clicks = 0;
+  w.document.getElementById('shopping-cart-menu-desk').addEventListener('click', () => { clicks++; if (opensOnClick) w.document.querySelector('.cart-drawer').classList.add('open'); });
+  w.fetch = () => new Promise(() => {});
+  w.eval(buildLoaderSource([ALLOWED], ALL));
+  return { w, doc: w.document, clicks: () => clicks };
+}
+
+test('?origens_open_cart=1 on the authorized page opens the NATIVE drawer once and cleans the URL', async () => {
+  const t = setupIntent('?origens_open_cart=1&utm=1'); await tick(900);
+  assert.equal(t.clicks(), 1); assert.equal(drawer(t.doc).classList.contains('open'), true);
+  assert.equal(t.w.location.search, '?utm=1'); assert.equal(t.w.location.pathname, ALLOWED);
+  await tick(800); assert.equal(t.clicks(), 1); // já aberto: não reclica
+});
+
+test('the open-cart intent is ignored elsewhere and for any other value; it never repeats without the parameter', async () => {
+  for (const [search, path] of [['?origens_open_cart=1', OTHER], ['?origens_open_cart=1', '/usesul'], ['?origens_open_cart=2', ALLOWED], ['?origens_open_cart=', ALLOWED], ['?x=1', ALLOWED], ['', ALLOWED]]) {
+    const t = setupIntent(search, { path }); await tick(1000);
+    assert.equal(t.clicks(), 0, path + search);
+    assert.equal(t.w.location.search, search);
+  }
+});
+
+test('the open-cart intent is bounded: no visible opener means at most 8 attempts and then it gives up', async () => {
+  const t = setupIntent('?origens_open_cart=1', { openerVisible: false }); await tick(5200);
+  assert.equal(t.clicks(), 0);
+  const stuck = setupIntent('?origens_open_cart=1', { opensOnClick: false }); await tick(5200);
+  assert.ok(stuck.clicks() >= 2 && stuck.clicks() <= 8, 'clicks=' + stuck.clicks());
+  const before = stuck.clicks(); await tick(1200); assert.equal(stuck.clicks(), before);
+});
+
+test('short viewports: the compact cart block hides its supporting text (scoped CSS)', async () => {
+  const t = setup(); await tick(); openDrawer(t.doc); await tick(350);
+  const css = t.doc.querySelector('style[data-origens-discovery-style]').textContent;
+  assert.match(css, /@media \(max-height:700px\)\{\[data-origens-discovery="cart"\] \.o-lead\{display:none\}/);
+});

@@ -11,7 +11,7 @@ import { CART_MIRROR } from './loader/cart-mirror.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '3.0';
+export const LOADER_VERSION = '4.0';
 export { buildDiscoverySource };
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
