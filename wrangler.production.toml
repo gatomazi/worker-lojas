@@ -22,3 +22,9 @@ WIDGET_FEATURES = "return-link"
 # Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense".
 # Vazio/ausente/malformado = nenhuma página (fail-closed). Sem curinga, prefixo, query ou barra final.
 WIDGET_ALLOWLIST = ""
+
+# KV do espelho do carrinho (cart-mirror). Provisionado em 2026-09-24; o ID identifica o namespace, não é credencial.
+# As vars acima seguem fail-closed: produção recebe ENABLE_WIDGET/ALLOWLIST/FEATURES por --var no deploy (ver docs/fase-4-cart-bridge.md).
+[[kv_namespaces]]
+binding = "CART_REFS"
+id = "d399f7d61d1c466a8d50211e67ed9eab"

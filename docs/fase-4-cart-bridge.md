@@ -4,14 +4,34 @@ Data: 2026-09-24/25. Branch `feature/ink-loader-fase2a`. Commits **só locais** 
 
 ## Estado de produção (leia primeiro)
 
-> **STATUS DO DEPLOY: `PUBLICADO: cart-discovery ATIVO na Serra Catarinense (2026-09-24). cart-mirror OFF, sem KV.`
+> **STATUS DO DEPLOY: `PUBLICADO: cart-discovery E cart-mirror ATIVOS na Serra Catarinense (2026-09-24). KV CART_REFS provisionado; consumidor do storefront publicado; piloto limitado à Serra.`**
 >
-> - **Worker** `use-sul-widget`, versão ativa (100%) `26fd5c8d-e1d3-4381-80ed-1a24d5ad45d4` (loader 4.0). Health efetivo: `widget_mode true`, `allowlist ok (1)`, `widget_features = return-link, post-add-discovery, city-search, cart-discovery`. Allowlist: só `/usesul/product/serra-catarinense`. `wrangler.production.toml` segue fail-closed (não alterado); sem binding `CART_REFS`; `cart-mirror` não está em `WIDGET_FEATURES` (`/__origens/cart-ref/*` responde 404 da INK).
-> - **Houve um rollback automático na primeira tentativa** (versões `cbb30201` → `850e669b` → rollback `66ef1897`, que voltou para `return-link,post-add-discovery,city-search`): o gate do QA ao vivo em **320×640 com 2 itens** reprovou "busca aberta: campo visível". Diagnóstico: o produto abre o painel corretamente, mas (a) o campo/resultados podiam ficar abaixo da dobra da lista rolável e (b) a própria medição do QA escondia o bloco com `display:none`, o painel encolhia e o navegador zerava o `scrollTop`. Correção no commit `e3dca2a`: `reveal()` rola **só o painel de itens** até o bloco caber ao abrir a busca e ao mostrar resultados; a medição do QA passou a restaurar o scroll. Segunda tentativa: estágio 1 `a6ad5376` (smoke 30/30) → estágio 2 `26fd5c8d` (smoke 30/30) → QA ao vivo completo, **sem nenhuma falha e sem novo rollback**.**
->
-> Antes do deploy: health `version 3.0`, `return-link, post-add-discovery, city-search`, allowlist de 1 caminho. O login OAuth foi feito pelo proprietário; o `wrangler` é deslogado ao final da rodada.
+> - **Worker** `use-sul-widget`, versão ativa (100%) `f8178f82-31c4-4898-b8d0-9fe0bbeb0c39` (loader 4.0), criada em 2026-09-24 21:09 UTC (conferida com `wrangler deployments list` e `wrangler versions view`). Bindings dessa versão: `CART_REFS` (KV `d399f7d61d1c466a8d50211e67ed9eab`), `ENABLE_WIDGET="true"`, `WIDGET_ALLOWLIST="/usesul/product/serra-catarinense"`, `WIDGET_FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror"`.
+> - **Health efetivo** (`GET /__origens/health`, lido em 2026-09-24): `version 4.0`, `widget_mode "true"`, `allowlist_status ok`, `allowlist_size 1`, `features_status ok`, `widget_features = return-link, post-add-discovery, city-search, cart-discovery, cart-mirror`. Allowlist: só `/usesul/product/serra-catarinense`; **não foi ampliada**.
+> - **Reprodutibilidade:** `wrangler.production.toml` versionado declara o binding `CART_REFS` (namespace conferido com `wrangler kv namespace list`) e segue **fail-closed** nas vars; a ativação vem das `--var` do comando de deploy abaixo. O código do Worker não mudou nesta etapa (só o binding e as flags).
+> - **Consumidor no storefront:** publicado no repositório `useorigens` (fora deste repo; informado pelo proprietário, não verificável a partir daqui). Fluxo ponta a ponta validado em produção: INK → storefront → "Meu carrinho" → drawer nativo.
+> - **Histórico:** `cart-discovery` foi ativado na 1ª rodada (versão `26fd5c8d`), com rollback automático na primeira tentativa (versões `cbb30201` → `850e669b` → rollback `66ef1897`) por falha do gate de QA ao vivo em 320×640 com 2 itens ("busca aberta: campo visível"); correção no commit `e3dca2a` (`reveal()` rola só o painel de itens; a medição do QA restaura o scroll); 2ª tentativa `a6ad5376` → `26fd5c8d`, QA ao vivo sem falhas. Depois, `cart-mirror` foi ligado na versão `f8178f82`.
+> - O login OAuth foi feito pelo proprietário; o `wrangler` é deslogado ao final da rodada.
 
-Comando pronto (com rollback automático): `bash scripts/rollout-cart.sh`.
+### Comando de deploy vigente (só com aprovação do proprietário)
+
+```bash
+npx wrangler deploy -c wrangler.production.toml --var ENABLE_WIDGET:true \
+  --var WIDGET_ALLOWLIST:/usesul/product/serra-catarinense \
+  --var WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror
+```
+
+> ⚠ `scripts/rollout-cart.sh` termina em `cart-discovery` **sem** `cart-mirror`: reexecutá-lo **desliga o espelho**. Um `wrangler deploy -c wrangler.production.toml` sem `--var` desliga **todo** o piloto (fail-closed).
+
+### Rollback (preserva os módulos anteriores)
+
+1. **Desligar só o espelho** (mantém link, drawer pós-adição, busca e descoberta no carrinho): mesmo deploy acima com `WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery`. `POST/GET /__origens/cart-ref*` passam a responder a 404 da INK; o binding KV pode ficar (inerte); o storefront mostra o estado neutro.
+2. **Voltar à versão anterior publicada:** `npx wrangler rollback --name use-sul-widget -m "rollback cart-mirror"` (→ `26fd5c8d`, sem KV, `cart-discovery` ativo).
+3. **Último recurso:** deploy puro do TOML (`ENABLE_WIDGET=false`, allowlist vazia): a INK responde sozinha.
+
+Verificar o rollback sempre com `GET /__origens/health`. Os snapshots já gravados expiram sozinhos em 30 min.
+
+Rollout histórico do `cart-discovery` (com rollback automático; **não** liga o espelho): `bash scripts/rollout-cart.sh`.
 
 ## 1. Auditoria técnica do carrinho da INK (P3)
 
@@ -75,11 +95,12 @@ Mantido o link **"← Voltar a procurar"** (já abaixo do CTA nativo, com alvo d
 
 ## 4. P4/P5 — Espelho do carrinho e ponte INK → storefront (`cart-mirror`)
 
-**Implementado do lado do Worker/loader e testado; DESLIGADO em produção.** O consumidor no storefront **não** foi alterado (outro repositório; publicar exigiria push/deploy fora do escopo). Contrato completo em [`storefront-cart-mirror-contract.md`](storefront-cart-mirror-contract.md).
+**`cart-mirror` ATIVO em produção (só na Serra, desde 2026-09-24; KV `CART_REFS` provisionado; consumidor do storefront publicado).** Contrato completo em [`storefront-cart-mirror-contract.md`](storefront-cart-mirror-contract.md).
 
 - **Leitura:** `readCart()` (módulo `cart-mirror`) lê o DOM estrutural acima; snapshot v1 com produto, nome, variante, cor, tamanho, quantidade, preço da linha, imagem (só CDN da INK), subtotal/desconto. Sem cookies, CSRF, sessão ou dados pessoais.
 - **Ponte (opção A, token opaco):** `POST /__origens/cart-ref` (só a página autorizada; Origin/Referer/JSON/esquema validados) guarda o resumo no KV `CART_REFS` por **30 min** sob um token de **128 bits**; `GET /__origens/cart-ref/<ref>` é lido pelo **servidor** do storefront (sem CORS, `no-store`). Sem o binding KV a feature responde `501 not_configured` e nada é gravado.
 - **Sincronização:** debounce de 800 ms depois de qualquer mudança do carrinho; **um token novo por snapshot** (imutável). Só links **nossos** para `/sul` ganham `?cart_ref=` (no clique). Snapshot vazio limpa o espelho.
+- **Limitações do snapshot:** TTL de **30 min** (o cliente renova o token aos 20 min e não decora links com ref acima de 25 min); é o **último estado conhecido**, só atualizado enquanto a pessoa está na página autorizada da Serra — alterações feitas em outras páginas da INK, em outro dispositivo ou após a expiração não aparecem. Snapshot vazio limpa o espelho.
 - **Risco de estado desatualizado:** **existe** e é inerente (ver P3). O storefront deve rotular "Última atualização há X min" e nunca "tempo real".
 - **Validação ponta a ponta (navegador real + INK real + Worker/KV locais, `scripts/qa-mirror.mjs`): 15/15** — adicionar → 1 snapshot que **bate com o carrinho real** (nome, cor, tamanho, qtd, preço, imagem); link "Explorar vitrine" ganha `?cart_ref=`; storefront real abre (200); voltar à INK na mesma sessão; mudar quantidade → novo snapshot (2 × R$ 109,90); o token antigo continua mostrando o estado antigo (não é tempo real); remover → snapshot vazio; nenhum POST levou Cookie.
 

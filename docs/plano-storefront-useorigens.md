@@ -1,6 +1,6 @@
 # Plano curto — consumidor do espelho do carrinho no storefront (`useorigens`)
 
-Não implementado e não publicado. Referência: `docs/storefront-cart-mirror-contract.md`. Pré-requisito: provisionar KV `CART_REFS` e ligar `cart-mirror` no Worker **depois** deste consumidor estar em produção (sem consumidor o espelho grava dados que ninguém lê).
+**Atualização 2026-09-24:** o consumidor foi publicado (repositório `useorigens`; informado pelo proprietário) e o `cart-mirror` está ATIVO no Worker, só na Serra. O plano abaixo fica como registro do que o consumidor deve cumprir. Referência: `docs/storefront-cart-mirror-contract.md`.
 
 1. **Rota server-side** `app/api/cart-mirror/route.ts`: lê `ref`, valida `^[A-Za-z0-9_-]{22}$`, `fetch('https://www.usesul.com.br/__origens/cart-ref/'+ref, { cache: 'no-store', signal: AbortSignal.timeout(2000) })` sem cookies, valida o esquema v1, responde `no-store` (404 se desconhecido/expirado). Nunca logar o `ref`.
 2. **`sessionStorage` só do `cart_ref`** (nunca o snapshot). Ao ver `?cart_ref=` em `/sul...`, guardar e **remover o parâmetro da URL** (`router.replace`).

@@ -1,6 +1,6 @@
 # Contrato do espelho do carrinho (INK → storefront)
 
-Estado: **Worker e loader prontos e testados; ligados por flag, DESLIGADOS em produção.** O consumidor no storefront (repositório `useorigens`, Next.js) **não foi implementado nem alterado** nesta rodada. Este documento é o contrato para implementá-lo com segurança.
+Estado (2026-09-24): **`cart-mirror` ATIVO em produção só na Serra** (versão `f8178f82`; KV `CART_REFS` provisionado). O consumidor no storefront (repositório `useorigens`, Next.js) está publicado (informado pelo proprietário; fora deste repositório). Este documento segue como o contrato entre o Worker e o storefront; nenhuma diferença de contrato foi encontrada nesta rodada. Estado completo e rollback em [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md).
 
 ## Princípios
 
@@ -65,7 +65,7 @@ Habilitação: `ENABLE_WIDGET=true` **e** `WIDGET_FEATURES` contendo `cart-mirro
 
 Auditado em sessão anônima: `GET /usesul/cart` (com sessão) devolve **200, mas é o fragmento do drawer sem layout/CSS** (ícone gigante, sem estilos): não é uma página de carrinho utilizável. O carrinho real da INK é o **drawer** aberto numa página com o layout. O loader, na página autorizada, entende `?origens_open_cart=1`: ativa o botão nativo do carrinho (até 8 tentativas em ~4 s, sem alterar o carrinho) e remove o parâmetro da URL. **Limitação do piloto:** só funciona na URL da allowlist (hoje a Serra); ao ampliar a allowlist, a mesma URL de retorno passa a poder ser qualquer página autorizada.
 
-## Provisionamento (aprovação e login do proprietário; NADA disto foi feito)
+## Provisionamento (FEITO em 2026-09-24 pelo proprietário; mantido como receita de reprodução)
 
 ```bash
 npx wrangler kv namespace create CART_REFS          # anote o id
@@ -78,7 +78,7 @@ npx wrangler deploy -c wrangler.production.toml --var ENABLE_WIDGET:true \
   --var WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror
 ```
 
-Recomendado antes de ligar: regra de rate limit da zona para `POST /__origens/cart-ref` (o limitador do Worker é só em memória por isolate), monitoração de erros 4xx/5xx do endpoint e o consumidor do storefront **já publicado** (sem consumidor o espelho grava dados que ninguém lê).
+Rate limit da zona para `POST /__origens/cart-ref` (o limitador do Worker é só em memória por isolate): **PENDENTE** de aplicação pelo proprietário; proposta, monitoração de 4xx/5xx e checklist em [`cart-ref-rate-limit.md`](cart-ref-rate-limit.md).
 
 ## Riscos conhecidos
 
