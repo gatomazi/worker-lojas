@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 2A): implementação, evidências e riscos em [`fase-2a.md`](fase-2a.md). Flag renomeada para `ENABLE_WIDGET`; loader em `/__origens/loader.js`; retorno padrão `https://useorigens.com.br/sul`.
+
 ## Context
 
 A loja Use Sul roda na Reserva INK (`www.usesul.com.br/usesul/...`). O storefront próprio (`useorigens.com.br/sul`, repo `gatomazi/useorigens-storefront`, Next.js) tem busca de cidades e catálogo. Arquitetura confirmada pela BitGeek: Cloudflare Worker injeta só um loader via `HTMLRewriter`; o loader carrega módulos que alteram o DOM. Carrinho e checkout permanecem 100% da INK.

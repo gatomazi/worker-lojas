@@ -3,10 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --test-timeout=30000 test/*.test.js",
     "dev": "wrangler dev -c wrangler.dev.toml",
     "deploy:staging": "wrangler deploy -c wrangler.dev.toml",
     "deploy:production": "wrangler deploy -c wrangler.production.toml"
   },
-  "devDependencies": { "wrangler": "^4.0.0" }
+  "devDependencies": {
+    "miniflare": "^4.20260730.0",
+    "wrangler": "^4.0.0",
+    "jsdom": "^26.0.0"
+  }
 }

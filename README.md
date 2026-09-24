@@ -1,59 +1,43 @@
-# Use Sul — Worker de widgets para a Reserva INK (POC)
+# Use Sul — Worker de widgets para a Reserva INK
 
-## Objetivo
+Cloudflare Worker injeta **um único loader** no HTML da INK; o loader adiciona elementos ao DOM. Hoje o único widget é o link **"← Voltar a procurar"** na página de produto, apontando para `https://useorigens.com.br/sul`.
 
-Preparar, sem alteração de produção, a técnica confirmada pelo desenvolvedor da BitGeek: Cloudflare Worker injeta um **único loader** no HTML, e o loader adiciona elementos ao DOM da loja da INK.
-
-Nesta POC, a única alteração visual é o link **«← Voltar a procurar outra cidade»** na página de produto, apontando para `https://useorigens.com.br/sul`. A busca real do storefront, a seleção pendente e o modal pós-compra são fases futuras: **não estão implementados**.
+Estado: **Fase 2A, nada publicado**. Sem deploy, sem rota em produção, sem alteração de DNS/Cloudflare. Evidências, riscos e rollback em [`docs/fase-2a.md`](docs/fase-2a.md); plano geral em [`docs/plan.md`](docs/plan.md).
 
 ## Estrutura
 
-- `src/worker.js`: intercepta exclusivamente `www.usesul.com.br/usesul/product/*`, busca o HTML original e injeta um script. Também serve o script em `/usesul/product/__origens-widget.js`.
-- `src/widget-source.js`: JavaScript do widget, reinicializado em navegação Turbo; procura botão nativo «Adicionar ao Carrinho» e insere o link depois dele. Seletores serão validados no DOM real antes da ativação.
-- `wrangler.dev.toml`: deploy isolado em `workers.dev` para conferir build e `/__health`. **Não** é espelho da loja.
-- `wrangler.production.toml`: configuração da rota real, desativada por padrão pela variável `WIDGET_ENABLED = "false"`.
-- `test/worker.test.js`: testes de roteamento, segurança de escopo e não alteração do carrinho.
+| Arquivo | Papel |
+|---------|-------|
+| `src/worker.js` | Passa tudo para a INK; em `GET /usesul/product/<slug>` (200, HTML) injeta o loader com `HTMLRewriter`. Serve `/__origens/loader.js` e `/__origens/health`. |
+| `src/loader-source.js` | Código do loader (string entregue pelo Worker) e `LOADER_VERSION`. |
+| `wrangler.dev.toml` | Staging isolado em `workers.dev`, sem rotas. |
+| `wrangler.production.toml` | Duas rotas em `www.usesul.com.br`. **Não publicar** antes da ativação (ver docs). |
+| `test/` | `worker.test.js` (mock), `integration.workerd.test.js` (HTMLRewriter real via Miniflare/workerd), `loader.dom.test.js` (jsdom), `fixtures/`. |
 
-## Testes locais, sem DNS e sem deploy
+## Flag `ENABLE_WIDGET`
+
+`"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (só loga o que seria injetado) · `"true"`. Com `false`, o Worker repassa tudo intacto e o loader responde um no-op.
+
+## Rodar localmente (sem tokens, sem rede, sem DNS)
 
 ```bash
 npm install
-npm test
-npm run dev
-curl http://localhost:8787/__health
+npm test          # 33 testes; usa workerd local, não a Cloudflare
+npm run dev       # wrangler dev com wrangler.dev.toml
+curl http://localhost:8787/__origens/health
 ```
 
-`/__health` retorna `widget_enabled: false`. O `workers.dev` também permite verificar o health após `npm run deploy:staging`. Não espere que o domínio de staging renderize a INK: a origem real só fica disponível via rota `www.usesul.com.br`.
+`npm test` não exige login em nenhum serviço. O `workers.dev`/`wrangler dev` **não** espelha a INK: só responde `/__origens/health`.
 
-## Quando a zona estiver ativa — sequenciamento recomendado
+## O que os testes provam e o que não provam
 
-1. Verificar Cloudflare Zone `Active`, MX/TXT da Zoho e verificações; concluir redirecionamento do ápice **separadamente**.
-2. Verificar a loja e uma compra com o `www` em DNS only.
-3. Ativar a nuvem laranja apenas no `www`, mantendo o CNAME original Heroku/INK. Validar HTTPS, cookies, páginas de produto, carrinho, checkout e pagamento **sem** Worker. Voltar a DNS only se falhar.
-4. Com tudo estável, publicar `wrangler.production.toml` com `WIDGET_ENABLED = "false"`; a rota passa a existir, mas todas as páginas são encaminhadas intactas.
-5. Após validação do DNS e do produto, alterar `WIDGET_ENABLED` para `"true"` e republicar numa janela supervisionada. Confirmar que o link aparece no produto e que o carrinho continua funcionando.
-6. Caso haja qualquer problema, voltar `WIDGET_ENABLED` para `"false"` e publicar ou desassociar a rota do Worker. Se o problema for o próprio proxy, desativar a nuvem laranja para voltar a DNS only.
+- **Provam:** regras de rota/método/status/content-type, flag OFF/dry-run/ON, deduplicação, preservação de `Set-Cookie`, redirects, POST, `Turbo-Frame`, loader no DOM (jsdom) e `HTMLRewriter` real do runtime workerd.
+- **Não provam:** o edge Cloudflare, a INK real por trás do proxy, CSP futura da INK, comportamento com `Content-Encoding` no edge, viewport de 390 px, drawer pós-adição. Ver "NÃO VALIDADO" em `docs/fase-2a.md`.
 
-**Não alterar** nameservers novamente durante a transição. Não modificar carrinho, checkout, headers `Set-Cookie`, regras de sessão, TLS ou DNS dentro deste projeto.
+## Ativação (resumo; detalhes em `docs/fase-2a.md`)
 
-## Limites da POC
+Zona `Active` → testes com `www` DNS only → proxy laranja no `www` → compra nativa **sem** Worker → publicar Worker com `ENABLE_WIDGET="false"` → `dry-run` → `true` supervisionado. Rollback: flag `false`; depois remover rotas; por último `www` a DNS only.
 
-- Não reimplementa o carrinho, não acessa endpoints privados da INK, não registra eventos de pagamento, não manipula CSRF, não altera CSS global.
-- O link de retorno usa destino padrão `https://useorigens.com.br/sul`. Se o storefront fornecer o parâmetro `origens_return`, ele só será aceito se apontar para URLs HTTPS da mesma origem e dentro de `/sul`.
-- Se a INK publicar CSP estrita que bloqueie o script, não reduza a segurança global para contornar. Investigue uma integração com nonce ou uma política permitida pela plataforma.
-- Como os seletores DOM exatos podem mudar, a POC deve ser verificada visualmente em mobile e desktop na página real antes de lançar.
-- O navegador pode preservar o carrinho da INK no vai e volta (comportamento observado pelo usuário), mas isso não é uma garantia cross-browser, cross-device ou depois da expiração da sessão.
-- Testes unitários rodam com um mock do `HTMLRewriter`; não substituem validação no edge real.
+## Limites
 
-## Evolução após a POC
-
-1. Extrair a busca React existente do storefront para componente embutível ou publicá-la por um endpoint de widget, compartilhando API/catálogo.
-2. Montar a busca no cabeçalho da INK e acrescentar a busca contextual na página de produto.
-3. Detectar o drawer/modal nativo após a confirmação de adição ao carrinho e adicionar busca + botão de volta; nunca considerar clique como confirmação de compra.
-4. Se houver lista opcional de produtos escolhidos no storefront, transportar somente um identificador opaco e temporário, nunca estado de carrinho como verdade paralela.
-
-## Documentação oficial
-
-- https://developers.cloudflare.com/workers/configuration/routing/routes/
-- https://developers.cloudflare.com/workers/wrangler/configuration/
-- https://developers.cloudflare.com/workers/examples/turnstile-html-rewriter/
+Sem carrinho paralelo; sem endpoints privados, CSRF ou cookies da INK; sem headers de segurança ou CORS próprios; `origens_return` é validado no loader, mas o storefront ainda não o envia.
