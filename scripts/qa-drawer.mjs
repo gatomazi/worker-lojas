@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
-const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
+const { Miniflare } = process.argv.includes('--live') ? { Miniflare: null } : await import(process.env.MINIFLARE || 'miniflare');
 
 const mode = process.argv[2] || 'desktop';
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
@@ -15,13 +15,14 @@ const out = arg('--out', 'docs/evidence/drawer'); const tag = arg('--tag', 'afte
 mkdirSync(out, { recursive: true });
 const HOST = 'https://www.usesul.com.br'; const P = '/usesul/product/serra-catarinense'; const OTHER = '/usesul/product/vida-no-sul-estancia-edition';
 const WIDTH = Number(arg('--width', mode === 'mobile' ? 390 : 1280));
+const LIVE = process.argv.includes('--live'); // contra a produção REAL (sem Worker local nem interceptação)
 const mobile = WIDTH < 768;
 const label = arg('--width') ? 'w' + WIDTH : mode;
 const SRC = new URL('../src/', import.meta.url).pathname;
 const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/discovery-ui.js'];
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 
-const mf = new Miniflare({
+const mf = LIVE ? null : new Miniflare({
   modulesRoot: SRC, modules: FILES.map((f) => ({ type: 'ESModule', path: SRC + f })), compatibilityDate: '2026-08-01',
   bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: P, WIDGET_FEATURES: 'return-link,post-add-discovery,city-search' },
   // Storefront REAL para o índice de cidades; nada mais sai do Worker local.
@@ -34,17 +35,20 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 140)); });
 page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 140)));
+page.on('request', (r) => { if (new URL(r.url()).pathname === '/__origens/search') r.allHeaders().then((h) => searchLog.push({ q: new URL(r.url()).searchParams.get('q'), cookie: h['cookie'] || null, authorization: h['authorization'] || null })); });
+if (!LIVE) {
 await page.route('**/__origens/**', async (route) => {
   const url = new URL(route.request().url());
   if (url.pathname === '/__origens/search') {
-    searchLog.push({ q: url.searchParams.get('q'), cookie: route.request().headers()['cookie'] || null });
-    if (searchMode === 'error') return route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"unavailable"}' });
+        if (searchMode === 'error') return route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"unavailable"}' });
   }
   const res = await mf.dispatchFetch(url.href, { method: route.request().method() });
   await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
 });
 
-const shot = (name) => page.screenshot({ path: `${out}/${tag}-${name}-${label}.jpg`, type: 'jpeg', quality: 62 });
+}
+
+const shot = (name) => page.screenshot({ path: `${out}/${tag}${LIVE ? '-live' : ''}-${name}-${label}.jpg`, type: 'jpeg', quality: 62 });
 const R = () => page.evaluate(() => {
   const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; };
   const w = document.getElementById('modal-wrapper'); const root = w && w.querySelector('[data-origens-discovery]');
@@ -59,7 +63,7 @@ const R = () => page.evaluate(() => {
 const cartLen = () => page.evaluate(async () => (await (await fetch('/usesul/cart', { headers: { Accept: 'text/html' } })).text()).length);
 
 await page.goto(HOST + P, { waitUntil: 'load' }); await page.waitForTimeout(3500);
-check('build local do loader ativo na página real (v3.0)', (await page.evaluate(() => window.__useOrigensLoader)) === '3.0');
+check((LIVE ? 'loader de PRODUÇÃO' : 'build local do loader') + ' ativo na página real (v3.0)', (await page.evaluate(() => window.__useOrigensLoader)) === '3.0');
 check('link "← Voltar a procurar" segue presente (1)', (await page.locator('#use-origens-return-link').count()) === 1);
 const mobileHs = mobile ? await page.evaluate(() => document.documentElement.scrollWidth) : null;
 
@@ -88,16 +92,18 @@ const first = await page.evaluate(() => [...document.querySelectorAll('[data-ori
 await shot('search-results'); m = await R();
 check('busca "floripa" → Florianópolis com link real do storefront', first[0] === 'Florianópolis | https://useorigens.com.br/sul/sc/florianopolis', JSON.stringify(first));
 check('com resultados, "Ver carrinho" segue acessível e sem sobreposição', m.verVisible && !m.rootVsVer && !m.rootVsCont, JSON.stringify({ ver: m.ver, wrapperScroll: m.wrapperScroll }));
-check('a requisição de busca foi same-origin e sem Cookie', searchLog.length >= 1 && searchLog.every((s) => s.cookie === null), JSON.stringify(searchLog.slice(0, 2)));
+check('a requisição de busca foi same-origin e SEM Cookie/Authorization', searchLog.length >= 1 && searchLog.every((s) => s.cookie === null && s.authorization === null), JSON.stringify(searchLog.slice(0, 2)));
 await input.fill(''); await input.type('sc', { delay: 40 }); await page.waitForTimeout(900);
 check('busca "sc" → estado Santa Catarina primeiro', (await page.locator('[data-origens-discovery] .o-item .o-name').first().textContent()) === 'Santa Catarina');
 await input.fill(''); await input.type('xyzq', { delay: 40 }); await page.waitForSelector('[data-origens-discovery] .o-status:not(:empty)'); await page.waitForTimeout(900);
 await shot('search-empty');
 check('estado vazio com mensagem e CTA visível', /Ainda não encontramos essa cidade/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('[data-origens-discovery] .o-cta').isVisible()));
-searchMode = 'error'; await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForTimeout(1200);
-await shot('search-error');
-check('estado de erro (gateway 502) com mensagem e CTA; drawer nativo intacto', /A busca não está disponível agora/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('.checkout-btn').isVisible()));
-searchMode = 'ok';
+if (!LIVE) {
+  searchMode = 'error'; await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForTimeout(1200);
+  await shot('search-error');
+  check('estado de erro (gateway 502) com mensagem e CTA; drawer nativo intacto', /A busca não está disponível agora/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('.checkout-btn').isVisible()));
+  searchMode = 'ok';
+} else console.log('INFO estado de erro não induzido em produção real (coberto localmente e no QA pré-deploy)');
 
 // ---- teclado ----
 await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForSelector('[data-origens-discovery] .o-item'); await page.waitForTimeout(300);
@@ -145,6 +151,6 @@ check('Turbo de volta à Serra: 1 link (1 → 0 → 1)', (await page.locator('#u
 const ours = errors.filter((e) => /use.?origens|origens-discovery|__origens/i.test(e));
 check('console: nenhum erro atribuível ao nosso código', ours.length === 0, ours.join(' | '));
 console.log('INFO erros preexistentes da INK:', [...new Set(errors.filter((e) => !/use.?origens|origens/i.test(e)).map((e) => e.slice(0, 60)))].join(' | '));
-await browser.close(); await mf.dispose();
+await browser.close(); if (mf) await mf.dispose();
 console.log('RESUMO qa-drawer ' + label + ': ' + results.filter(Boolean).length + ' PASS, ' + results.filter((x) => !x).length + ' FAIL');
 process.exit(results.every(Boolean) ? 0 : 1);

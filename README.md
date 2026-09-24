@@ -16,6 +16,8 @@ Estado: **Fase 2C (allowlist), nada publicado**. Sem deploy, sem rota em produç
 
 ## Flags
 
+`WIDGET_FEATURES`: módulos do loader por deploy (`return-link`, `post-add-discovery`, `city-search`); ausente = `return-link`; nome desconhecido = nenhum módulo. Arquitetura em [`docs/architecture-loader.md`](docs/architecture-loader.md).
+
 `ENABLE_WIDGET`: `"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (nada é reescrito; só loga o caminho) · `"true"`.
 
 `WIDGET_ALLOWLIST`: caminhos **exatos** de produto separados por vírgula, ex. `"/usesul/product/serra-catarinense"`. Vazia, ausente ou com qualquer entrada malformada = **nenhuma página** (fail-closed). Sem curinga, prefixo, query ou barra final.
