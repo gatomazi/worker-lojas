@@ -1,16 +1,24 @@
 // Loader entregue pelo próprio Worker, no mesmo hostname da loja (www.usesul.com.br).
-// Fase 2A: monta somente o link "← Voltar a procurar". Não intercepta o CTA, o drawer, o carrinho
+// Monta somente o link "← Voltar a procurar". Não intercepta o CTA, o drawer, o carrinho
 // nem chama APIs. Qualquer falha é engolida: a INK continua funcionando sem o widget.
-export const LOADER_VERSION = '2a.1';
+// A allowlist é embutida na entrega (defesa em profundidade): o Turbo Drive mantém o JS vivo entre
+// páginas, então sem isto o link apareceria em produtos não liberados alcançados por navegação Turbo.
+export const LOADER_VERSION = '2c.1';
 
-export const LOADER_SOURCE = String.raw`(() => {
+// allowedPaths já vem validado por parseAllowlist (só [a-z0-9_-] e "/"), então JSON.stringify é seguro aqui.
+export function buildLoaderSource(allowedPaths = []) {
+  return LOADER_TEMPLATE.replace('__ALLOWED_PATHS__', () => JSON.stringify(allowedPaths));
+}
+
+const LOADER_TEMPLATE = String.raw`(() => {
   'use strict';
 
   // Turbo pode re-executar este script ao navegar entre páginas; só a primeira execução vale.
   if (window.__useOrigensLoader) return;
   window.__useOrigensLoader = '${LOADER_VERSION}';
 
-  const PRODUCT_PATH = /^\/usesul\/product\/[^/]+\/?$/;
+  const ALLOWED_PATHS = __ALLOWED_PATHS__;
+  const PRODUCT_PATH = /^\/usesul\/product\/[^/]+$/;
   // Rota canônica verificada do storefront. www.usesul.com.br/sul NÃO serve: responde 302 para /usesul.
   const STOREFRONT_ORIGIN = 'https://useorigens.com.br';
   const DEFAULT_RETURN = STOREFRONT_ORIGIN + '/sul';
@@ -33,7 +41,9 @@ export const LOADER_SOURCE = String.raw`(() => {
   }
 
   function isProductPage() {
-    return window.location.hostname === 'www.usesul.com.br' && PRODUCT_PATH.test(window.location.pathname);
+    // Só monta em caminho exato da allowlist; lista vazia => nunca monta.
+    return window.location.hostname === 'www.usesul.com.br' && PRODUCT_PATH.test(window.location.pathname) &&
+      ALLOWED_PATHS.includes(window.location.pathname);
   }
 
   function insideFixed(el) {
@@ -124,3 +134,6 @@ export const LOADER_SOURCE = String.raw`(() => {
     console.warn('[Use Origens] loader failed (non-critical):', err);
   }
 })();`;
+
+// Sem allowlist embutida: nunca monta. Mantido para compatibilidade e testes de fail-closed.
+export const LOADER_SOURCE = buildLoaderSource([]);

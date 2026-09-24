@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { Miniflare } from 'miniflare';
+import { JSDOM } from 'jsdom';
 
 // HTMLRewriter REAL do runtime workerd. A origem (INK) é um stub via outboundService: nenhuma rede.
 // Isto valida o Worker no runtime; NÃO valida o edge Cloudflare nem a INK real.
@@ -11,25 +12,32 @@ const PAGE = readFileSync(new URL('./fixtures/product-page.html', import.meta.ur
 const HOST = 'https://www.usesul.com.br';
 const LOADER_TAG_RE = /<script src="\/__origens\/loader\.js\?v=[^"]+" defer data-cfasync="false" data-use-origens-widget="[^"]+"><\/script>/g;
 
+// Fail-closed: 'true' só injeta em caminhos da allowlist. Slugs abaixo cobrem os cenários dos testes.
+const ALLOW = ['serra-catarinense', 'nao-existe', 'x', 'data', 'p'].map((slug) => '/usesul/product/' + slug).join(',');
+const MODULES = ['worker.js', 'loader-source.js', 'allowlist.js']
+  .map((file) => ({ type: 'ESModule', path: new URL('../src/' + file, import.meta.url).pathname }));
+
 let origin = { calls: [], respond: () => new Response('unset', { status: 500 }) };
 const instances = new Map();
+// Saída do runtime (console.* do Worker), para conferir o que é registrado e o que NÃO pode ser.
+const logs = [];
+const captureStdio = (stdout, stderr) => { for (const stream of [stdout, stderr]) stream.on('data', (chunk) => logs.push(String(chunk))); };
 
-async function worker(mode) {
-  if (!instances.has(mode)) {
-    instances.set(mode, new Miniflare({
-      modules: [
-        { type: 'ESModule', path: new URL('../src/worker.js', import.meta.url).pathname },
-        { type: 'ESModule', path: new URL('../src/loader-source.js', import.meta.url).pathname }
-      ],
+async function worker(mode, allowlist = ALLOW) {
+  const key = mode + '|' + allowlist;
+  if (!instances.has(key)) {
+    instances.set(key, new Miniflare({
+      modules: MODULES,
       compatibilityDate: '2026-08-01',
-      bindings: { ENABLE_WIDGET: mode },
+      handleRuntimeStdio: captureStdio,
+      bindings: { ENABLE_WIDGET: mode, WIDGET_ALLOWLIST: allowlist },
       outboundService: async (request) => {
         origin.calls.push({ method: request.method, url: request.url, body: await request.clone().text() });
         return origin.respond(request);
       }
     }));
   }
-  return instances.get(mode);
+  return instances.get(key);
 }
 
 function htmlResponse(body = PAGE, extra = {}) {
@@ -40,13 +48,13 @@ function htmlResponse(body = PAGE, extra = {}) {
   return new Response(body, { status: 200, headers });
 }
 
-async function get(mode, path, init = {}) {
-  const mf = await worker(mode);
+async function get(mode, path, init = {}, allowlist) {
+  const mf = await worker(mode, allowlist);
   origin.calls = [];
   return mf.dispatchFetch(HOST + path, { redirect: 'manual', ...init });
 }
 
-beforeEach(() => { origin.respond = () => htmlResponse(); });
+beforeEach(() => { origin.respond = () => htmlResponse(); logs.length = 0; });
 after(async () => { for (const mf of instances.values()) await mf.dispose(); });
 
 test('flag OFF: product HTML is byte-identical and cookies survive', async () => {
@@ -96,12 +104,9 @@ test('flag ON: gzip origin over real HTTP is never corrupted (fail-safe pass-thr
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   const mf = new Miniflare({
-    modules: [
-      { type: 'ESModule', path: new URL('../src/worker.js', import.meta.url).pathname },
-      { type: 'ESModule', path: new URL('../src/loader-source.js', import.meta.url).pathname }
-    ],
+    modules: MODULES,
     compatibilityDate: '2026-08-01',
-    bindings: { ENABLE_WIDGET: 'true' },
+    bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: ALLOW },
     outboundService: (request) => fetch(request.url.replace(HOST, 'http://127.0.0.1:' + port), { headers: request.headers })
   });
   try {
@@ -198,4 +203,129 @@ test('worker sets no security or custom headers of its own', async () => {
   for (const forbidden of ['content-security-policy', 'strict-transport-security', 'x-frame-options', 'access-control-allow-origin']) {
     assert.ok(!names.includes(forbidden), forbidden);
   }
+});
+
+// ---- WIDGET_ALLOWLIST no runtime workerd real
+const SERRA = '/usesul/product/serra-catarinense';
+const OUTRO = '/usesul/product/vida-no-sul-estancia-edition';
+const ONLY_SERRA = SERRA;
+const injected = (text) => (text.match(LOADER_TAG_RE) || []).length;
+
+test('allowlist: true with empty, missing or malformed list injects nothing (fail-closed)', async () => {
+  for (const list of ['', '   ', '/usesul/product/*', '/usesul/*', SERRA + ',', SERRA + ',/usesul/cart', 'lixo', SERRA + '?a=1']) {
+    const res = await get('true', SERRA, {}, list);
+    assert.equal(await res.text(), PAGE, JSON.stringify(list));
+    assert.equal(origin.calls.length, 1);
+  }
+});
+
+test('allowlist: true injects only on the allowlisted exact path', async () => {
+  assert.equal(injected(await (await get('true', SERRA, {}, ONLY_SERRA)).text()), 1);
+  assert.equal(await (await get('true', OUTRO, {}, ONLY_SERRA)).text(), PAGE);
+});
+
+test('allowlist: query string never changes the decision', async () => {
+  assert.equal(injected(await (await get('true', SERRA + '?utm_source=x&origens_return=/sul', {}, ONLY_SERRA)).text()), 1);
+  assert.equal(await (await get('true', OUTRO + '?next=' + encodeURIComponent(SERRA), {}, ONLY_SERRA)).text(), PAGE);
+  assert.equal(await (await get('true', OUTRO + '?' + SERRA, {}, ONLY_SERRA)).text(), PAGE);
+});
+
+test('allowlist: trailing slash, case and encoded variants are not allowlisted', async () => {
+  for (const variant of [SERRA + '/', '/usesul/product/Serra-Catarinense', '/usesul/product/serra%2Dcatarinense', SERRA + '/extra']) {
+    assert.equal(await (await get('true', variant, {}, ONLY_SERRA)).text(), PAGE, variant);
+  }
+});
+
+test('allowlist: multiple entries are honored independently', async () => {
+  const both = SERRA + ',' + OUTRO;
+  assert.equal(injected(await (await get('true', SERRA, {}, both)).text()), 1);
+  assert.equal(injected(await (await get('true', OUTRO, {}, both)).text()), 1);
+  assert.equal(await (await get('true', '/usesul/product/x', {}, both)).text(), PAGE);
+});
+
+test('allowlist: false never injects, even for an allowlisted path', async () => {
+  assert.equal(await (await get('false', SERRA, {}, ONLY_SERRA)).text(), PAGE);
+});
+
+test('allowlist: dry-run never rewrites; logs only the path, never query, cookie or headers', async () => {
+  const res = await get('dry-run', SERRA + '?email=a@b.c&token=SEGREDO123', { headers: { cookie: 'sessao=COOKIE_SECRETO', authorization: 'Bearer XYZ' } }, ONLY_SERRA);
+  assert.equal(await res.text(), PAGE);
+  assert.equal(res.headers.getSetCookie().length, 2);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const out = logs.join('');
+  const line = out.split('\n').find((l) => l.includes('use-origens.dry-run'));
+  assert.ok(line, 'dry-run log line present');
+  assert.match(line, /"path":"\/usesul\/product\/serra-catarinense"/);
+  assert.match(line, /"would_inject":true/);
+  for (const secret of ['email', 'token', 'SEGREDO123', 'COOKIE_SECRETO', 'Bearer', 'XYZ', 'a@b.c']) assert.ok(!out.includes(secret), secret);
+});
+
+test('allowlist: dry-run on a non-allowlisted page logs would_inject=false and rewrites nothing', async () => {
+  const res = await get('dry-run', OUTRO, {}, ONLY_SERRA);
+  assert.equal(await res.text(), PAGE);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.match(logs.join(''), /"would_inject":false/);
+});
+
+test('allowlist: Turbo Drive sequence is stateless (allowed, blocked, frame request, allowed again)', async () => {
+  assert.equal(injected(await (await get('true', SERRA, {}, ONLY_SERRA)).text()), 1);
+  assert.equal(injected(await (await get('true', OUTRO, {}, ONLY_SERRA)).text()), 0);
+  assert.equal(injected(await (await get('true', SERRA, { headers: { 'Turbo-Frame': 'cart' } }, ONLY_SERRA)).text()), 0);
+  assert.equal(injected(await (await get('true', SERRA, { headers: { accept: 'text/vnd.turbo-stream.html, text/html' } }, ONLY_SERRA)).text()), 1);
+});
+
+test('allowlist: publishing the loader does not authorize injecting it elsewhere', async () => {
+  const loader = await (await get('true', '/__origens/loader.js', {}, '')).text();
+  assert.match(loader, /const ALLOWED_PATHS = \[\];/);
+  assert.equal(await (await get('true', SERRA, {}, '')).text(), PAGE);
+});
+
+test('allowlist: the served loader embeds exactly the validated list', async () => {
+  const loader = await (await get('true', '/__origens/loader.js', {}, SERRA + ',' + OUTRO)).text();
+  assert.ok(loader.includes('const ALLOWED_PATHS = ["' + SERRA + '","' + OUTRO + '"];'));
+  const invalid = await (await get('true', '/__origens/loader.js', {}, SERRA + ',/usesul/product/*')).text();
+  assert.match(invalid, /const ALLOWED_PATHS = \[\];/);
+  const off = await (await get('false', '/__origens/loader.js', {}, ONLY_SERRA)).text();
+  assert.equal(off, '/* use-origens widget disabled */');
+  const dry = await (await get('dry-run', '/__origens/loader.js', {}, ONLY_SERRA)).text();
+  assert.equal(dry, '/* use-origens widget disabled */');
+});
+
+test('allowlist: health reports mode and list status without paths', async () => {
+  const body = await (await get('true', '/__origens/health', {}, SERRA + ',' + OUTRO)).json();
+  assert.equal(body.widget_mode, 'true');
+  assert.equal(body.allowlist_status, 'ok');
+  assert.equal(body.allowlist_size, 2);
+  assert.doesNotMatch(JSON.stringify(body), /usesul\/product/);
+  const bad = await (await get('true', '/__origens/health', {}, '*')).json();
+  assert.equal(bad.allowlist_status, 'invalid');
+  assert.equal(bad.allowlist_size, 0);
+});
+
+test('encoded body: logs a safe technical note and passes the page through unchanged', async () => {
+  origin.respond = () => htmlResponse(gzipSync(PAGE), { 'content-encoding': 'gzip' });
+  const res = await get('true', SERRA + '?token=SEGREDO123', { headers: { cookie: 'sessao=COOKIE_SECRETO' } }, ONLY_SERRA);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  assert.ok(!bytes.toString('latin1').includes('data-use-origens-widget'));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const out = logs.join('');
+  assert.match(out, /use-origens\.skip-encoded-body/);
+  assert.match(out, /"encoding":"gzip"/);
+  for (const secret of ['token', 'SEGREDO123', 'COOKIE_SECRETO']) assert.ok(!out.includes(secret), secret);
+});
+
+test('end to end: HTML from workerd + loader from workerd, executed in jsdom, mounts once only where allowed', async () => {
+  const both = SERRA;
+  async function visit(path) {
+    const html = await (await get('true', path, {}, both)).text();
+    const loaderJs = await (await get('true', '/__origens/loader.js', {}, both)).text();
+    const dom = new JSDOM(html, { url: HOST + path, runScripts: 'outside-only', pretendToBeVisual: true });
+    dom.window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+    const scriptTags = dom.window.document.querySelectorAll('script[data-use-origens-widget]').length;
+    if (scriptTags > 0) { dom.window.eval(loaderJs); dom.window.eval(loaderJs); }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return { scriptTags, links: dom.window.document.querySelectorAll('#use-origens-return-link').length };
+  }
+  assert.deepEqual(await visit(SERRA), { scriptTags: 1, links: 1 });
+  assert.deepEqual(await visit(OUTRO), { scriptTags: 0, links: 0 });
 });

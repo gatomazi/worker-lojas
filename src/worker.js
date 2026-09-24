@@ -1,4 +1,5 @@
-import { LOADER_SOURCE, LOADER_VERSION } from './loader-source.js';
+import { buildLoaderSource, LOADER_VERSION } from './loader-source.js';
+import { parseAllowlist } from './allowlist.js';
 
 const HOST = 'www.usesul.com.br';
 // Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
@@ -24,6 +25,11 @@ function passThrough(request) {
   return fetch(request, { redirect: 'manual' });
 }
 
+// Logs estruturados sem cookie, sessão nem query string: só o caminho do produto (público).
+function logEvent(level, event, fields) {
+  console[level](JSON.stringify({ event: 'use-origens.' + event, ...fields }));
+}
+
 class LoaderInjector {
   constructor() { this.alreadyPresent = false; }
   element(head) {
@@ -39,12 +45,14 @@ class ExistingLoaderDetector {
   element() { this.injector.alreadyPresent = true; }
 }
 
-function serveLoader(request, mode) {
+// Publicar o loader NÃO autoriza injetá-lo: quem autoriza páginas é só a allowlist, aplicada em
+// injectLoader e reaplicada dentro do próprio loader (embutida aqui).
+function serveLoader(request, mode, allowlist) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
-  // Com a flag desligada o loader vira no-op: páginas em cache no navegador não quebram (fail open).
-  const body = mode === 'true' ? LOADER_SOURCE : '/* use-origens widget disabled */';
+  // Com a flag desligada (ou dry-run) o loader vira no-op: páginas em cache no navegador não quebram.
+  const body = mode === 'true' ? buildLoaderSource(allowlist.paths) : '/* use-origens widget disabled */';
   return new Response(request.method === 'HEAD' ? null : body, {
     status: 200,
     headers: {
@@ -54,17 +62,32 @@ function serveLoader(request, mode) {
   });
 }
 
-async function injectLoader(request, url, mode) {
+async function injectLoader(request, url, mode, allowlist) {
+  const allowlisted = allowlist.paths.includes(url.pathname);
+
+  // Fail-closed: fora da allowlist nada é reescrito, e nem sequer se olha a resposta.
+  if (mode === 'true' && !allowlisted) return passThrough(request);
+
   const response = await passThrough(request);
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
-  // Se o runtime não decodificou o corpo (Content-Encoding ainda presente), reescrever corromperia a página.
-  if (response.headers.has('content-encoding')) return response;
 
   if (mode === 'dry-run') {
-    // Sem cabeçalho novo e sem alterar o corpo: só registra o que seria feito (wrangler tail).
-    console.log('use-origens dry-run: would inject loader', url.pathname);
+    // Só observabilidade: mesmo pedido à origem, corpo e cabeçalhos intactos, um log por página elegível.
+    logEvent('log', 'dry-run', {
+      path: url.pathname,
+      allowlisted,
+      would_inject: allowlisted,
+      allowlist_status: allowlist.status
+    });
+    return response;
+  }
+
+  // Se o runtime não decodificou o corpo (Content-Encoding ainda presente), reescrever corromperia a página.
+  const encoding = response.headers.get('content-encoding');
+  if (encoding) {
+    logEvent('warn', 'skip-encoded-body', { path: url.pathname, encoding: encoding.slice(0, 16) });
     return response;
   }
 
@@ -85,10 +108,17 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const mode = widgetMode(env);
+    const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
 
     // Health não depende da origem: valida a publicação antes de qualquer ativação.
     if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
-      return Response.json({ service: 'use-sul-widget', version: LOADER_VERSION, widget_mode: mode });
+      return Response.json({
+        service: 'use-sul-widget',
+        version: LOADER_VERSION,
+        widget_mode: mode,
+        allowlist_status: allowlist.status,
+        allowlist_size: allowlist.paths.length
+      });
     }
 
     // workers.dev não é espelho da INK.
@@ -96,9 +126,9 @@ export default {
       return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
     }
 
-    if (url.pathname === LOADER_PATH) return serveLoader(request, mode);
+    if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist);
 
     if (mode === 'false' || !isEligibleRequest(request, url)) return passThrough(request);
-    return injectLoader(request, url, mode);
+    return injectLoader(request, url, mode, allowlist);
   }
 };

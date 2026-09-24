@@ -1,5 +1,7 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 2C): `WIDGET_ALLOWLIST` fail-closed implementada e testada localmente; plano de ativação e rollback em [`fase-2c-allowlist.md`](fase-2c-allowlist.md). Nada publicado; push bloqueado (identidade SSH efetiva é `gtomazi`).
+>
 > Atualização (Fase 2B, proxy `www` ativo): smoke, revisão do Worker, bloqueios e rollout progressivo em [`fase-2b-smoke.md`](fase-2b-smoke.md). Próxima aprovação: conferir painel Cloudflare e autorizar preview isolado.
 >
 > Atualização (Fase 2A): implementação, evidências e riscos em [`fase-2a.md`](fase-2a.md). Flag renomeada para `ENABLE_WIDGET`; loader em `/__origens/loader.js`; retorno padrão `https://useorigens.com.br/sul`.

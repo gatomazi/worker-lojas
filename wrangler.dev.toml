@@ -4,5 +4,8 @@ compatibility_date = "2026-08-01"
 workers_dev = true
 
 # Sem rotas: staging só responde /__origens/health (workers.dev não espelha a INK).
+# Mesmos valores padrão da produção (garantido por test/config.test.js).
 [vars]
 ENABLE_WIDGET = "false"
+# Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense". Vazio = nenhuma página.
+WIDGET_ALLOWLIST = ""

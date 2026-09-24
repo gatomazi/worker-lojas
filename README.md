@@ -2,7 +2,7 @@
 
 Cloudflare Worker injeta **um único loader** no HTML da INK; o loader adiciona elementos ao DOM. Hoje o único widget é o link **"← Voltar a procurar"** na página de produto, apontando para `https://useorigens.com.br/sul`.
 
-Estado: **Fase 2A, nada publicado**. Sem deploy, sem rota em produção, sem alteração de DNS/Cloudflare. Evidências, riscos e rollback em [`docs/fase-2a.md`](docs/fase-2a.md); plano geral em [`docs/plan.md`](docs/plan.md).
+Estado: **Fase 2C (allowlist), nada publicado**. Sem deploy, sem rota em produção, sem alteração de DNS/Cloudflare. Evidências, riscos e rollback em [`docs/fase-2a.md`](docs/fase-2a.md), [`docs/fase-2b-smoke.md`](docs/fase-2b-smoke.md) e [`docs/fase-2c-allowlist.md`](docs/fase-2c-allowlist.md); plano geral em [`docs/plan.md`](docs/plan.md).
 
 ## Estrutura
 
@@ -14,17 +14,21 @@ Estado: **Fase 2A, nada publicado**. Sem deploy, sem rota em produção, sem alt
 | `wrangler.production.toml` | Duas rotas em `www.usesul.com.br`. **Não publicar** antes da ativação (ver docs). |
 | `test/` | `worker.test.js` (mock), `integration.workerd.test.js` (HTMLRewriter real via Miniflare/workerd), `loader.dom.test.js` (jsdom), `fixtures/`. |
 
-## Flag `ENABLE_WIDGET`
+## Flags
 
-`"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (só loga o que seria injetado) · `"true"`. Com `false`, o Worker repassa tudo intacto e o loader responde um no-op.
+`ENABLE_WIDGET`: `"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (nada é reescrito; só loga o caminho) · `"true"`.
+
+`WIDGET_ALLOWLIST`: caminhos **exatos** de produto separados por vírgula, ex. `"/usesul/product/serra-catarinense"`. Vazia, ausente ou com qualquer entrada malformada = **nenhuma página** (fail-closed). Sem curinga, prefixo, query ou barra final.
+
+Com `true`, o loader só é injetado em caminhos da allowlist (e o próprio loader só monta neles, inclusive em navegação Turbo). Com `false`, o Worker repassa tudo intacto e o loader responde um no-op. Formato completo em [`docs/fase-2c-allowlist.md`](docs/fase-2c-allowlist.md).
 
 ## Rodar localmente (sem tokens, sem rede, sem DNS)
 
 ```bash
 npm install
-npm test          # 33 testes; usa workerd local, não a Cloudflare
+npm test          # usa workerd local (Miniflare), não a Cloudflare
 npm run dev       # wrangler dev com wrangler.dev.toml
-curl http://localhost:8787/__origens/health
+curl http://localhost:8787/__origens/health   # widget_mode, allowlist_status, allowlist_size
 ```
 
 `npm test` não exige login em nenhum serviço. O `workers.dev`/`wrangler dev` **não** espelha a INK: só responde `/__origens/health`.
@@ -36,7 +40,7 @@ curl http://localhost:8787/__origens/health
 
 ## Ativação (resumo; detalhes em `docs/fase-2a.md`)
 
-Zona `Active` → testes com `www` DNS only → proxy laranja no `www` → compra nativa **sem** Worker → publicar Worker com `ENABLE_WIDGET="false"` → `dry-run` → `true` supervisionado. Rollback: flag `false`; depois remover rotas; por último `www` a DNS only.
+Painel conferido → preview isolado → rotas do `www` com `ENABLE_WIDGET="false"` → `dry-run` → `true` com **uma** URL na allowlist → ampliar. Cada etapa com aprovação. Rollback: flag `false`; depois remover rotas; por último `www` a DNS only.
 
 ## Limites
 

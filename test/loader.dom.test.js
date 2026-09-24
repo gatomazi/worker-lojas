@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
-import { LOADER_SOURCE } from '../src/loader-source.js';
+import { LOADER_SOURCE, buildLoaderSource } from '../src/loader-source.js';
 
 // jsdom: sem layout real. getClientRects é simulado; a verificação visual em navegador real é separada.
 const FIXTURE = readFileSync(new URL('./fixtures/product-page.html', import.meta.url), 'utf8');
 const LINK = 'use-origens-return-link';
+const ALLOWED = ['/usesul/product/serra-catarinense', '/usesul/product/x'];
+const SOURCE = buildLoaderSource(ALLOWED);
 const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function page({ url = 'https://www.usesul.com.br/usesul/product/serra-catarinense', html = FIXTURE } = {}) {
@@ -16,7 +18,7 @@ function page({ url = 'https://www.usesul.com.br/usesul/product/serra-catarinens
 }
 
 async function load(dom) {
-  dom.window.eval(LOADER_SOURCE);
+  dom.window.eval(SOURCE);
   await tick();
   return dom.window.document;
 }
@@ -35,7 +37,7 @@ test('mounts one link right after the in-flow CTA, not in the fixed mobile bar',
 test('is idempotent: running the loader twice never duplicates the link', async () => {
   const dom = page();
   const doc = await load(dom);
-  dom.window.eval(LOADER_SOURCE);
+  dom.window.eval(SOURCE);
   await tick();
   assert.equal(links(doc).length, 1);
 });
@@ -95,4 +97,70 @@ test('loader source has no network calls, no click interception and no cookie/st
   for (const forbidden of [/fetch\(/, /XMLHttpRequest/, /sendBeacon/, /addEventListener\(\s*['"]click/, /document\.cookie/, /localStorage/, /sessionStorage/, /\.submit\(/]) {
     assert.doesNotMatch(LOADER_SOURCE, forbidden);
   }
+});
+
+// ---- allowlist embutida no loader + navegação Turbo (simulada em jsdom; o Turbo real fica para o navegador)
+const OTHER = '/usesul/product/vida-no-sul-estancia-edition';
+
+// Simula o que o Turbo Drive faz: troca URL e <body> sem recarregar o JS, e emite turbo:render/turbo:load.
+async function turboVisit(dom, path, bodyHtml) {
+  dom.window.history.pushState({}, '', path);
+  const fresh = dom.window.document.createElement('body');
+  fresh.innerHTML = bodyHtml;
+  dom.window.document.body.replaceWith(fresh);
+  dom.window.document.dispatchEvent(new dom.window.Event('turbo:render'));
+  dom.window.document.dispatchEvent(new dom.window.Event('turbo:load'));
+  await tick();
+}
+const cleanBody = () => FIXTURE.match(/<body[^>]*>([\s\S]*)<\/body>/)[1];
+
+test('an empty embedded allowlist never mounts (fail-closed)', async () => {
+  const dom = page();
+  dom.window.eval(LOADER_SOURCE);
+  await tick();
+  assert.equal(links(dom.window.document).length, 0);
+});
+
+test('a path outside the embedded allowlist never mounts, even with a product-shaped URL', async () => {
+  const dom = page({ url: 'https://www.usesul.com.br' + OTHER });
+  const doc = await load(dom);
+  assert.equal(links(doc).length, 0);
+});
+
+test('a query string on an allowed path still mounts (matching is by path)', async () => {
+  const doc = await load(page({ url: 'https://www.usesul.com.br/usesul/product/serra-catarinense?utm_source=x&variant=2' }));
+  assert.equal(links(doc).length, 1);
+});
+
+test('a look-alike path (trailing slash, other case, suffix) never mounts', async () => {
+  for (const path of ['/usesul/product/serra-catarinense/', '/usesul/product/Serra-Catarinense', '/usesul/product/serra-catarinense-2']) {
+    assert.equal(links(await load(page({ url: 'https://www.usesul.com.br' + path }))).length, 0, path);
+  }
+});
+
+test('Turbo: allowed -> not allowed removes the link and mounts nothing; back to allowed mounts once', async () => {
+  const dom = page();
+  const doc = await load(dom);
+  assert.equal(links(doc).length, 1);
+  await turboVisit(dom, OTHER, cleanBody());
+  assert.equal(links(dom.window.document).length, 0);
+  await turboVisit(dom, '/usesul/product/serra-catarinense', cleanBody());
+  assert.equal(links(dom.window.document).length, 1);
+  await turboVisit(dom, '/usesul/product/x', cleanBody());
+  assert.equal(links(dom.window.document).length, 1);
+});
+
+test('Turbo re-executing the script tag (new head element) never duplicates', async () => {
+  const dom = page();
+  const doc = await load(dom);
+  for (let i = 0; i < 3; i++) dom.window.eval(SOURCE);
+  await turboVisit(dom, '/usesul/product/serra-catarinense', cleanBody());
+  dom.window.eval(SOURCE);
+  await tick();
+  assert.equal(links(doc).length, 1);
+});
+
+test('the embedded list is plain JSON of validated paths', () => {
+  assert.match(SOURCE, /const ALLOWED_PATHS = \["\/usesul\/product\/serra-catarinense","\/usesul\/product\/x"\];/);
+  assert.match(buildLoaderSource(), /const ALLOWED_PATHS = \[\];/);
 });
