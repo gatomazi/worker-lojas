@@ -21,8 +21,9 @@ function isEligibleRequest(request, url) {
 }
 
 // Redirects e erros da origem chegam ao cliente sem serem seguidos nem alterados.
-function passThrough(request) {
-  return fetch(request, { redirect: 'manual' });
+// `upstream` é o fetch da origem; em produção é o fetch global (ver createWorker).
+function passThrough(request, upstream) {
+  return upstream(request, { redirect: 'manual' });
 }
 
 // Logs estruturados sem cookie, sessão nem query string: só o caminho do produto (público).
@@ -62,13 +63,13 @@ function serveLoader(request, mode, allowlist) {
   });
 }
 
-async function injectLoader(request, url, mode, allowlist) {
+async function injectLoader(request, url, mode, allowlist, upstream) {
   const allowlisted = allowlist.paths.includes(url.pathname);
 
   // Fail-closed: fora da allowlist nada é reescrito, e nem sequer se olha a resposta.
-  if (mode === 'true' && !allowlisted) return passThrough(request);
+  if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
 
-  const response = await passThrough(request);
+  const response = await passThrough(request, upstream);
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
@@ -104,31 +105,38 @@ async function injectLoader(request, url, mode, allowlist) {
   return new Response(transformed.body, { status: response.status, statusText: response.statusText, headers });
 }
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const mode = widgetMode(env);
-    const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
+// Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
+// (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
+export function createWorker(upstream) {
+  return {
+    async fetch(request, env) {
+      const url = new URL(request.url);
+      const mode = widgetMode(env);
+      const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
 
-    // Health não depende da origem: valida a publicação antes de qualquer ativação.
-    if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
-      return Response.json({
-        service: 'use-sul-widget',
-        version: LOADER_VERSION,
-        widget_mode: mode,
-        allowlist_status: allowlist.status,
-        allowlist_size: allowlist.paths.length
-      });
+      // Health não depende da origem: valida a publicação antes de qualquer ativação.
+      if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
+        return Response.json({
+          service: 'use-sul-widget',
+          version: LOADER_VERSION,
+          widget_mode: mode,
+          allowlist_status: allowlist.status,
+          allowlist_size: allowlist.paths.length
+        });
+      }
+
+      // workers.dev não é espelho da INK.
+      if (url.hostname !== HOST) {
+        return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
+      }
+
+      if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist);
+
+      if (mode === 'false' || !isEligibleRequest(request, url)) return passThrough(request, upstream);
+      return injectLoader(request, url, mode, allowlist, upstream);
     }
+  };
+}
 
-    // workers.dev não é espelho da INK.
-    if (url.hostname !== HOST) {
-      return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
-    }
-
-    if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist);
-
-    if (mode === 'false' || !isEligibleRequest(request, url)) return passThrough(request);
-    return injectLoader(request, url, mode, allowlist);
-  }
-};
+// O fetch global é resolvido a cada chamada (os testes com mock substituem globalThis.fetch).
+export default createWorker((request, init) => fetch(request, init));

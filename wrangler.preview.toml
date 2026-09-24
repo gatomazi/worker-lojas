@@ -1,0 +1,18 @@
+# Configuração EXCLUSIVA do Worker Preview isolado (Etapa 1). NÃO é a produção.
+# - Nome próprio (diferente de "use-sul-widget"): nenhum comando aqui toca no Worker de produção.
+# - Sem rotas, sem domínio customizado, sem bindings, sem secrets.
+# - main é a entrada de preview (fixtures); a produção continua usando src/worker.js.
+# Uso: npm run preview   (= wrangler preview -c wrangler.preview.toml --ignore-base-config --name etapa1-fixture)
+name = "use-sul-widget-preview"
+main = "src/preview-entry.js"
+compatibility_date = "2026-08-01"
+workers_dev = false
+
+[vars]
+ENABLE_WIDGET = "false"
+WIDGET_ALLOWLIST = ""
+
+# Previews NÃO herdam o bloco de produção: valores repetidos de propósito.
+[previews.vars]
+ENABLE_WIDGET = "false"
+WIDGET_ALLOWLIST = ""
