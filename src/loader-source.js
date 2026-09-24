@@ -8,16 +8,19 @@ import { DRAWER_WATCH } from './loader/drawer-watch.js';
 import { CART_WATCH } from './loader/cart-watch.js';
 import { DISCOVERY_LOADER } from './loader/discovery-loader.js';
 import { CART_MIRROR } from './loader/cart-mirror.js';
+import { TRACKING } from './loader/tracking.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '4.0';
+export const LOADER_VERSION = '4.1';
 export { buildDiscoverySource };
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
 // então JSON.stringify é seguro aqui.
 export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES) {
   const parts = [RUNTIME_HEAD];
+  // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
+  if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery')) parts.push(TRACKING);
   if (features.includes('return-link')) parts.push(RETURN_LINK);
   if (features.includes('post-add-discovery') || features.includes('cart-discovery')) parts.push(DISCOVERY_LOADER);
   if (features.includes('post-add-discovery')) parts.push(DRAWER_WATCH);

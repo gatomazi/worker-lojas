@@ -70,14 +70,17 @@ test('only OUR links to the storefront get ?cart_ref=, at click time; INK links 
   t.doc.body.insertAdjacentHTML('beforeend', '<section data-origens-discovery="cart"><a id="ours" href="https://useorigens.com.br/sul">x</a><a id="ours-city" href="https://useorigens.com.br/sul/sc/florianopolis">y</a><a id="ours-evil" href="https://evil.example/sul">z</a></section><a id="ink" href="https://useorigens.com.br/sul">nativo</a>');
   t.doc.getElementById('ours').click(); t.doc.getElementById('ours-city').click(); t.doc.getElementById('ours-evil').click(); t.doc.getElementById('ink').click();
   t.doc.getElementById('use-origens-return-link').click();
-  assert.deepEqual(t.navigations, ['https://useorigens.com.br/sul?cart_ref=' + REF, 'https://useorigens.com.br/sul/sc/florianopolis?cart_ref=' + REF, 'https://evil.example/sul', 'https://useorigens.com.br/sul', 'https://useorigens.com.br/sul?cart_ref=' + REF]);
+  // Só os NOSSOS links levam cart_ref (mirror) e o marcador de origem (tracking); links da INK/outros hosts passam intactos.
+  const drawer = '?origens_src=ink_cart_drawer&origens_p=serra-catarinense&cart_ref=' + REF;
+  assert.deepEqual(t.navigations, ['https://useorigens.com.br/sul' + drawer, 'https://useorigens.com.br/sul/sc/florianopolis' + drawer, 'https://evil.example/sul', 'https://useorigens.com.br/sul', 'https://useorigens.com.br/sul?origens_src=ink_product_return&origens_p=serra-catarinense&cart_ref=' + REF]);
 });
 
 test('no ref (backend down, 501, bad payload) => plain links, cart untouched, no errors surface', async () => {
   for (const impl of [() => new Response('{"error":"not_configured"}', { status: 501 }), () => new Response('lixo', { status: 201 }), () => new Response(JSON.stringify({ ref: '../../x' }), { status: 201 }), () => { throw new Error('rede'); }]) {
     const t = setup({ fetchImpl: impl }); await tick(1300);
     t.doc.getElementById('use-origens-return-link').click();
-    assert.deepEqual(t.navigations, ['https://useorigens.com.br/sul']);
+    // sem ref: só o marcador de origem (nunca cart_ref) e o carrinho da INK intacto
+    assert.deepEqual(t.navigations, ['https://useorigens.com.br/sul?origens_src=ink_product_return&origens_p=serra-catarinense']);
     assert.equal(t.doc.querySelectorAll('li.main-list__item').length, 1);
   }
 });

@@ -39,9 +39,10 @@ test('loader bundles ONLY the enabled modules', () => {
   assert.ok(both.includes("window.__useOrigensLoader = '" + LOADER_VERSION + "'"));
 });
 
+// Desde o loader 4.1 o núcleo ESCUTA cliques (medição + marcador de origem em capture), mas nunca intercepta: sem preventDefault/stopPropagation.
 test('the core loader stays free of network calls, click interception, cookies and storage', () => {
   const core = buildLoaderSource(['/usesul/product/serra-catarinense'], ['return-link', 'post-add-discovery', 'city-search']);
-  for (const forbidden of [/fetch\(/, /XMLHttpRequest/, /sendBeacon/, /addEventListener\(\s*['"]click/, /document\.cookie/, /localStorage|sessionStorage|indexedDB/, /\.submit\(/, /innerHTML|insertAdjacentHTML|document\.write|\beval\(/]) {
+  for (const forbidden of [/fetch\(/, /XMLHttpRequest/, /sendBeacon/, /preventDefault|stopPropagation|stopImmediatePropagation/, /document\.cookie/, /localStorage|sessionStorage|indexedDB/, /\.submit\(/, /innerHTML|insertAdjacentHTML|document\.write|\beval\(/]) {
     assert.doesNotMatch(core, forbidden, String(forbidden));
   }
 });
