@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { Miniflare } from 'miniflare';
 import { JSDOM } from 'jsdom';
+import { workerModules } from './helpers.js';
 
 // HTMLRewriter REAL do runtime workerd. A origem (INK) é um stub via outboundService: nenhuma rede.
 // Isto valida o Worker no runtime; NÃO valida o edge Cloudflare nem a INK real.
@@ -14,9 +15,6 @@ const LOADER_TAG_RE = /<script src="\/__origens\/loader\.js\?v=[^"]+" defer data
 
 // Fail-closed: 'true' só injeta em caminhos da allowlist. Slugs abaixo cobrem os cenários dos testes.
 const ALLOW = ['serra-catarinense', 'nao-existe', 'x', 'data', 'p'].map((slug) => '/usesul/product/' + slug).join(',');
-const MODULES = ['worker.js', 'loader-source.js', 'allowlist.js']
-  .map((file) => ({ type: 'ESModule', path: new URL('../src/' + file, import.meta.url).pathname }));
-
 let origin = { calls: [], respond: () => new Response('unset', { status: 500 }) };
 const instances = new Map();
 // Saída do runtime (console.* do Worker), para conferir o que é registrado e o que NÃO pode ser.
@@ -27,7 +25,7 @@ async function worker(mode, allowlist = ALLOW) {
   const key = mode + '|' + allowlist;
   if (!instances.has(key)) {
     instances.set(key, new Miniflare({
-      modules: MODULES,
+      ...workerModules(),
       compatibilityDate: '2026-08-01',
       handleRuntimeStdio: captureStdio,
       bindings: { ENABLE_WIDGET: mode, WIDGET_ALLOWLIST: allowlist },
@@ -104,7 +102,7 @@ test('flag ON: gzip origin over real HTTP is never corrupted (fail-safe pass-thr
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   const mf = new Miniflare({
-    modules: MODULES,
+    ...workerModules(),
     compatibilityDate: '2026-08-01',
     bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: ALLOW },
     outboundService: (request) => fetch(request.url.replace(HOST, 'http://127.0.0.1:' + port), { headers: request.headers })

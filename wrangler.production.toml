@@ -17,6 +17,8 @@ zone_name = "usesul.com.br"
 [vars]
 # "false" (padrão) | "dry-run" (só loga, não altera HTML) | "true" (injeta SOMENTE na allowlist).
 ENABLE_WIDGET = "false"
+# Módulos do loader liberados por deploy (return-link | post-add-discovery | city-search). Não amplia páginas.
+WIDGET_FEATURES = "return-link"
 # Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense".
 # Vazio/ausente/malformado = nenhuma página (fail-closed). Sem curinga, prefixo, query ou barra final.
 WIDGET_ALLOWLIST = ""

@@ -7,5 +7,7 @@ workers_dev = true
 # Mesmos valores padrão da produção (garantido por test/config.test.js).
 [vars]
 ENABLE_WIDGET = "false"
+# Módulos do loader liberados por deploy (return-link | post-add-discovery | city-search). Não amplia páginas.
+WIDGET_FEATURES = "return-link"
 # Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense". Vazio = nenhuma página.
 WIDGET_ALLOWLIST = ""

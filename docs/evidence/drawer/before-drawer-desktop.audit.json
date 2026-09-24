@@ -1,0 +1,133 @@
+{
+ "viewport": {
+  "w": 1280,
+  "h": 900
+ },
+ "modalWrapper": {
+  "x": 0,
+  "y": 0,
+  "w": 1280,
+  "h": 900,
+  "position": "fixed",
+  "display": "flex",
+  "zIndex": "50",
+  "overflow": "hidden auto",
+  "backgroundColor": "rgba(0, 0, 0, 0)"
+ },
+ "chain": [
+  "turbo-frame#last_added_product {\"x\":0,\"y\":-313,\"w\":0,\"h\":0} static",
+  "div {\"x\":0,\"y\":-418,\"w\":1280,\"h\":2834} static"
+ ],
+ "tree": [
+  "div#modal-wrapper.add-product-modal.overflow-y-auto.overflow-x-hidden  \" \"  [fixed]",
+  "  div.relative.w-full.md:h-[100dvh]  \"  \"  [relative]",
+  "    div.w-full.p-4.md:min-h-screen  \"     \"  [relative]",
+  "      div.flex.items-center.justify-between  \"  \"",
+  "        div.flex.items-center  \"  \"",
+  "          h3.text-center.font-medium.text-black-500  \"Produto adicionado ao carrinho\"",
+  "        button#modal-close-button.focus:ring-4.font-medium.text-center  \" \"",
+  "      div.flex.flex-col.add-product-modal__modal-content__footer  \"  \"",
+  "        button.flex.flex-row.checkout-btn  \"  \"",
+  "          span.pl-2  \"Ver carrinho\"",
+  "        button#continue-shopping-button.flex.flex-row.bg-white  \" \"",
+  "          span.pl-2  \"Continuar comprando\"",
+  "      turbo-frame#most_sold_frame.w-full  \"  \"",
+  "        h3.text-left.pt-6.font-medium  \"As mais vendidas\"",
+  "        div.flex.flex-row.mt-4  \" \"",
+  "          ul.flex.gap-2.overflow-x-auto  \"         \"",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4933168.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932737.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932765.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932801.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932815.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932825.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932852.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932866.w-[130px].h-[135px].object-cover",
+  "            li.flex.shrink-0.h-[135px]  \" \"",
+  "              a.flex.shrink-0.h-[135px]  \" \"",
+  "                img#image-4932876.w-[130px].h-[135px].object-cover"
+ ],
+ "verCarrinho": {
+  "x": 858,
+  "y": 80,
+  "w": 406,
+  "h": 41,
+  "tag": "BUTTON",
+  "href": null,
+  "fontFamily": "Poppins, sans-serif",
+  "fontSize": "14px",
+  "fontWeight": "500",
+  "color": "rgb(255, 255, 255)",
+  "backgroundColor": "rgb(31, 41, 55)",
+  "borderRadius": "8px",
+  "lineHeight": "20px",
+  "letterSpacing": "normal",
+  "padding": "8px 12px"
+ },
+ "continuar": {
+  "x": 858,
+  "y": 133,
+  "w": 406,
+  "h": 41,
+  "tag": "BUTTON",
+  "fontFamily": "Poppins, sans-serif",
+  "fontSize": "14px",
+  "fontWeight": "500",
+  "color": "rgb(0, 0, 0)",
+  "backgroundColor": "rgb(255, 255, 255)",
+  "borderRadius": "8px",
+  "lineHeight": "20px",
+  "letterSpacing": "normal",
+  "padding": "8px 12px"
+ },
+ "nativeCta": {
+  "fontFamily": "Poppins, sans-serif",
+  "fontSize": "16px",
+  "fontWeight": "400",
+  "color": "rgb(255, 255, 255)",
+  "backgroundColor": "rgb(77, 84, 61)",
+  "borderRadius": "80px",
+  "lineHeight": "24px",
+  "letterSpacing": "normal",
+  "padding": "10px 36px"
+ },
+ "bodyFont": {
+  "fontFamily": "Poppins, sans-serif",
+  "fontSize": "16px",
+  "color": "rgb(0, 0, 0)"
+ },
+ "scrollables": [],
+ "closeButtons": [
+  "button#modal-close-button.focus:ring-4.font-medium.text-center aria=null action=ink-store--product-modal#closeModal",
+  "button#continue-shopping-button.flex.flex-row.bg-white aria=null action=click->ink-store--product-modal#closeModal"
+ ],
+ "ariaRole": {
+  "role": "dialog",
+  "ariaModal": "true",
+  "dialogs": [
+   "div#modal-wrapper.add-product-modal.overflow-y-auto.overflow-x-hidden"
+  ]
+ },
+ "bodyOverflow": "hidden",
+ "hScroll": 1280,
+ "preAdd": {
+  "modalWrapper": false,
+  "lastAdded": true
+ }
+}

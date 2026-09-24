@@ -27,7 +27,10 @@ try {
   const links0 = await page.evaluate(() => document.querySelectorAll('#use-origens-return-link').length);
   check('produto abre e CTA existe' + (phase === 'on' ? ' (1 link nosso)' : ' (0 links)'), (await page.locator('#add-to-cart-desk').count()) === 1 && links0 === (phase === 'on' ? 1 : 0), 'links=' + links0);
   // mesmo caminho que um visitante: clicar nas opções e no CTA
-  await page.locator('label[for="4932916-model-Masculino"]').click();
+  // As opções de variante da INK só carregam quando a área de compra entra na viewport (lazy).
+await page.evaluate(() => document.querySelector('#add-to-cart-desk')?.scrollIntoView({ block: 'center' }));
+await page.waitForFunction(() => !!document.getElementById('4932916-model-Masculino'), null, { timeout: 30000 });
+await page.locator('label[for="4932916-model-Masculino"]').click();
   await page.locator('label[for="4932916-color-Preta"]').click();
   await page.locator('label[for="4932916-size-M"]').click();
   await page.waitForFunction(() => document.getElementById('product-variant-id-4932916')?.value > 0, null, { timeout: 10000 });

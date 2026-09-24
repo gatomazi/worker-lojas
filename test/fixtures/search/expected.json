@@ -1,0 +1,988 @@
+{
+ "generatedFrom": "useorigens-storefront src/lib/search/rank.ts (limit 5, ufs PR/SC/RS)",
+ "cities": 1191,
+ "queries": [
+  {
+   "q": "floripa",
+   "results": [
+    {
+     "type": "city",
+     "n": "Florianópolis",
+     "u": "SC",
+     "s": "florianopolis",
+     "score": 95
+    }
+   ]
+  },
+  {
+   "q": "florianopolis",
+   "results": [
+    {
+     "type": "city",
+     "n": "Florianópolis",
+     "u": "SC",
+     "s": "florianopolis",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "Florianópolis",
+   "results": [
+    {
+     "type": "city",
+     "n": "Florianópolis",
+     "u": "SC",
+     "s": "florianopolis",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "FLORIANOPOLIS",
+   "results": [
+    {
+     "type": "city",
+     "n": "Florianópolis",
+     "u": "SC",
+     "s": "florianopolis",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "ctba",
+   "results": [
+    {
+     "type": "city",
+     "n": "Curitiba",
+     "u": "PR",
+     "s": "curitiba",
+     "score": 95
+    }
+   ]
+  },
+  {
+   "q": "curitiba",
+   "results": [
+    {
+     "type": "city",
+     "n": "Curitiba",
+     "u": "PR",
+     "s": "curitiba",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Curitibanos",
+     "u": "SC",
+     "s": "curitibanos",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "poa",
+   "results": [
+    {
+     "type": "city",
+     "n": "Porto Alegre",
+     "u": "RS",
+     "s": "porto-alegre",
+     "score": 95
+    },
+    {
+     "type": "city",
+     "n": "Itapoá",
+     "u": "SC",
+     "s": "itapoa",
+     "score": 30
+    }
+   ]
+  },
+  {
+   "q": "porto alegre",
+   "results": [
+    {
+     "type": "city",
+     "n": "Porto Alegre",
+     "u": "RS",
+     "s": "porto-alegre",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "foz",
+   "results": [
+    {
+     "type": "city",
+     "n": "Foz do Iguaçu",
+     "u": "PR",
+     "s": "foz-do-iguacu",
+     "score": 95
+    },
+    {
+     "type": "city",
+     "n": "Foz do Jordão",
+     "u": "PR",
+     "s": "foz-do-jordao",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "foz do iguacu",
+   "results": [
+    {
+     "type": "city",
+     "n": "Foz do Iguaçu",
+     "u": "PR",
+     "s": "foz-do-iguacu",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "bc",
+   "results": [
+    {
+     "type": "city",
+     "n": "Balneário Camboriú",
+     "u": "SC",
+     "s": "balneario-camboriu",
+     "score": 95
+    }
+   ]
+  },
+  {
+   "q": "caxias",
+   "results": [
+    {
+     "type": "city",
+     "n": "Caxias do Sul",
+     "u": "RS",
+     "s": "caxias-do-sul",
+     "score": 95
+    }
+   ]
+  },
+  {
+   "q": "sao",
+   "results": [
+    {
+     "type": "city",
+     "n": "São João",
+     "u": "PR",
+     "s": "sao-joao",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São José",
+     "u": "SC",
+     "s": "sao-jose",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Sepé",
+     "u": "RS",
+     "s": "sao-sepe",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Tomé",
+     "u": "PR",
+     "s": "sao-tome",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Borja",
+     "u": "RS",
+     "s": "sao-borja",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "são",
+   "results": [
+    {
+     "type": "city",
+     "n": "São João",
+     "u": "PR",
+     "s": "sao-joao",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São José",
+     "u": "SC",
+     "s": "sao-jose",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Sepé",
+     "u": "RS",
+     "s": "sao-sepe",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Tomé",
+     "u": "PR",
+     "s": "sao-tome",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São Borja",
+     "u": "RS",
+     "s": "sao-borja",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "santa",
+   "results": [
+    {
+     "type": "city",
+     "n": "Santa Fé",
+     "u": "PR",
+     "s": "santa-fe",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Inês",
+     "u": "PR",
+     "s": "santa-ines",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Rosa",
+     "u": "RS",
+     "s": "santa-rosa",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Lúcia",
+     "u": "PR",
+     "s": "santa-lucia",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Maria",
+     "u": "RS",
+     "s": "santa-maria",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "santa maria",
+   "results": [
+    {
+     "type": "city",
+     "n": "Santa Maria",
+     "u": "RS",
+     "s": "santa-maria",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Santa Mariana",
+     "u": "PR",
+     "s": "santa-mariana",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Maria do Oeste",
+     "u": "PR",
+     "s": "santa-maria-do-oeste",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Santa Maria do Herval",
+     "u": "RS",
+     "s": "santa-maria-do-herval",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "sc",
+   "results": [
+    {
+     "type": "state",
+     "uf": "SC",
+     "name": "Santa Catarina",
+     "score": 90
+    },
+    {
+     "type": "city",
+     "n": "Schroeder",
+     "u": "SC",
+     "s": "schroeder",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "rs",
+   "results": [
+    {
+     "type": "state",
+     "uf": "RS",
+     "name": "Rio Grande do Sul",
+     "score": 90
+    }
+   ]
+  },
+  {
+   "q": "pr",
+   "results": [
+    {
+     "type": "state",
+     "uf": "PR",
+     "name": "Paraná",
+     "score": 90
+    },
+    {
+     "type": "city",
+     "n": "Princesa",
+     "u": "SC",
+     "s": "princesa",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Pranchita",
+     "u": "PR",
+     "s": "pranchita",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Progresso",
+     "u": "RS",
+     "s": "progresso",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Praia Grande",
+     "u": "SC",
+     "s": "praia-grande",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "SC",
+   "results": [
+    {
+     "type": "state",
+     "uf": "SC",
+     "name": "Santa Catarina",
+     "score": 90
+    },
+    {
+     "type": "city",
+     "n": "Schroeder",
+     "u": "SC",
+     "s": "schroeder",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "santa catarina",
+   "results": [
+    {
+     "type": "state",
+     "uf": "SC",
+     "name": "Santa Catarina",
+     "score": 60
+    }
+   ]
+  },
+  {
+   "q": "parana",
+   "results": [
+    {
+     "type": "city",
+     "n": "Paranaguá",
+     "u": "PR",
+     "s": "paranagua",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranavaí",
+     "u": "PR",
+     "s": "paranavai",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranacity",
+     "u": "PR",
+     "s": "paranacity",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranapoema",
+     "u": "PR",
+     "s": "paranapoema",
+     "score": 80
+    },
+    {
+     "type": "state",
+     "uf": "PR",
+     "name": "Paraná",
+     "score": 60
+    }
+   ]
+  },
+  {
+   "q": "paraná",
+   "results": [
+    {
+     "type": "city",
+     "n": "Paranaguá",
+     "u": "PR",
+     "s": "paranagua",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranavaí",
+     "u": "PR",
+     "s": "paranavai",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranacity",
+     "u": "PR",
+     "s": "paranacity",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Paranapoema",
+     "u": "PR",
+     "s": "paranapoema",
+     "score": 80
+    },
+    {
+     "type": "state",
+     "uf": "PR",
+     "name": "Paraná",
+     "score": 60
+    }
+   ]
+  },
+  {
+   "q": "rio grande",
+   "results": [
+    {
+     "type": "city",
+     "n": "Rio Grande",
+     "u": "RS",
+     "s": "rio-grande",
+     "score": 100
+    },
+    {
+     "type": "state",
+     "uf": "RS",
+     "name": "Rio Grande do Sul",
+     "score": 60
+    },
+    {
+     "type": "city",
+     "n": "Fazenda Rio Grande",
+     "u": "PR",
+     "s": "fazenda-rio-grande",
+     "score": 30
+    }
+   ]
+  },
+  {
+   "q": "joinville",
+   "results": [
+    {
+     "type": "city",
+     "n": "Joinville",
+     "u": "SC",
+     "s": "joinville",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "blumenau",
+   "results": [
+    {
+     "type": "city",
+     "n": "Blumenau",
+     "u": "SC",
+     "s": "blumenau",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "gramado",
+   "results": [
+    {
+     "type": "city",
+     "n": "Gramado",
+     "u": "RS",
+     "s": "gramado",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Gramado Xavier",
+     "u": "RS",
+     "s": "gramado-xavier",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Gramado dos Loureiros",
+     "u": "RS",
+     "s": "gramado-dos-loureiros",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "torres",
+   "results": [
+    {
+     "type": "city",
+     "n": "Torres",
+     "u": "RS",
+     "s": "torres",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Passo de Torres",
+     "u": "SC",
+     "s": "passo-de-torres",
+     "score": 55
+    }
+   ]
+  },
+  {
+   "q": "ijui",
+   "results": [
+    {
+     "type": "city",
+     "n": "Ijuí",
+     "u": "RS",
+     "s": "ijui",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Entre-Ijuís",
+     "u": "RS",
+     "s": "entre-ijuis",
+     "score": 55
+    }
+   ]
+  },
+  {
+   "q": "ijuí",
+   "results": [
+    {
+     "type": "city",
+     "n": "Ijuí",
+     "u": "RS",
+     "s": "ijui",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Entre-Ijuís",
+     "u": "RS",
+     "s": "entre-ijuis",
+     "score": 55
+    }
+   ]
+  },
+  {
+   "q": "agudos",
+   "results": [
+    {
+     "type": "city",
+     "n": "Agudos do Sul",
+     "u": "PR",
+     "s": "agudos-do-sul",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "do sul",
+   "results": [
+    {
+     "type": "city",
+     "n": "Rio do Sul",
+     "u": "SC",
+     "s": "rio-do-sul",
+     "score": 30
+    },
+    {
+     "type": "city",
+     "n": "Cocal do Sul",
+     "u": "SC",
+     "s": "cocal-do-sul",
+     "score": 30
+    },
+    {
+     "type": "city",
+     "n": "Piraí do Sul",
+     "u": "PR",
+     "s": "pirai-do-sul",
+     "score": 30
+    },
+    {
+     "type": "city",
+     "n": "Timbé do Sul",
+     "u": "SC",
+     "s": "timbe-do-sul",
+     "score": 30
+    },
+    {
+     "type": "city",
+     "n": "Agudos do Sul",
+     "u": "PR",
+     "s": "agudos-do-sul",
+     "score": 30
+    }
+   ]
+  },
+  {
+   "q": "nova",
+   "results": [
+    {
+     "type": "city",
+     "n": "Nova Araçá",
+     "u": "RS",
+     "s": "nova-araca",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Nova Cantu",
+     "u": "PR",
+     "s": "nova-cantu",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Nova Hartz",
+     "u": "RS",
+     "s": "nova-hartz",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Nova Pádua",
+     "u": "RS",
+     "s": "nova-padua",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Nova Palma",
+     "u": "RS",
+     "s": "nova-palma",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "sao jose",
+   "results": [
+    {
+     "type": "city",
+     "n": "São José",
+     "u": "SC",
+     "s": "sao-jose",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "São José do Sul",
+     "u": "RS",
+     "s": "sao-jose-do-sul",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São José do Ouro",
+     "u": "RS",
+     "s": "sao-jose-do-ouro",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São José do Cedro",
+     "u": "SC",
+     "s": "sao-jose-do-cedro",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "São José do Norte",
+     "u": "RS",
+     "s": "sao-jose-do-norte",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "d'oeste",
+   "results": [
+    {
+     "type": "city",
+     "n": "Herval d'Oeste",
+     "u": "SC",
+     "s": "herval-doeste",
+     "score": 55
+    },
+    {
+     "type": "city",
+     "n": "Pérola d'Oeste",
+     "u": "PR",
+     "s": "perola-doeste",
+     "score": 55
+    },
+    {
+     "type": "city",
+     "n": "Diamante D'Oeste",
+     "u": "PR",
+     "s": "diamante-doeste",
+     "score": 55
+    },
+    {
+     "type": "city",
+     "n": "Itapejara d'Oeste",
+     "u": "PR",
+     "s": "itapejara-doeste",
+     "score": 55
+    },
+    {
+     "type": "city",
+     "n": "São Jorge d'Oeste",
+     "u": "PR",
+     "s": "sao-jorge-doeste",
+     "score": 55
+    }
+   ]
+  },
+  {
+   "q": "pato",
+   "results": [
+    {
+     "type": "city",
+     "n": "Pato Branco",
+     "u": "PR",
+     "s": "pato-branco",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Pato Bragado",
+     "u": "PR",
+     "s": "pato-bragado",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "xyzq",
+   "results": []
+  },
+  {
+   "q": "zz",
+   "results": []
+  },
+  {
+   "q": "a",
+   "results": [
+    {
+     "type": "city",
+     "n": "Agudo",
+     "u": "RS",
+     "s": "agudo",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Anahy",
+     "u": "PR",
+     "s": "anahy",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Assaí",
+     "u": "PR",
+     "s": "assai",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Áurea",
+     "u": "RS",
+     "s": "aurea",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Abatiá",
+     "u": "PR",
+     "s": "abatia",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "ab",
+   "results": [
+    {
+     "type": "city",
+     "n": "Abatiá",
+     "u": "PR",
+     "s": "abatia",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Abelardo Luz",
+     "u": "SC",
+     "s": "abelardo-luz",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Abdon Batista",
+     "u": "SC",
+     "s": "abdon-batista",
+     "score": 80
+    },
+    {
+     "type": "city",
+     "n": "Cândido de Abreu",
+     "u": "PR",
+     "s": "candido-de-abreu",
+     "score": 55
+    }
+   ]
+  },
+  {
+   "q": "abc",
+   "results": []
+  },
+  {
+   "q": "  curitiba  ",
+   "results": [
+    {
+     "type": "city",
+     "n": "Curitiba",
+     "u": "PR",
+     "s": "curitiba",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Curitibanos",
+     "u": "SC",
+     "s": "curitibanos",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "curitiba!!",
+   "results": [
+    {
+     "type": "city",
+     "n": "Curitiba",
+     "u": "PR",
+     "s": "curitiba",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Curitibanos",
+     "u": "SC",
+     "s": "curitibanos",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "tijucas",
+   "results": [
+    {
+     "type": "city",
+     "n": "Tijucas",
+     "u": "SC",
+     "s": "tijucas",
+     "score": 100
+    },
+    {
+     "type": "city",
+     "n": "Tijucas do Sul",
+     "u": "PR",
+     "s": "tijucas-do-sul",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "q": "pomerode",
+   "results": [
+    {
+     "type": "city",
+     "n": "Pomerode",
+     "u": "SC",
+     "s": "pomerode",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "q": "pelotas",
+   "results": [
+    {
+     "type": "city",
+     "n": "Pelotas",
+     "u": "RS",
+     "s": "pelotas",
+     "score": 100
+    }
+   ]
+  }
+ ]
+}

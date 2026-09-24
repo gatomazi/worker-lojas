@@ -3,16 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Miniflare } from 'miniflare';
 import { FIXTURE_PAGE } from '../src/preview-fixtures.js';
+import { previewModules } from './helpers.js';
 
 // Entrada de PREVIEW (fixtures) rodando no workerd local. O env é HOSTIL de propósito
 // (ENABLE_WIDGET=true e allowlist cheia): a entrada de preview precisa ignorá-lo e nunca injetar.
-const MODULES = ['preview-entry.js', 'worker.js', 'allowlist.js', 'loader-source.js', 'preview-fixtures.js']
-  .map((file) => ({ type: 'ESModule', path: new URL('../src/' + file, import.meta.url).pathname }));
 const BASE = 'https://preview.example.workers.dev';
 
 const liveCalls = [];
 const mf = new Miniflare({
-  modules: MODULES,
+  ...previewModules(),
   compatibilityDate: '2026-08-01',
   bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: '/usesul/product/serra-catarinense,/usesul/product/outro' },
   outboundService: async (request) => {

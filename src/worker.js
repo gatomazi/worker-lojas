@@ -1,10 +1,14 @@
-import { buildLoaderSource, LOADER_VERSION } from './loader-source.js';
+import { buildLoaderSource, buildDiscoverySource, LOADER_VERSION } from './loader-source.js';
 import { parseAllowlist } from './allowlist.js';
+import { parseFeatures } from './features.js';
+import { createSearchGateway } from './search-gateway.js';
 
 const HOST = 'www.usesul.com.br';
 // Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
 const PRODUCT_PAGE = /^\/usesul\/product\/(?!__)[^/]+\/?$/;
 const LOADER_PATH = '/__origens/loader.js';
+const DISCOVERY_PATH = '/__origens/discovery.js';
+const SEARCH_PATH = '/__origens/search';
 const HEALTH_PATH = '/__origens/health';
 const LOADER_TAG = '<script src="' + LOADER_PATH + '?v=' + LOADER_VERSION +
   '" defer data-cfasync="false" data-use-origens-widget="' + LOADER_VERSION + '"></script>';
@@ -46,21 +50,32 @@ class ExistingLoaderDetector {
   element() { this.injector.alreadyPresent = true; }
 }
 
+function javascript(request, body, cache) {
+  return new Response(request.method === 'HEAD' ? null : body, {
+    status: 200,
+    headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': cache }
+  });
+}
+const DISABLED_JS = '/* use-origens widget disabled */';
+
 // Publicar o loader NÃO autoriza injetá-lo: quem autoriza páginas é só a allowlist, aplicada em
-// injectLoader e reaplicada dentro do próprio loader (embutida aqui).
-function serveLoader(request, mode, allowlist) {
+// injectLoader e reaplicada dentro do próprio loader (embutida aqui). Só entram os módulos de WIDGET_FEATURES.
+function serveLoader(request, mode, allowlist, features) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
   // Com a flag desligada (ou dry-run) o loader vira no-op: páginas em cache no navegador não quebram.
-  const body = mode === 'true' ? buildLoaderSource(allowlist.paths) : '/* use-origens widget disabled */';
-  return new Response(request.method === 'HEAD' ? null : body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/javascript; charset=utf-8',
-      'Cache-Control': mode === 'true' ? 'public, max-age=60' : 'no-store'
-    }
-  });
+  if (mode !== 'true') return javascript(request, DISABLED_JS, 'no-store');
+  return javascript(request, buildLoaderSource(allowlist.paths, features.features), 'public, max-age=60');
+}
+
+// Módulo de descoberta carregado sob demanda pelo loader, só quando o drawer pós-adição abre.
+function serveDiscovery(request, mode, features) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
+  }
+  if (mode !== 'true' || !features.features.includes('post-add-discovery')) return javascript(request, DISABLED_JS, 'no-store');
+  return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search') }), 'public, max-age=60');
 }
 
 async function injectLoader(request, url, mode, allowlist, upstream) {
@@ -107,12 +122,13 @@ async function injectLoader(request, url, mode, allowlist, upstream) {
 
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
-export function createWorker(upstream) {
+export function createWorker(upstream, { gateway = createSearchGateway() } = {}) {
   return {
     async fetch(request, env) {
       const url = new URL(request.url);
       const mode = widgetMode(env);
       const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
+      const features = parseFeatures(env.WIDGET_FEATURES);
 
       // Health não depende da origem: valida a publicação antes de qualquer ativação.
       if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
@@ -121,7 +137,9 @@ export function createWorker(upstream) {
           version: LOADER_VERSION,
           widget_mode: mode,
           allowlist_status: allowlist.status,
-          allowlist_size: allowlist.paths.length
+          allowlist_size: allowlist.paths.length,
+          features_status: features.status,
+          widget_features: features.features
         });
       }
 
@@ -130,9 +148,15 @@ export function createWorker(upstream) {
         return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
       }
 
-      if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist);
+      if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist, features);
+      if (url.pathname === DISCOVERY_PATH) return serveDiscovery(request, mode, features);
+      // Gateway de busca: só com a flag ligada E a feature city-search; caso contrário a INK responde (404 dela).
+      if (url.pathname === SEARCH_PATH) {
+        return mode === 'true' && features.features.includes('city-search') ? gateway.handle(request) : passThrough(request, upstream);
+      }
 
-      if (mode === 'false' || !isEligibleRequest(request, url)) return passThrough(request, upstream);
+      // Sem nenhum módulo liberado não há o que injetar (fail-closed).
+      if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url)) return passThrough(request, upstream);
       return injectLoader(request, url, mode, allowlist, upstream);
     }
   };
