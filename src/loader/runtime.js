@@ -1,0 +1,85 @@
+// runtime: escopo por rota (allowlist embutida), ciclo de vida Turbo, montagem/desmontagem idempotentes.
+// Regra inegociável: um loader vivo (o Turbo mantém o JS entre páginas) NÃO pode deixar UI nem agir fora da allowlist.
+export const RUNTIME_HEAD = String.raw`(() => {
+  'use strict';
+
+  // Turbo pode re-executar este script ao navegar entre páginas; só a primeira execução vale.
+  if (window.__useOrigensLoader) return;
+  window.__useOrigensLoader = '__VERSION__';
+
+  const ALLOWED_PATHS = __ALLOWED_PATHS__;
+  const FEATURES = __FEATURES__;
+  const PRODUCT_PATH = /^\/usesul\/product\/[^/]+$/;
+  // Rota canônica verificada do storefront. www.usesul.com.br/sul NÃO serve: responde 302 para /usesul.
+  const STOREFRONT_ORIGIN = 'https://useorigens.com.br';
+  const DEFAULT_RETURN = STOREFRONT_ORIGIN + '/sul';
+
+  const widgets = [];
+  const teardownCallbacks = [];
+  let timer = null;
+  let active = false;
+
+  // Só caminho exato da allowlist; lista vazia => nunca monta.
+  function pathAllowed(pathname) {
+    return window.location.hostname === 'www.usesul.com.br' && PRODUCT_PATH.test(pathname) && ALLOWED_PATHS.includes(pathname);
+  }
+  function allowedNow() { return pathAllowed(window.location.pathname); }
+
+  // Desmonta TUDO nosso: UI, estilos, observers, timers e requisições. Idempotente.
+  function teardown() {
+    active = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+    while (teardownCallbacks.length) { try { teardownCallbacks.pop()(); } catch (_) { /* nunca quebra a INK */ } }
+    for (const widget of widgets) { try { widget.unmount(); } catch (_) { /* idem */ } }
+  }
+  function sync() {
+    timer = null;
+    if (!allowedNow()) { if (active) teardown(); return; }
+    active = true;
+    for (const widget of widgets) {
+      try { widget.mount(); } catch (err) { console.warn('[Use Origens] widget ' + widget.id + ' failed (non-critical):', err); }
+    }
+  }
+  // setTimeout, não rAF: rAF não dispara em aba oculta.
+  function schedule() {
+    if (!allowedNow()) { if (active) teardown(); return; }
+    if (timer) return;
+    timer = setTimeout(sync, 50);
+  }
+  function register(widget) { widgets.push(widget); }
+
+  // Interface mínima para módulos carregados sob demanda. Congelada.
+  window.__useOrigens = Object.freeze({
+    version: '__VERSION__',
+    features: FEATURES.slice(),
+    storefront: STOREFRONT_ORIGIN,
+    allowed: allowedNow,
+    onTeardown(fn) { teardownCallbacks.push(fn); },
+    requestSync: schedule
+  });
+`;
+
+export const RUNTIME_TAIL = String.raw`
+  function start() {
+    schedule();
+    // Observa <html>: o Turbo Drive troca o <body> inteiro e um observer preso ao body antigo ficaria órfão.
+    new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+    // Saída da rota: desmonta na hora, sem esperar o próximo tick.
+    document.addEventListener('turbo:visit', (event) => {
+      try {
+        const url = event.detail && event.detail.url;
+        if (url && !pathAllowed(new URL(url, window.location.href).pathname)) teardown();
+      } catch (_) { /* ignora */ }
+    });
+    document.addEventListener('turbo:before-cache', () => { if (active) teardown(); });
+    for (const name of ['turbo:before-render', 'turbo:render', 'turbo:load', 'turbo:frame-render', 'turbo:frame-load']) document.addEventListener(name, schedule);
+    for (const name of ['popstate', 'pageshow']) window.addEventListener(name, schedule);
+  }
+
+  try {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+    else start();
+  } catch (err) {
+    console.warn('[Use Origens] loader failed (non-critical):', err);
+  }
+})();`;

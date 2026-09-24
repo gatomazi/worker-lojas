@@ -1,14 +1,30 @@
 name = "use-sul-widget"
 main = "src/worker.js"
-compatibility_date = "2026-09-23"
+compatibility_date = "2026-08-01"
 workers_dev = false
 
-# NÃO publicar a rota até a zona estar Active, www estar Proxied,
-# e uma compra de teste sem Worker funcionar corretamente.
+# NÃO PUBLICAR até: zona Active, www Proxied, e uma compra nativa validada SEM Worker.
+# Duas rotas, ambas restritas a www. Não há colisão: o loader vive em /__origens/ (fora de /usesul/).
 [[routes]]
 pattern = "www.usesul.com.br/usesul/product/*"
 zone_name = "usesul.com.br"
 
+[[routes]]
+pattern = "www.usesul.com.br/__origens/*"
+zone_name = "usesul.com.br"
+
+# Mesmos valores padrão do staging (garantido por test/config.test.js).
 [vars]
-# Mantenha false na primeira publicação; ligue apenas no teste supervisionado.
-WIDGET_ENABLED = "false"
+# "false" (padrão) | "dry-run" (só loga, não altera HTML) | "true" (injeta SOMENTE na allowlist).
+ENABLE_WIDGET = "false"
+# Módulos do loader liberados por deploy (return-link | post-add-discovery | city-search). Não amplia páginas.
+WIDGET_FEATURES = "return-link"
+# Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense".
+# Vazio/ausente/malformado = nenhuma página (fail-closed). Sem curinga, prefixo, query ou barra final.
+WIDGET_ALLOWLIST = ""
+
+# KV do espelho do carrinho (cart-mirror). Provisionado em 2026-09-24; o ID identifica o namespace, não é credencial.
+# As vars acima seguem fail-closed: produção recebe ENABLE_WIDGET/ALLOWLIST/FEATURES por --var no deploy (ver docs/fase-4-cart-bridge.md).
+[[kv_namespaces]]
+binding = "CART_REFS"
+id = "d399f7d61d1c466a8d50211e67ed9eab"

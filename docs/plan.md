@@ -1,5 +1,27 @@
 # Plano — Use Sul: Worker + widgets na INK
 
+> Atualização (Fase 4, fechamento, 2026-09-24): **`cart-mirror` ATIVO em produção só na Serra** (versão `f8178f82`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery,cart-mirror`, allowlist de 1 caminho não ampliada, KV `CART_REFS` provisionado e declarado em `wrangler.production.toml`, consumidor do storefront publicado). Rate limit da zona para `POST /__origens/cart-ref`: **PENDENTE** (falta permissão de WAF na sessão do Wrangler) — proposta e checklist em [`cart-ref-rate-limit.md`](cart-ref-rate-limit.md). Estado, limitações do snapshot e rollback em [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md).
+>
+> Atualização (Fase 4, rollout): **`cart-discovery` ATIVO em produção só na Serra** (versão `26fd5c8d`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery`, allowlist de 1 caminho; `cart-mirror` OFF, sem KV). 1ª tentativa teve rollback automático (gate 320×640 com 2 itens; correção `e3dca2a`); 2ª tentativa: QA ao vivo 6 viewports × (vazio+1, 2, 3, 8 variantes) + drawer, 0 falhas. Ver [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md) e [`plano-storefront-useorigens.md`](plano-storefront-useorigens.md).
+>
+> Atualização (Fase 4, carrinho): auditoria do carrinho da INK (fonte = `turbo-frame#cart`), `cart-discovery` no drawer do carrinho (29/29 em 6 viewports), leitor + espelho `cart-mirror`/`cart-ref` (ativados depois, ver a atualização de fechamento acima), checkout NÃO reproduzido (POST+CSRF) — storefront usará "Ir para meu carrinho" (drawer nativo). Ver [`fase-4-cart-bridge.md`](fase-4-cart-bridge.md) e [`storefront-cart-mirror-contract.md`](storefront-cart-mirror-contract.md).
+>
+> Atualização (Fase 3, rollout em produção): **drawer + busca real ativos SOMENTE na Serra** (versão `87293a28`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search`); edge, navegador real (1280/390/320/768/1440) e jornada com retorno ao storefront aprovados; sem rollback. Ver [`fase-3-rollout-producao.md`](fase-3-rollout-producao.md).
+>
+> Atualização (Fase 3, rodada noturna, antes do deploy): drawer pós-adição + busca real implementados e testados (137/137; QA na INK real com build local 24/24 em 1280/390/320/768). **NÃO publicado** (login OAuth não aprovado); produção segue em 2c.1. Rollout em um comando: `scripts/rollout-drawer.sh`. Ver [`fase-3-rodada-noturna-drawer.md`](fase-3-rodada-noturna-drawer.md).
+>
+> Atualização (Fase 2F, rollout único): Worker `use-sul-widget` em produção com `ENABLE_WIDGET=true` **somente** em `/usesul/product/serra-catarinense`; smoke off/dry/on, Turbo, clique e retorno, 390 px e compra anônima aprovados. Recursos de preview removidos. Ver [`fase-2f-rollout.md`](fase-2f-rollout.md).
+>
+> Atualização (Fase 2E, Etapa 1B): Worker isolado `use-sul-widget-preview` implantado e Preview `etapa1-fixture` ativo; testes de edge e sonda de `Content-Encoding` em [`fase-2e-preview-edge.md`](fase-2e-preview-edge.md). **Parado antes da Etapa 2.**
+>
+> Atualização (Fase 2D, Etapa 1): Preview isolado criado, **sem URL ativa** (bloqueio); nenhuma evidência de edge ainda. Ver [`fase-2d-preview-isolado.md`](fase-2d-preview-isolado.md) e as opções A/B/C.
+>
+> Atualização (Fase 2C): `WIDGET_ALLOWLIST` fail-closed implementada e testada localmente; plano de ativação e rollback em [`fase-2c-allowlist.md`](fase-2c-allowlist.md). Nada publicado; push bloqueado (identidade SSH efetiva é `gtomazi`).
+>
+> Atualização (Fase 2B, proxy `www` ativo): smoke, revisão do Worker, bloqueios e rollout progressivo em [`fase-2b-smoke.md`](fase-2b-smoke.md). Próxima aprovação: conferir painel Cloudflare e autorizar preview isolado.
+>
+> Atualização (Fase 2A): implementação, evidências e riscos em [`fase-2a.md`](fase-2a.md). Flag renomeada para `ENABLE_WIDGET`; loader em `/__origens/loader.js`; retorno padrão `https://useorigens.com.br/sul`.
+
 ## Context
 
 A loja Use Sul roda na Reserva INK (`www.usesul.com.br/usesul/...`). O storefront próprio (`useorigens.com.br/sul`, repo `gatomazi/useorigens-storefront`, Next.js) tem busca de cidades e catálogo. Arquitetura confirmada pela BitGeek: Cloudflare Worker injeta só um loader via `HTMLRewriter`; o loader carrega módulos que alteram o DOM. Carrinho e checkout permanecem 100% da INK.

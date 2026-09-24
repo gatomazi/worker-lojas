@@ -1,7 +1,13 @@
 name = "use-sul-widget-staging"
 main = "src/worker.js"
-compatibility_date = "2026-09-23"
+compatibility_date = "2026-08-01"
 workers_dev = true
 
+# Sem rotas: staging só responde /__origens/health (workers.dev não espelha a INK).
+# Mesmos valores padrão da produção (garantido por test/config.test.js).
 [vars]
-WIDGET_ENABLED = "false"
+ENABLE_WIDGET = "false"
+# Módulos do loader liberados por deploy (return-link | post-add-discovery | city-search). Não amplia páginas.
+WIDGET_FEATURES = "return-link"
+# Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense". Vazio = nenhuma página.
+WIDGET_ALLOWLIST = ""
