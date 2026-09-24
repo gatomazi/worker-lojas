@@ -21,7 +21,7 @@ npx wrangler deploy -c wrangler.production.toml --var ENABLE_WIDGET:true \
   --var WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror
 ```
 
-> ⚠ `scripts/rollout-cart.sh` termina em `cart-discovery` **sem** `cart-mirror`: reexecutá-lo **desliga o espelho**. Um `wrangler deploy -c wrangler.production.toml` sem `--var` desliga **todo** o piloto (fail-closed).
+> `scripts/rollout-cart.sh` lê as features ativas do health e **preserva** as que não são dele (ex.: `cart-mirror`); só liga/desliga `cart-discovery`, e o rollback restaura o estado lido antes do deploy. Ele nunca liga `cart-mirror`. Um `wrangler deploy -c wrangler.production.toml` sem `--var` desliga **todo** o piloto (fail-closed).
 
 ### Rollback (preserva os módulos anteriores)
 
@@ -31,7 +31,7 @@ npx wrangler deploy -c wrangler.production.toml --var ENABLE_WIDGET:true \
 
 Verificar o rollback sempre com `GET /__origens/health`. Os snapshots já gravados expiram sozinhos em 30 min.
 
-Rollout histórico do `cart-discovery` (com rollback automático; **não** liga o espelho): `bash scripts/rollout-cart.sh`.
+Rollout do `cart-discovery` (com rollback automático; preserva o `cart-mirror` ativo, não o liga): `bash scripts/rollout-cart.sh`.
 
 ## 1. Auditoria técnica do carrinho da INK (P3)
 

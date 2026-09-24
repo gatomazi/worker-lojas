@@ -2,7 +2,8 @@
 # Rollout em cadeia do cart-discovery SOMENTE em /usesul/product/serra-catarinense, com rollback automático.
 #   Pré-requisitos: `npx wrangler login` feito pelo proprietário; playwright-core em $PW_PATH (npm i --prefix /tmp/pw playwright-core).
 #   Uso: bash scripts/rollout-cart.sh
-# cart-mirror e checkout-bridge NÃO são ligados aqui (o espelho exige o KV CART_REFS e o consumidor no storefront).
+# As features hoje ativas em produção são LIDAS do health e preservadas (ex.: cart-mirror): o script só liga/desliga cart-discovery.
+# Nunca liga cart-mirror por conta própria (isso exige o KV CART_REFS, declarado em wrangler.production.toml, e o consumidor no storefront).
 # NUNCA usar `wrangler deploy -c wrangler.production.toml` puro como atualização normal: isso desliga o piloto (só no rollback final).
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -10,16 +11,25 @@ export PW_PATH="${PW_PATH:-/tmp/pw}"
 CFG=wrangler.production.toml
 ALLOW=/usesul/product/serra-catarinense
 HEALTH=https://www.usesul.com.br/__origens/health
-BASELINE_FEATURES="return-link,post-add-discovery,city-search"                  # produção atual (drawer pós-adição + busca)
-STAGE1_FEATURES="$BASELINE_FEATURES"                                              # código novo, módulo do carrinho DESLIGADO
-STAGE2_FEATURES="return-link,post-add-discovery,city-search,cart-discovery"       # + descoberta no drawer do carrinho
+CANON=(return-link post-add-discovery city-search cart-discovery cart-mirror)     # mesma ordem de src/features.js (o health devolve nesta ordem)
+
+# widget_features do health, separadas por vírgula.
+live_features() { curl -sS "$HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const h=JSON.parse(s);if(h.features_status!=="ok"||!Array.isArray(h.widget_features))process.exit(1);console.log(h.widget_features.join(","))}catch(e){process.exit(1)}})'; }
+# with_feature "<lista>" <nome> | without_feature "<lista>" <nome>: ajustam UMA feature e mantêm as demais, em ordem canônica.
+with_feature() { local want=",$1,$2,"; local out=() f; for f in "${CANON[@]}"; do [[ "$want" == *",$f,"* ]] && out+=("$f"); done; (IFS=,; echo "${out[*]}"); }
+without_feature() { local want=",$1,"; local out=() f; for f in "${CANON[@]}"; do [[ "$want" == *",$f,"* && "$f" != "$2" ]] && out+=("$f"); done; (IFS=,; echo "${out[*]}"); }
+
+BASELINE_FEATURES="$(live_features)" || { echo "não consegui ler widget_features do health (features_status != ok?); abortando sem deploy"; exit 1; }
+[ -n "$BASELINE_FEATURES" ] || { echo "health sem features ativas; abortando sem deploy"; exit 1; }
+STAGE1_FEATURES="$(without_feature "$BASELINE_FEATURES" cart-discovery)"          # código novo, cart-discovery DESLIGADO (o resto do estado atual preservado)
+STAGE2_FEATURES="$(with_feature "$STAGE1_FEATURES" cart-discovery)"               # + descoberta no drawer do carrinho
 
 deploy() { npx wrangler deploy -c "$CFG" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$ALLOW" --var "WIDGET_FEATURES:$1"; }
 health_ok() { sleep 6; local h; h=$(curl -sS "$HEALTH") && echo "health: $h" && echo "$h" | grep -q '"widget_mode":"true"' && echo "$h" | grep -q '"allowlist_size":1' && echo "$h" | grep -q "\"widget_features\":\[$(printf '"%s"' "${1//,/\",\"}")\]"; }
 
 rollback() {
   echo "!!! ROLLBACK: $1"
-  if deploy "$BASELINE_FEATURES" && health_ok "$BASELINE_FEATURES"; then echo "rollback OK: cart-discovery desligado; drawer pós-adição, busca e link mantidos"; return 0; fi
+  if deploy "$BASELINE_FEATURES" && health_ok "$BASELINE_FEATURES"; then echo "rollback OK: features restauradas para o estado anterior ($BASELINE_FEATURES)"; return 0; fi
   echo "!!! rollback 1 falhou; voltando para a versão anterior publicada"
   if npx wrangler rollback --name use-sul-widget -m "rollback cart-discovery" && sleep 6 && curl -sS "$HEALTH"; then echo; return 0; fi
   echo "!!! rollback 2 falhou; desligando o widget (deploy puro: ENABLE_WIDGET=false, allowlist vazia)"
@@ -28,6 +38,7 @@ rollback() {
 }
 
 echo "== antes: $(curl -sS "$HEALTH")"
+echo "== estado a preservar em caso de rollback: $BASELINE_FEATURES"
 echo "== ESTÁGIO 1: código novo, cart-discovery DESLIGADO ($STAGE1_FEATURES)"
 deploy "$STAGE1_FEATURES" || { echo "deploy do estágio 1 falhou"; exit 1; }
 health_ok "$STAGE1_FEATURES" || { rollback "health do estágio 1"; exit 1; }
