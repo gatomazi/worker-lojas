@@ -1,5 +1,7 @@
 # Fase 3 — Rodada noturna: drawer Use Sul + busca real (piloto em 1 produto)
 
+> **Atualização:** o rollout foi concluído depois que o proprietário aprovou o login. Estado final e evidências de produção em [`fase-3-rollout-producao.md`](fase-3-rollout-producao.md) (**produção na Serra: SIM**, versão `87293a28`). O texto abaixo descreve a situação da madrugada, antes do deploy.
+
 Data: 2026-09-24 (madrugada). Branch `feature/ink-loader-fase2a`. Commits **só locais** (sem push, sem merge).
 
 ## Resumo direto para o proprietário

@@ -98,12 +98,14 @@ check('busca "sc" → estado Santa Catarina primeiro', (await page.locator('[dat
 await input.fill(''); await input.type('xyzq', { delay: 40 }); await page.waitForSelector('[data-origens-discovery] .o-status:not(:empty)'); await page.waitForTimeout(900);
 await shot('search-empty');
 check('estado vazio com mensagem e CTA visível', /Ainda não encontramos essa cidade/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('[data-origens-discovery] .o-cta').isVisible()));
-if (!LIVE) {
-  searchMode = 'error'; await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForTimeout(1200);
-  await shot('search-error');
-  check('estado de erro (gateway 502) com mensagem e CTA; drawer nativo intacto', /A busca não está disponível agora/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('.checkout-btn').isVisible()));
-  searchMode = 'ok';
-} else console.log('INFO estado de erro não induzido em produção real (coberto localmente e no QA pré-deploy)');
+// Erro da busca: local = gateway responde 502 pela rota; LIVE = a falha é simulada SÓ no navegador de teste (a rota é
+// respondida com 502 no cliente; nada é derrubado na produção).
+if (LIVE) await page.route('**/__origens/search*', (r) => r.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"unavailable"}' }));
+else searchMode = 'error';
+await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForTimeout(1200);
+await shot('search-error');
+check('estado de erro (gateway 502' + (LIVE ? ', simulado no cliente' : '') + ') com mensagem e CTA; drawer nativo intacto', /A busca não está disponível agora/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('.checkout-btn').isVisible()));
+if (LIVE) await page.unroute('**/__origens/search*'); else searchMode = 'ok';
 
 // ---- teclado ----
 await input.fill(''); await input.type('curitiba', { delay: 40 }); await page.waitForSelector('[data-origens-discovery] .o-item'); await page.waitForTimeout(300);

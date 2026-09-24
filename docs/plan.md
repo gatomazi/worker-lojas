@@ -1,6 +1,8 @@
 # Plano — Use Sul: Worker + widgets na INK
 
-> Atualização (Fase 3, rodada noturna): drawer pós-adição + busca real implementados e testados (137/137; QA na INK real com build local 24/24 em 1280/390/320/768). **NÃO publicado** (login OAuth não aprovado); produção segue em 2c.1. Rollout em um comando: `scripts/rollout-drawer.sh`. Ver [`fase-3-rodada-noturna-drawer.md`](fase-3-rodada-noturna-drawer.md).
+> Atualização (Fase 3, rollout em produção): **drawer + busca real ativos SOMENTE na Serra** (versão `87293a28`, `WIDGET_FEATURES=return-link,post-add-discovery,city-search`); edge, navegador real (1280/390/320/768/1440) e jornada com retorno ao storefront aprovados; sem rollback. Ver [`fase-3-rollout-producao.md`](fase-3-rollout-producao.md).
+>
+> Atualização (Fase 3, rodada noturna, antes do deploy): drawer pós-adição + busca real implementados e testados (137/137; QA na INK real com build local 24/24 em 1280/390/320/768). **NÃO publicado** (login OAuth não aprovado); produção segue em 2c.1. Rollout em um comando: `scripts/rollout-drawer.sh`. Ver [`fase-3-rodada-noturna-drawer.md`](fase-3-rodada-noturna-drawer.md).
 >
 > Atualização (Fase 2F, rollout único): Worker `use-sul-widget` em produção com `ENABLE_WIDGET=true` **somente** em `/usesul/product/serra-catarinense`; smoke off/dry/on, Turbo, clique e retorno, 390 px e compra anônima aprovados. Recursos de preview removidos. Ver [`fase-2f-rollout.md`](fase-2f-rollout.md).
 >
