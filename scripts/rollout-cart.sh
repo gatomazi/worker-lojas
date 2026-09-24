@@ -32,14 +32,21 @@ echo "== ESTÁGIO 1: código novo, cart-discovery DESLIGADO ($STAGE1_FEATURES)"
 deploy "$STAGE1_FEATURES" || { echo "deploy do estágio 1 falhou"; exit 1; }
 health_ok "$STAGE1_FEATURES" || { rollback "health do estágio 1"; exit 1; }
 node scripts/rollout-smoke.mjs on || { rollback "smoke do estágio 1"; exit 1; }
-node scripts/qa-drawer.mjs desktop --live --tag after || { rollback "regressão do drawer pós-adição (estágio 1)"; exit 1; }
 
 echo "== ESTÁGIO 2: cart-discovery ($STAGE2_FEATURES)"
 deploy "$STAGE2_FEATURES" || { rollback "deploy do estágio 2"; exit 1; }
 health_ok "$STAGE2_FEATURES" || { rollback "health do estágio 2"; exit 1; }
 node scripts/rollout-smoke.mjs on || { rollback "smoke do estágio 2"; exit 1; }
-for m in "desktop" "mobile"; do
-  node scripts/qa-cart.mjs $m --live --tag after || { rollback "QA live do carrinho ($m)"; exit 1; }
+# Matriz completa em produção: 6 viewports x (vazio + 1 item + fluxos | 2 itens | 3 itens | 8 variantes)
+for w in 1440 1280 768 440 390 320; do
+  if [ "$w" = 1280 ]; then A=(desktop); elif [ "$w" = 390 ]; then A=(mobile); else A=(mobile --width "$w"); fi
+  echo "== QA live viewport $w: carrinho vazio + 1 item + fluxos"
+  node scripts/qa-cart.mjs "${A[@]}" --live --tag after || { rollback "QA live do carrinho (vazio/1 item) em $w"; exit 1; }
+  for n in 2 3 8; do
+    echo "== QA live viewport $w: $n itens (variantes diferentes)"
+    node scripts/qa-cart-many.mjs "${A[@]}" --items "$n" --live || { rollback "QA live com $n itens em $w"; exit 1; }
+  done
 done
+node scripts/qa-drawer.mjs desktop --live --tag after || { rollback "regressão do drawer pós-adição (desktop)"; exit 1; }
 node scripts/qa-drawer.mjs mobile --live --tag after || { rollback "regressão do drawer pós-adição (mobile)"; exit 1; }
 echo "== OK: cart-discovery ativo SOMENTE em $ALLOW"; curl -sS "$HEALTH"; echo

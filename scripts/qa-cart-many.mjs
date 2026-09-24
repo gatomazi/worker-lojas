@@ -28,7 +28,7 @@ if (!LIVE) await page.route('**/__origens/**', async (route) => { const req = ro
   const res = await mf.dispatchFetch(url.href, { method: req.method(), headers: { 'content-type': h['content-type'] || '', origin: h['origin'] || '', referer: h['referer'] || '', 'sec-fetch-site': h['sec-fetch-site'] || '' }, body: req.method() === 'POST' ? req.postDataBuffer() : undefined });
   const buf = Buffer.from(await res.arrayBuffer()); if (url.pathname === '/__origens/cart-ref' && req.method() === 'POST') { try { const j = JSON.parse(buf.toString()); if (j.ref) refs.push(j.ref); } catch (_) { /* ignora */ } }
   await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: buf }); });
-const wait = (ms) => page.waitForTimeout(ms); const shot = (n) => page.screenshot({ path: `${out}/after-cart-many-${n}-${label}${LIVE ? '-live' : ''}.jpg`, type: 'jpeg', quality: 62 });
+const wait = (ms) => page.waitForTimeout(ms); const shot = (n) => page.screenshot({ path: `${out}/after-cart-n${N}-${n}-${label}${LIVE ? '-live' : ''}.jpg`, type: 'jpeg', quality: 62 });
 
 const COMBOS = [['Masculino', 'Preta', 'M'], ['Masculino', 'Preta', 'G'], ['Masculino', 'Branca', 'M'], ['Masculino', 'Marinho', 'P'], ['Feminino', 'Preta', 'M'], ['Feminino', 'Branca', 'GG'], ['Masculino', 'Cinza', 'M'], ['Masculino', 'Verde', 'G'], ['Masculino', 'Vermelho', 'M'], ['Masculino', 'Amarelo', 'G'], ['Feminino', 'Rosa', 'M'], ['Masculino', 'Bordeaux', 'P']];
 await page.goto(HOST + P, { waitUntil: 'load' }); await wait(3500);
@@ -49,23 +49,45 @@ for (const [model, color, size] of COMBOS) {
   added++;
 }
 check('carrinho montado com ' + N + ' variantes diferentes (linhas distintas)', added === N, 'adicionadas=' + added);
+// Estado NATIVO da INK lido do DOM (somente leitura) com o drawer FECHADO: ainda não existe nenhum bloco nosso.
+const NATIVE = () => page.evaluate(() => {
+  const f = document.querySelector('.cart-drawer turbo-frame#cart'); const foot = f.querySelector('.footer-details');
+  const totalLabel = [...foot.querySelectorAll('p')].find((p) => p.textContent.trim() === 'Total'); const totalEl = totalLabel && totalLabel.nextElementSibling && totalLabel.nextElementSibling.querySelector('p');
+  return {
+    count: document.getElementById('quantity-header')?.getAttribute('data-quantityheader'), amount: document.getElementById('amount')?.textContent.trim(),
+    subtotalAttr: foot.getAttribute('data-ink-store--cart-subtotal-value'), discountAttr: foot.getAttribute('data-ink-store--cart-discount-value'), total: totalEl ? totalEl.textContent.trim() : null,
+    footerText: foot.textContent.replace(/\s+/g, ' ').trim(),
+    lines: [...f.querySelectorAll('li.main-list__item')].map((li) => ({ eff: [...li.querySelectorAll('.price-details span')].filter((x) => !x.querySelector('del') && !x.closest('del')).pop()?.textContent.trim(), list: li.querySelector('.price-details del')?.textContent.trim() || null, qty: li.querySelector('input[name="cart_item[quantity]"]')?.value, name: li.querySelector('.item-details p')?.textContent.trim() }))
+  };
+});
+const nativeBefore = await NATIVE();
+console.log('INFO estado nativo antes do bloco:', JSON.stringify({ count: nativeBefore.count, subtotal: nativeBefore.subtotalAttr, discount: nativeBefore.discountAttr, total: nativeBefore.total, promoLines: nativeBefore.lines.filter((l) => l.list).length + '/' + nativeBefore.lines.length }));
 await page.evaluate(() => { const b = [...document.querySelectorAll('[id^=shopping-cart-menu]')].find((e) => e.getClientRects().length); b && b.click(); });
 await page.waitForSelector('.cart-drawer.open [data-origens-discovery="cart"]', { timeout: 20000 }); await wait(1500);
 const G = () => page.evaluate(() => {
   const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right), h: Math.round(b.height) }; };
   const d = document.querySelector('.cart-drawer'); const f = d.querySelector('turbo-frame#cart'); const main = f.querySelector('.cart-drawer__main'); const foot = f.querySelector('.cart-drawer__footer'); const btn = document.getElementById('checkout-btn'); const root = d.querySelector('[data-origens-discovery="cart"]'); const rows = [...f.querySelectorAll('li.main-list__item')];
-  const hs = () => document.documentElement.scrollWidth; const w1 = hs(); const wItem = rows[0] ? Math.round(rows[0].getBoundingClientRect().width) : null; if (root) root.style.display = 'none'; const w0 = hs(); const wItem0 = rows[0] ? Math.round(rows[0].getBoundingClientRect().width) : null; if (root) root.style.display = '';
+  const hs = () => document.documentElement.scrollWidth; const w1 = hs(); const wI = () => (rows[0] ? Math.round(rows[0].getBoundingClientRect().width) : null);
+  const wItem = wI();
+  // "invisível mas ocupando o mesmo espaço": separa o que o NOSSO elemento faz (squeeze) do que é a barra de rolagem nativa da INK
+  if (root) root.style.visibility = 'hidden'; const wItemHiddenSameBox = wI(); if (root) root.style.visibility = '';
+  if (root) root.style.display = 'none'; const w0 = hs(); const wItem0 = wI(); if (root) root.style.display = '';
   const b = btn.getBoundingClientRect(); const mr = main.getBoundingClientRect(); const rr = root && root.getBoundingClientRect();
   return { vw: innerWidth, vh: innerHeight, items: rows.length, roots: d.querySelectorAll('[data-origens-discovery="cart"]').length, header: document.getElementById('quantity-header')?.textContent.trim(), mainScroll: main.scrollHeight + '/' + main.clientHeight, mainScrollTop: Math.round(main.scrollTop), main: r(main), footer: r(foot), checkout: r(btn),
-    checkoutVisible: b.top >= 0 && b.bottom <= innerHeight && b.height > 0, rootLast: !!root && root.parentElement === root.parentElement.parentElement.lastElementChild, rootInView: !!rr && rr.top >= mr.top - 1 && rr.bottom <= mr.bottom + 1, dense: !!root && root.classList.contains('o-dense'), inputInView: (() => { const i = root && root.querySelector('.o-input'); if (!i || i.closest('[hidden]')) return null; const ir = i.getBoundingClientRect(); return ir.top >= mr.top - 1 && ir.bottom <= mr.bottom + 1; })(), firstResultInView: (() => { const i = root && root.querySelector('.o-item'); if (!i) return null; const ir = i.getBoundingClientRect(); return ir.top >= mr.top - 1 && ir.bottom <= mr.bottom + 1; })(), rootFirst: !!root && root.parentElement === root.parentElement.parentElement.firstElementChild, rootTopInMain: rr ? Math.round(rr.top - mr.top) : null, itemW: wItem, itemW0: wItem0, hs: w1, hs0: w0 };
+    checkoutVisible: b.top >= 0 && b.bottom <= innerHeight && b.height > 0, rootLast: !!root && root.parentElement === root.parentElement.parentElement.lastElementChild, rootInView: !!rr && rr.top >= mr.top - 1 && rr.bottom <= mr.bottom + 1, dense: !!root && root.classList.contains('o-dense'), inputInView: (() => { const i = root && root.querySelector('.o-input'); if (!i || i.closest('[hidden]')) return null; const ir = i.getBoundingClientRect(); return ir.top >= mr.top - 1 && ir.bottom <= mr.bottom + 1; })(), firstResultInView: (() => { const i = root && root.querySelector('.o-item'); if (!i) return null; const ir = i.getBoundingClientRect(); return ir.top >= mr.top - 1 && ir.bottom <= mr.bottom + 1; })(), rootFirst: !!root && root.parentElement === root.parentElement.parentElement.firstElementChild, rootTopInMain: rr ? Math.round(rr.top - mr.top) : null, itemW: wItem, itemW0: wItem0, itemWSameBox: wItemHiddenSameBox, hs: w1, hs0: w0 };
 });
 let g = await G();
-check('8 linhas de itens, exatamente 1 bloco, no TOPO da lista em versão densa', g.items === N && g.roots === 1 && g.rootFirst && g.dense, JSON.stringify({ items: g.items, roots: g.roots, header: g.header }));
-check('o bloco fica visível SEM rolar a lista (acima da dobra do painel de itens)', g.rootInView, 'rootTopInMain=' + g.rootTopInMain + ' area=' + (g.main.bottom - g.main.top));
-check('lista rolável (muitas linhas): a rolagem é do painel de itens; "Finalizar compra" continua visível', g.checkoutVisible && Number(g.mainScroll.split('/')[0]) > Number(g.mainScroll.split('/')[1]), 'mainScroll=' + g.mainScroll + ' checkout=' + JSON.stringify(g.checkout));
+check(N + ' linha(s), exatamente 1 bloco, ' + (N >= 3 ? 'no TOPO da lista em versão densa' : 'no FIM da lista, depois dos itens (versão normal)'), g.items === N && g.roots === 1 && (N >= 3 ? g.rootFirst && g.dense : g.rootLast && !g.dense), JSON.stringify({ items: g.items, roots: g.roots, header: g.header, first: g.rootFirst, last: g.rootLast, dense: g.dense }));
+if (N >= 3) check('o bloco fica visível SEM rolar a lista (acima da dobra do painel de itens)', g.rootInView, 'rootTopInMain=' + g.rootTopInMain + ' area=' + (g.main.bottom - g.main.top));
+check('"Finalizar compra" visível' + (N >= 6 ? ' e a lista rola dentro do painel de itens' : ''), g.checkoutVisible && (N < 6 || Number(g.mainScroll.split('/')[0]) > Number(g.mainScroll.split('/')[1])), 'mainScroll=' + g.mainScroll + ' checkout=' + JSON.stringify(g.checkout));
 const baseFooter = g.footer; const baseCheckout = g.checkout;
+const nativeOpen = await NATIVE();
+check('subtotal, desconto, total e preços das linhas IDÊNTICOS ao estado nativo de antes do bloco (nada alterado por nós)', JSON.stringify(nativeOpen) === JSON.stringify(nativeBefore), JSON.stringify({ subtotal: nativeOpen.subtotalAttr, discount: nativeOpen.discountAttr, total: nativeOpen.total }));
+if (nativeBefore.lines.some((l) => l.list)) check('promoção por quantidade (somente leitura): linhas com preço cheio riscado + preço efetivo; subtotal, desconto e total exibidos pela INK presentes', nativeBefore.lines.every((l) => !l.list || /^R\$/.test(l.list)) && nativeBefore.lines.every((l) => /^R\$/.test(l.eff || '')) && !!nativeBefore.total && Number(nativeBefore.discountAttr) > 0, JSON.stringify(nativeBefore.lines[0]));
+else console.log('INFO sem promoção por quantidade neste carrinho (' + N + ' peça(s)): preços efetivos =', nativeBefore.lines.map((l) => l.eff).join(' | '));
 check('sem overflow horizontal novo causado pelo bloco', g.hs === g.hs0, g.hs + ' vs ' + g.hs0);
-check('item nativo não é espremido pelo bloco (largura da linha igual com e sem o bloco)', g.itemW === g.itemW0, g.itemW + ' vs ' + g.itemW0);
+check('item nativo NÃO é espremido pelo nosso bloco (largura igual com o bloco visível e com o bloco invisível ocupando o mesmo espaço)', g.itemW === g.itemWSameBox, g.itemW + ' vs ' + g.itemWSameBox);
+if (g.itemW !== g.itemW0) console.log('INFO barra de rolagem NATIVA do painel de itens apareceu por causa da ALTURA acrescentada (largura do item ' + g.itemW0 + ' → ' + g.itemW + ' px; só com barras de rolagem clássicas, sem efeito em barras overlay)');
 console.log('INFO no topo da lista o bloco está abaixo da dobra? rootInView=' + g.rootInView + ' rootTopInMain=' + g.rootTopInMain + ' (altura da área de itens ' + (g.main.bottom - g.main.top) + ')');
 await shot('top');
 // alcançar o bloco rolando a lista, abrir a busca e ver resultados
@@ -79,11 +101,13 @@ await page.evaluate(() => document.querySelector('.cart-drawer [data-origens-dis
 g = await G(); await shot('search-results');
 check('busca aberta com resultados no meio de 8 itens: campo e 1º resultado utilizáveis (visíveis) no painel; rodapé e checkout imóveis', g.inputInView === true && g.firstResultInView === true && g.checkoutVisible && JSON.stringify(g.footer) === JSON.stringify(baseFooter) && JSON.stringify(g.checkout) === JSON.stringify(baseCheckout), JSON.stringify({ inputInView: g.inputInView, firstResultInView: g.firstResultInView, rootInView: g.rootInView, area: g.main.bottom - g.main.top }));
 await page.locator('.cart-drawer .o-close').click(); await wait(400);
+const nativeAfterSearch = await NATIVE();
+check('depois de abrir/usar/fechar a busca: estado nativo continua idêntico (subtotal, desconto, total, preços)', JSON.stringify(nativeAfterSearch) === JSON.stringify(nativeBefore));
 // mutações nativas com 8 linhas: + na 1ª linha, − até remover uma linha
 await page.evaluate(() => document.querySelector('turbo-frame#cart li.main-list__item button[data-action*="increment"]').click()); await wait(2500);
-g = await G(); check('quantidade + na 1ª linha (re-render do frame com 8 itens): continua 1 bloco, checkout visível', g.roots === 1 && g.checkoutVisible && /9 produtos/.test(g.header), g.header);
+g = await G(); check('quantidade + na 1ª linha (re-render do frame com ' + N + ' itens): continua 1 bloco, checkout visível', g.roots === 1 && g.checkoutVisible && new RegExp('\\(' + (N + 1) + ' produtos\\)').test(g.header), g.header);
 for (let i = 0; i < 2; i++) { await page.evaluate(() => document.querySelector('turbo-frame#cart li.main-list__item button[data-action*="decrement"]').click()); await wait(2200); }
-g = await G(); check('remover uma linha (lixeira nativa): 7 itens, 1 bloco, checkout visível', g.items === N - 1 && g.roots === 1 && g.checkoutVisible, JSON.stringify({ items: g.items, header: g.header }));
+g = await G(); check('remover uma linha (lixeira nativa): ' + (N - 1) + ' itens, 1 bloco, checkout visível' + ((N - 1) < 3 && N >= 3 ? ', bloco volta ao FIM da lista' : ''), g.items === N - 1 && g.roots === 1 && g.checkoutVisible && (N - 1 >= 3 ? g.rootFirst : g.rootLast), JSON.stringify({ items: g.items, header: g.header, first: g.rootFirst, last: g.rootLast }));
 // espelho com N itens (Worker/KV locais)
 if (!LIVE) {
   await wait(1500); const ref = refs[refs.length - 1]; const snap = ref ? await (await mf.dispatchFetch(HOST + '/__origens/cart-ref/' + ref)).json() : null;
