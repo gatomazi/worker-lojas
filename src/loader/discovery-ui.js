@@ -127,6 +127,19 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     while (visible > 1 && ver.getBoundingClientRect().top < 0) { visible--; rows[visible].hidden = true; }
   }
 
+  // Carrinho: com a lista rolável da INK, o bloco pode estar abaixo da dobra. Ao abrir a busca ou mostrar
+  // resultados, rola SÓ o painel de itens até o bloco caber (ou alinha o topo se for mais alto que a área).
+  function reveal(s) {
+    if (!s || s.kind !== 'cart' || !s.root.isConnected) return;
+    const main = s.root.closest('.cart-drawer__main');
+    if (!main) return;
+    const r = s.root.getBoundingClientRect(); const m = main.getBoundingClientRect();
+    if (r.height <= m.height) {
+      if (r.bottom > m.bottom) main.scrollTop += r.bottom - m.bottom;
+      else if (r.top < m.top) main.scrollTop -= m.top - r.top;
+    } else main.scrollTop += r.top - m.top;
+  }
+
   function renderResults(s, results) {
     if (instances[s.kind] !== s) return;
     s.results = results;
@@ -145,7 +158,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     s.list.hidden = !open;
     s.input.setAttribute('aria-expanded', open ? 'true' : 'false');
     s.input.removeAttribute('aria-activedescendant');
-    if (open) { setActive(s, 0); fit(s); }
+    if (open) { setActive(s, 0); fit(s); reveal(s); }
   }
 
   function setActive(s, index) {
@@ -311,6 +324,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
       if (kind === 'cart') {
         parts.toggle.addEventListener('click', () => {
           parts.panel.hidden = false; parts.toggle.hidden = true; parts.toggle.setAttribute('aria-expanded', 'true');
+          reveal(s);
           parts.input.focus(); // ação do próprio visitante (toque no botão): foco no campo é esperado
         }, { signal: ac.signal });
         parts.close.addEventListener('click', () => { collapse(s); parts.toggle.focus(); }, { signal: ac.signal });
