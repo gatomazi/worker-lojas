@@ -32,9 +32,13 @@ grep -q 'DEPRECATED' scripts/rollout-cart.sh && ok "rollout-cart.sh (obsoleto) e
 
 if [ "$QUICK" = 0 ]; then
   log "[3] Testes locais (npm test)"
-  T0=$(date +%s); OUT=$(npm test 2>&1); RC=$?; T1=$(date +%s)
-  SUMMARY=$(printf '%s\n' "$OUT" | grep -E '^ℹ (tests|pass|fail)' | tr '\n' ' ')
-  [ $RC -eq 0 ] && ok "npm test: $SUMMARY($((T1-T0))s)" || bad "npm test falhou: $SUMMARY"
+  TEST_LOG=/tmp/use-origens-global-test.log; T0=$(date +%s); npm test > "$TEST_LOG" 2>&1; RC=$?; T1=$(date +%s)
+  SUMMARY=$(grep -E '^ℹ (tests|pass|fail|skipped|cancelled)' "$TEST_LOG" | tr '\n' ' ')
+  if [ $RC -eq 0 ]; then ok "npm test: $SUMMARY($((T1-T0))s)"; else
+    bad "npm test falhou: $SUMMARY — log completo em $TEST_LOG (fora do Git)"
+    # O erro ORIGINAL (teste, tipo da falha, stack, esperado x recebido) precisa aparecer: sem deduzir a causa por "268/269".
+    log "  ── teste(s) reprovado(s) ──"; awk '/^✖ failing tests:/{f=1} f' "$TEST_LOG" | head -60 | sed 's/^/     /'
+  fi
   log "[4] Escopo contra o HTML REAL da INK (leitura pública, Worker local)"
   V=$(node scripts/verify-scope-real.mjs 2>&1 | tail -1); node scripts/verify-scope-real.mjs >/dev/null 2>&1 && ok "verify-scope-real: $V" || bad "verify-scope-real falhou: $V"
 else warn "testes e verify-scope-real PULADOS (--quick)"; fi

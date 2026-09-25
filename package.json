@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test --test-timeout=30000 test/*.test.js",
+    "test": "node --test --test-timeout=120000 --test-concurrency=4 test/*.test.js",
     "dev": "wrangler dev -c wrangler.dev.toml",
     "deploy:staging": "wrangler deploy -c wrangler.dev.toml",
     "deploy:production": "wrangler deploy -c wrangler.production.toml",

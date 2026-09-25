@@ -102,13 +102,31 @@ test('release: the exact gate reason and the evidence are saved BEFORE the rollb
   assert.match(read('scripts/preflight-global.sh'), /storefront_ok/);
 });
 
-test('capture_evidence writes reason/health/probes/deployments and returns even when everything else fails; run_limited enforces its time limit', () => {
-  const dir = '/tmp/release-evidence-test-' + process.pid;
-  const res = bash(`source scripts/global-common.sh; STOREFRONT_URL=http://127.0.0.1:9; capture_evidence "${dir}" "smoke após B: FAIL exemplo"; echo rc=$?; cat "${dir}/reason.txt"; cat "${dir}/http-probes.txt" | head -2; ls "${dir}"`);
-  assert.match(res.stdout, /rc=0/); assert.match(res.stdout, /motivo exato do gate: smoke após B: FAIL exemplo/); assert.match(res.stdout, /storefront: .*http=000/);
+// Hermético: NADA de rede real nem de Wrangler autenticado (o teste antigo chamava `wrangler deployments list` de verdade e levava ~23 s,
+// perto do limite de 30 s por teste: na máquina do proprietário estourou e bloqueou o preflight).
+const HERMETIC = { UO_TEST_MODE: '1', UO_TEST_HEALTH_URL: 'http://127.0.0.1:9/health', UO_TEST_SITE_URL: 'http://127.0.0.1:9', UO_TEST_STOREFRONT_URL: 'http://127.0.0.1:9', UO_TEST_WRANGLER_CMD: 'echo wrangler-stub' };
+test('capture_evidence writes reason/health/probes/deployments and returns even when everything else fails; run_limited enforces its time limit — hermetic and fast', () => {
+  const dir = '/tmp/release-evidence-test-' + process.pid; const t0 = Date.now();
+  const res = bash(`source scripts/global-common.sh; capture_evidence "${dir}" "smoke após B: FAIL exemplo"; echo rc=$?; cat "${dir}/reason.txt"; cat "${dir}/http-probes.txt"; cat "${dir}/deployments.txt"; ls "${dir}"`, HERMETIC);
+  assert.match(res.stdout, /rc=0/); assert.match(res.stdout, /motivo exato do gate: smoke após B: FAIL exemplo/);
+  assert.match(res.stdout, /storefront: .*http=000/); assert.match(res.stdout, /produto da allowlist: .*(http=000|Failed to connect|Connection refused)/i);
+  assert.match(res.stdout, /wrangler-stub deployments list --name use-sul-widget/, 'the deployments listing goes through the (stubbed) wrangler command with the right arguments');
   for (const f of ['reason.txt', 'health.json', 'http-probes.txt', 'deployments.txt']) assert.match(res.stdout, new RegExp(f.replace('.', '\\.')));
-  const t0 = Date.now(); const lim = bash('source scripts/global-common.sh; run_limited 1 sleep 6; echo rc=$?'); assert.ok(Date.now() - t0 < 4500, 'limited to ~1 s'); assert.match(lim.stdout, /rc=(143|137|1|\d+)/);
+  // Sem asserção de tempo: a correção da função não depende de velocidade, e uma máquina carregada (load average > 100 medido nesta rodada) tornava
+  // qualquer limite de relógio uma fonte de falha intermitente. O teste é hermético (nada de rede/Wrangler), então o custo já é mínimo.
   bash(`rm -rf "${dir}"`);
+  // run_limited: o comando de 90 s (folga p/ máquina muito carregada) é interrompido pelo limite de 1 s. Prova por EFEITO (o marcador do fim do comando nunca aparece) e pelo código de
+  // saída não zero, sem medir relógio.
+  const marker = '/tmp/run-limited-marker-' + process.pid;
+  const lim = bash(`source scripts/global-common.sh; rm -f "${marker}"; run_limited 1 bash -c 'sleep 90; echo fim > "${marker}"'; echo rc=$?; [ -e "${marker}" ] && echo MARCADOR-EXISTE || echo comando-interrompido`);
+  assert.match(lim.stdout, /rc=\d+/); assert.doesNotMatch(lim.stdout, /rc=0/); assert.match(lim.stdout, /comando-interrompido/); bash(`rm -f "${marker}"`);
+});
+
+test('the test-mode overrides are ignored WITHOUT UO_TEST_MODE: an exported URL/command can never redirect the release checks or the deploy tooling', () => {
+  const res = bash('source scripts/global-common.sh; echo "$HEALTH_URL|$SITE_URL|$STOREFRONT_URL|$WRANGLER_CMD"', { UO_TEST_HEALTH_URL: 'http://evil/h', UO_TEST_SITE_URL: 'http://evil', UO_TEST_STOREFRONT_URL: 'http://evil', UO_TEST_WRANGLER_CMD: 'echo hacked', UO_TEST_MODE: '' });
+  assert.equal(res.stdout.trim(), 'https://www.usesul.com.br/__origens/health|https://www.usesul.com.br|https://useorigens.com.br|npx wrangler');
+  const deploy = read('scripts/global-common.sh').split('\n').filter((l) => /npx wrangler deploy -c/.test(l));
+  assert.equal(deploy.length, 2, 'real deploy and dry-run keep the literal command (not overridable)');
 });
 
 test('qa-global: product navigation does not depend on the load event; one bounded retry with an HTTP probe; failures are classified and leave evidence; snapshots are read patiently', () => {

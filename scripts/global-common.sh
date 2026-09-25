@@ -5,11 +5,19 @@
 # Não faz nada sozinho; só é lido com `source`.
 WORKER_NAME=use-sul-widget
 CFG=wrangler.production.toml
-HEALTH_URL=https://www.usesul.com.br/__origens/health
+SITE_URL=https://www.usesul.com.br
+HEALTH_URL=$SITE_URL/__origens/health
+WRANGLER_CMD="npx wrangler"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery"
 ALLOW="/usesul/product/serra-catarinense,/usesul/product/made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241,/usesul/product/made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829,/usesul/product/paranaense-essencia,/usesul/product/made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a"
 STOREFRONT_URL=https://useorigens.com.br
+# Testes HERMÉTICOS (sem rede, sem Wrangler autenticado): só com UO_TEST_MODE=1 as sondas e o comando de listagem podem ser trocados por
+# stubs. Sem esse modo as constantes acima são as únicas e nada do ambiente as altera (um HEALTH_URL exportado por engano não desvia o release).
+if [ "${UO_TEST_MODE:-}" = "1" ]; then
+  SITE_URL="${UO_TEST_SITE_URL:-$SITE_URL}"; HEALTH_URL="${UO_TEST_HEALTH_URL:-$HEALTH_URL}"
+  STOREFRONT_URL="${UO_TEST_STOREFRONT_URL:-$STOREFRONT_URL}"; WRANGLER_CMD="${UO_TEST_WRANGLER_CMD:-$WRANGLER_CMD}"
+fi
 EXPECTED_ACCOUNT_EMAIL="${EXPECTED_ACCOUNT_EMAIL:-tomazi.brand@gmail.com}"
 
 log() { printf '%s\n' "$*"; }
@@ -61,16 +69,19 @@ smoke() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$1" ${2:+--vers
 storefront_ok() { [ "$(curl -sS -o /dev/null --max-time 12 -w '%{http_code}' "$STOREFRONT_URL/api/ready" 2>/dev/null)" = "200" ]; }
 storefront_probe() { curl -sS -o /dev/null --max-time 12 -w 'http=%{http_code} connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s' "$STOREFRONT_URL/api/ready" 2>&1 | tr '\n' ' '; }
 
+# Mata um processo e TODOS os descendentes (npx -> node -> ...): matar só o pai deixaria o comando rodando e segurando os pipes.
+# O PAI morre primeiro (senão `bash -c 'a; b'` seguiria para `b` assim que o filho `a` fosse morto); os filhos são coletados antes.
+kill_tree() { local p="$1" c kids; kids=$(pgrep -P "$p" 2>/dev/null); kill "$p" 2>/dev/null; for c in $kids; do kill_tree "$c"; done; return 0; }
 # Roda um comando com limite de tempo (o macOS não tem `timeout`). Uso: run_limited <segundos> <cmd...>
-run_limited() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 & local killer=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$killer" 2>/dev/null; return $rc; }
+run_limited() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill_tree "$pid" ) >/dev/null 2>&1 & local killer=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$killer" 2>/dev/null; return $rc; }
 
 # Grava a evidência de uma falha ANTES do rollback (nunca o impede: tudo com limite de tempo e `|| true`). Uso: capture_evidence <dir> <motivo exato>
 capture_evidence() {
   local dir="$1" reason="$2"; mkdir -p "$dir" 2>/dev/null || return 0
   { echo "quando: $(date -u +%FT%TZ)"; echo "motivo exato do gate: $reason"; echo "git: $(cd "$ROOT" && git rev-parse --short HEAD 2>/dev/null)"; } > "$dir/reason.txt" 2>/dev/null
   health_json > "$dir/health.json" 2>&1 || true
-  { echo "storefront: $(storefront_probe)"; echo "produto da allowlist: $(curl -sS -o /dev/null --max-time 12 -w 'http=%{http_code} total=%{time_total}s' "https://www.usesul.com.br/usesul/product/serra-catarinense" 2>&1)"; echo "busca: $(curl -sS -o /dev/null --max-time 12 -w 'http=%{http_code}' "https://www.usesul.com.br/__origens/search?q=floria" 2>&1)"; } > "$dir/http-probes.txt" 2>&1 || true
-  run_limited 25 bash -c "cd '$ROOT' && npx wrangler deployments list --name '$WORKER_NAME' 2>&1 | tail -30" > "$dir/deployments.txt" 2>&1 || true
+  { echo "storefront: $(storefront_probe)"; echo "produto da allowlist: $(curl -sS -o /dev/null --max-time 12 -w 'http=%{http_code} total=%{time_total}s' "$SITE_URL/usesul/product/serra-catarinense" 2>&1)"; echo "busca: $(curl -sS -o /dev/null --max-time 12 -w 'http=%{http_code}' "$SITE_URL/__origens/search?q=floria" 2>&1)"; } > "$dir/http-probes.txt" 2>&1 || true
+  run_limited 25 bash -c "cd '$ROOT' && $WRANGLER_CMD deployments list --name '$WORKER_NAME' 2>&1 | tail -30" > "$dir/deployments.txt" 2>&1 || true
   chmod -R go-rwx "$dir" 2>/dev/null || true
   log "   evidência salva em ${dir#$ROOT/}"
   return 0
