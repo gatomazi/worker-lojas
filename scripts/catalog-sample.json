@@ -1,0 +1,114 @@
+{
+ "verifiedAt": "2026-09-24",
+ "source": "catalog-snapshot use-sul (bindings+merch), verified live: GET 200 + native form#form-product-*",
+ "products": [
+  {
+   "slug": "guarani-das-missoes-coordenadas-rs",
+   "kind": "cidade",
+   "family": "coordenadas",
+   "uf": "RS"
+  },
+  {
+   "slug": "feito-em-xangri-la",
+   "kind": "cidade",
+   "family": "feito-em",
+   "uf": "SC"
+  },
+  {
+   "slug": "lidianopolitano-gentilico-pr",
+   "kind": "cidade",
+   "family": "gentilico",
+   "uf": "PR"
+  },
+  {
+   "slug": "rodeio-bonito-legado-rs",
+   "kind": "cidade",
+   "family": "legado",
+   "uf": "RS"
+  },
+  {
+   "slug": "presidente-nereu-origem-sc",
+   "kind": "cidade",
+   "family": "ponto-de-origem",
+   "uf": "SC"
+  },
+  {
+   "slug": "fenix-territorio-pr",
+   "kind": "cidade",
+   "family": "territorio",
+   "uf": "PR"
+  },
+  {
+   "slug": "teutonia-tipografia-rs",
+   "kind": "cidade",
+   "family": "tipografia",
+   "uf": "RS"
+  },
+  {
+   "slug": "braco-do-trombudo-traco-sc-b204b593-c11f-4efc-9659-ac19e1fc7322",
+   "kind": "cidade",
+   "family": "traco",
+   "uf": "SC"
+  },
+  {
+   "slug": "made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241",
+   "kind": "identidade regional",
+   "family": "merch"
+  },
+  {
+   "slug": "retrato-gaucho",
+   "kind": "redesenho",
+   "family": "merch"
+  },
+  {
+   "slug": "pai-gaucho-gremista-lenda",
+   "kind": "feito para você",
+   "family": "merch"
+  },
+  {
+   "slug": "mas-bah-gato",
+   "kind": "expressão",
+   "family": "merch"
+  },
+  {
+   "slug": "tche-dizeres",
+   "kind": "expressão",
+   "family": "merch"
+  },
+  {
+   "slug": "nona-do-piazinho",
+   "kind": "não geográfico",
+   "family": "merch"
+  },
+  {
+   "slug": "vamo-dale-pra-nao-tomale-dizeres",
+   "kind": "humor/dizer",
+   "family": "merch"
+  },
+  {
+   "slug": "mae-de-guria-dizeres",
+   "kind": "expressão",
+   "family": "merch"
+  },
+  {
+   "slug": "truco-de-galpao-d0bd0b55-c1c8-4930-a623-327be17e64a5",
+   "kind": "redesenho",
+   "family": "merch"
+  },
+  {
+   "slug": "pinhoes-n-roses",
+   "kind": "redesenho",
+   "family": "merch"
+  },
+  {
+   "slug": "the-manefather",
+   "kind": "redesenho",
+   "family": "merch"
+  },
+  {
+   "slug": "amigas-la-de-caibate",
+   "kind": "humor",
+   "family": "merch"
+  }
+ ]
+}
