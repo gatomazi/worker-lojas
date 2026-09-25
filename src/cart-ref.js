@@ -76,18 +76,20 @@ function createLimiter({ now, windowMs = 60_000 }) {
 
 export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.getRandomValues(a) } = {}) {
   const allow = createLimiter({ now });
+  // Contadores AGREGADOS por isolate (sem PII, sem tokens, sem caminhos): diagnóstico de custo do KV. Zeram quando o isolate recicla.
+  const counters = { writes: 0, write_failures: 0, reads: 0, read_hits: 0, read_misses: 0, rate_limited: 0, rejected: 0 };
   const ipOf = (request) => request.headers.get('cf-connecting-ip') || 'unknown';
 
   return {
     // POST: só da página autorizada da INK (mesma origem, Referer na allowlist). `kv` = env.CART_REFS.
-    async create(request, { kv, allowedPaths, origin }) {
+    async create(request, { kv, allowedPaths, origin, pathAllowed = null }) {
       if (!kv) return json({ error: 'not_configured' }, 501);
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
       const site = request.headers.get('sec-fetch-site');
       let referer = null; try { referer = new URL(request.headers.get('referer') || ''); } catch (_) { /* ausente */ }
-      if ((site && site !== 'same-origin') || request.headers.get('origin') !== origin || !referer || referer.origin !== origin || !allowedPaths.includes(referer.pathname)) return json({ error: 'forbidden' }, 403);
+      if ((site && site !== 'same-origin') || request.headers.get('origin') !== origin || !referer || referer.origin !== origin || !(allowedPaths.includes(referer.pathname) || (pathAllowed && pathAllowed(referer.pathname)))) { counters.rejected++; return json({ error: 'forbidden' }, 403); }
       if (!/^application\/json\b/i.test(request.headers.get('content-type') || '')) return json({ error: 'bad_request' }, 400);
-      if (!allow('post:' + ipOf(request), 20)) return json({ error: 'rate_limited' }, 429, { 'retry-after': '60' });
+      if (!allow('post:' + ipOf(request), 20)) { counters.rate_limited++; return json({ error: 'rate_limited' }, 429, { 'retry-after': '60' }); }
       const text = await request.text();
       if (text.length > MAX_BODY_CHARS) return json({ error: 'too_large' }, 413);
       let parsed; try { parsed = JSON.parse(text); } catch (_) { return json({ error: 'bad_request' }, 400); }
@@ -95,7 +97,13 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
       if (!snapshot) return json({ error: 'bad_request' }, 400);
       const ref = newToken(random);
       const savedAt = now();
-      await kv.put('cartref:' + ref, JSON.stringify({ ...snapshot, savedAt }), { expirationTtl: CART_REF_TTL_SECONDS });
+      try {
+        await kv.put('cartref:' + ref, JSON.stringify({ ...snapshot, savedAt }), { expirationTtl: CART_REF_TTL_SECONDS });
+      } catch (_) {
+        counters.write_failures++; // KV indisponível/limite: o cliente segue sem espelho; nada quebra a compra
+        return json({ error: 'unavailable' }, 503);
+      }
+      counters.writes++;
       return json({ ref, ttl: CART_REF_TTL_SECONDS }, 201);
     },
 
@@ -103,14 +111,19 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
     async read(request, { kv, token }) {
       if (!kv) return json({ error: 'not_configured' }, 501);
       if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } });
-      if (!allow('get:' + ipOf(request), 120)) return json({ error: 'rate_limited' }, 429, { 'retry-after': '60' });
+      if (!allow('get:' + ipOf(request), 120)) { counters.rate_limited++; return json({ error: 'rate_limited' }, 429, { 'retry-after': '60' }); }
       if (!TOKEN.test(token)) return json({ error: 'not_found' }, 404);
-      const stored = await kv.get('cartref:' + token, 'json');
-      if (!stored || typeof stored.savedAt !== 'number') return json({ error: 'not_found' }, 404);
+      counters.reads++;
+      let stored;
+      try { stored = await kv.get('cartref:' + token, 'json'); } catch (_) { return json({ error: 'unavailable' }, 503); }
+      if (!stored || typeof stored.savedAt !== 'number') { counters.read_misses++; return json({ error: 'not_found' }, 404); }
+      counters.read_hits++;
       const ageSeconds = Math.max(0, Math.round((now() - stored.savedAt) / 1000));
       if (ageSeconds > CART_REF_TTL_SECONDS) return json({ error: 'not_found' }, 404);
       const { savedAt, ...snapshot } = stored;
       return json({ ...snapshot, ageSeconds, expiresInSeconds: Math.max(0, CART_REF_TTL_SECONDS - ageSeconds) });
-    }
+    },
+
+    stats() { return { ...counters }; }
   };
 }

@@ -13,12 +13,12 @@ import { PRODUCT_DISCOVERY } from './loader/product-discovery.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '4.2';
+export const LOADER_VERSION = '4.3';
 export { buildDiscoverySource };
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
 // então JSON.stringify é seguro aqui.
-export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES) {
+export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES, scopeMode = 'allowlist') {
   const parts = [RUNTIME_HEAD];
   // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
   if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(TRACKING);
@@ -32,7 +32,8 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   return parts.join('')
     .replaceAll('__VERSION__', () => LOADER_VERSION)
     .replace('__ALLOWED_PATHS__', () => JSON.stringify(allowedPaths))
-    .replace('__FEATURES__', () => JSON.stringify(features));
+    .replace('__FEATURES__', () => JSON.stringify(features))
+    .replace('__SCOPE_MODE__', () => JSON.stringify(scopeMode === 'product-catalog' ? 'product-catalog' : 'allowlist'));
 }
 
 // Sem allowlist embutida: nunca monta. Mantido para compatibilidade e testes de fail-closed.

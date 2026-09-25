@@ -3,6 +3,7 @@ import { parseAllowlist } from './allowlist.js';
 import { parseFeatures } from './features.js';
 import { createSearchGateway } from './search-gateway.js';
 import { createCartRefs } from './cart-ref.js';
+import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE } from './scope.js';
 
 const HOST = 'www.usesul.com.br';
 // Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
@@ -47,6 +48,26 @@ class LoaderInjector {
   }
 }
 
+// Modo product-catalog: só injeta se o HTML tem o formulário NATIVO de compra da INK (form#form-product-<id>), visto no MESMO
+// passe de streaming (nada é bufferizado nem duplicado). O ponto de injeção é o fim do <body>, quando a detecção já terminou;
+// sem </body> ou sem formulário, o HTML segue intacto.
+class ProductFormDetector {
+  constructor(state) { this.state = state; }
+  element() { this.state.product = true; }
+}
+class BodyLoaderInjector {
+  constructor(state) { this.state = state; }
+  element(body) {
+    body.onEndTag((end) => {
+      if (this.state.product && !this.state.alreadyPresent) end.before(LOADER_TAG, { html: true });
+    });
+  }
+}
+class ExistingLoaderMarker {
+  constructor(state) { this.state = state; }
+  element() { this.state.alreadyPresent = true; }
+}
+
 class ExistingLoaderDetector {
   constructor(injector) { this.injector = injector; }
   element() { this.injector.alreadyPresent = true; }
@@ -62,13 +83,13 @@ const DISABLED_JS = '/* use-origens widget disabled */';
 
 // Publicar o loader NÃO autoriza injetá-lo: quem autoriza páginas é só a allowlist, aplicada em
 // injectLoader e reaplicada dentro do próprio loader (embutida aqui). Só entram os módulos de WIDGET_FEATURES.
-function serveLoader(request, mode, allowlist, features) {
+function serveLoader(request, mode, allowlist, features, scope) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
   // Com a flag desligada (ou dry-run) o loader vira no-op: páginas em cache no navegador não quebram.
   if (mode !== 'true') return javascript(request, DISABLED_JS, 'no-store');
-  return javascript(request, buildLoaderSource(allowlist.paths, features.features), 'public, max-age=60');
+  return javascript(request, buildLoaderSource(allowlist.paths, features.features, scope.mode), 'public, max-age=60');
 }
 
 // Módulo de descoberta carregado sob demanda pelo loader, só quando o drawer pós-adição abre.
@@ -83,8 +104,8 @@ function serveDiscovery(request, mode, features) {
   return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search'), postAdd, cart, product }), 'public, max-age=60');
 }
 
-async function injectLoader(request, url, mode, allowlist, upstream) {
-  const allowlisted = allowlist.paths.includes(url.pathname);
+async function injectLoader(request, url, mode, allowlist, scope, upstream) {
+  const allowlisted = inScope(scope, allowlist, url.pathname);
 
   // Fail-closed: fora da allowlist nada é reescrito, e nem sequer se olha a resposta.
   if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
@@ -112,11 +133,21 @@ async function injectLoader(request, url, mode, allowlist, upstream) {
     return response;
   }
 
-  const injector = new LoaderInjector();
-  const transformed = new HTMLRewriter()
-    .on('script[data-use-origens-widget]', new ExistingLoaderDetector(injector))
-    .on('head', injector)
-    .transform(response);
+  let transformed;
+  if (scope.mode === CATALOG_MODE) {
+    const state = { product: false, alreadyPresent: false };
+    transformed = new HTMLRewriter()
+      .on('script[data-use-origens-widget]', new ExistingLoaderMarker(state))
+      .on('form[id^="form-product-"]', new ProductFormDetector(state))
+      .on('body', new BodyLoaderInjector(state))
+      .transform(response);
+  } else {
+    const injector = new LoaderInjector();
+    transformed = new HTMLRewriter()
+      .on('script[data-use-origens-widget]', new ExistingLoaderDetector(injector))
+      .on('head', injector)
+      .transform(response);
+  }
 
   // Copia status/headers (incluindo múltiplos Set-Cookie) e remove só o que deixa de valer após reescrever.
   const headers = new Headers(response.headers);
@@ -134,6 +165,7 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
       const mode = widgetMode(env);
       const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
       const features = parseFeatures(env.WIDGET_FEATURES);
+      const scope = parseScopeMode(env.WIDGET_SCOPE_MODE);
 
       // Health não depende da origem: valida a publicação antes de qualquer ativação.
       if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
@@ -143,8 +175,11 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
           widget_mode: mode,
           allowlist_status: allowlist.status,
           allowlist_size: allowlist.paths.length,
+          scope_mode: scope.mode,
+          scope_status: scope.status,
           features_status: features.status,
-          widget_features: features.features
+          widget_features: features.features,
+          cart_ref_stats: cartRefs.stats()
         });
       }
 
@@ -153,13 +188,13 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
         return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
       }
 
-      if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist, features);
+      if (url.pathname === LOADER_PATH) return serveLoader(request, mode, allowlist, features, scope);
       if (url.pathname === DISCOVERY_PATH) return serveDiscovery(request, mode, features);
       // Gateway de busca: só com a flag ligada E a feature city-search; caso contrário a INK responde (404 dela).
       // Ponte do espelho do carrinho: só com true + cart-mirror (e o KV CART_REFS provisionado); senão a INK responde.
       if (url.pathname === CART_REF_PATH || url.pathname.startsWith(CART_REF_PATH + '/')) {
         if (mode !== 'true' || !features.features.includes('cart-mirror')) return passThrough(request, upstream);
-        if (url.pathname === CART_REF_PATH) return cartRefs.create(request, { kv: env.CART_REFS, allowedPaths: allowlist.paths, origin: 'https://' + HOST });
+        if (url.pathname === CART_REF_PATH) return cartRefs.create(request, { kv: env.CART_REFS, allowedPaths: allowlist.paths, pathAllowed: scope.mode === CATALOG_MODE ? isCatalogProductPath : null, origin: 'https://' + HOST });
         return cartRefs.read(request, { kv: env.CART_REFS, token: url.pathname.slice(CART_REF_PATH.length + 1) });
       }
       if (url.pathname === SEARCH_PATH) {
@@ -168,7 +203,7 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
 
       // Sem nenhum módulo liberado não há o que injetar (fail-closed).
       if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url)) return passThrough(request, upstream);
-      return injectLoader(request, url, mode, allowlist, upstream);
+      return injectLoader(request, url, mode, allowlist, scope, upstream);
     }
   };
 }
