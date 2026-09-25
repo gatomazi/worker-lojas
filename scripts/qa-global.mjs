@@ -10,6 +10,7 @@
 //            storefront e o motivo EXATO em <dir>; o release usa .release/evidence/<ts>). Toda falha é CLASSIFICADA: QA | INK | Worker | Storefront.
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { LOADER_VERSION } from '../src/loader-source.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 const LIVE = process.argv.includes('--live'); const ONLY = process.env.QA_ONLY || ''; const REAL_SF = process.env.QA_REAL_STOREFRONT === '1'; const EVIDENCE_DIR = process.env.QA_EVIDENCE_DIR || ''; const MODE = process.argv.includes('--allowlist') ? 'allowlist' : 'product-catalog';
@@ -20,7 +21,7 @@ const FIVE = ['serra-catarinense', 'made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3
 const path = (p) => '/usesul/product/' + p.slug;
 const EVIDENCE = new URL('../docs/evidence/expansao-global/', import.meta.url).pathname; mkdirSync(EVIDENCE, { recursive: true });
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'navbar-gateway.js', 'stores.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/header-nav.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery';
 let CUR = null; const failures = [];
 const results = []; const check = (n, ok, d = '', kind = 'QA') => { results.push(!!ok); if (CUR) CUR.lastCheck = n; if (!ok) failures.push({ n, kind, d: String(d).slice(0, 400) }); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '') + (ok ? '' : `  [classe: ${kind}]`)); };
@@ -144,8 +145,8 @@ async function sampleSection() {
         return { loader: window.__useOrigensLoader, features: window.__useOrigens && window.__useOrigens.features, scripts: document.querySelectorAll('script[src*="/__origens/loader.js"]').length, blocks: document.querySelectorAll('[data-origens-discovery="product"]').length, oldLink: !!document.getElementById('use-origens-return-link'), title: block && block.querySelector('.o-title').textContent, cta: block && block.querySelector('.o-cta').textContent,
           nativeCta: !!document.querySelector('#add-to-cart-desk, #add-to-cart-mob'), overflow, overflowWithout, deskCovered: covered('#add-to-cart-desk'), mobCovered: covered('#add-to-cart-mob') };
       });
-      const ok = info.loader === '4.3' && info.scripts === 1 && info.features && info.features.length === 6 && info.blocks === 1 && !info.oldLink && info.title === 'Continue explorando' && info.cta === 'Explorar todas as estampas' && info.nativeCta && (!info.overflow || info.overflowWithout) && info.deskCovered !== true && info.mobCovered !== true;
-      check(`[${w}] ${p.kind}/${p.short}: 1 loader 4.3, 6 features, 1 bloco, CTA/sticky livres`, ok, ok ? '' : JSON.stringify(info), 'Worker');
+      const ok = info.loader === LOADER_VERSION && info.scripts === 1 && info.features && info.features.length === 6 && info.blocks === 1 && !info.oldLink && info.title === 'Continue explorando' && info.cta === 'Explorar todas as estampas' && info.nativeCta && (!info.overflow || info.overflowWithout) && info.deskCovered !== true && info.mobCovered !== true;
+      check(`[${w}] ${p.kind}/${p.short}: 1 loader ${LOADER_VERSION}, 6 features, 1 bloco, CTA/sticky livres`, ok, ok ? '' : JSON.stringify(info), 'Worker');
       if (w === 1280 && i % 5 === 0) await s.page.screenshot({ path: EVIDENCE + (LIVE ? 'live-' : '') + `produto-${p.kind.replace(/[^a-z]/gi, '')}-${w}.png` });
     }
     await s.ctx.close();

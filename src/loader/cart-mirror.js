@@ -131,10 +131,10 @@ export const CART_MIRROR = String.raw`
       document.addEventListener('click', (event) => this.onExit(event), options);
     },
 
-    // Só os NOSSOS links para o storefront (resultado, "Explorar todas as estampas", link de retorno): nunca links da INK.
+    // Só os NOSSOS links para o storefront (resultado, "Explorar todas as estampas", link de retorno, logo/Cidades/Buscar da navbar): nunca links da INK.
     ourLink(event) {
       const link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-      if (!link || (link.id !== 'use-origens-return-link' && !link.closest('[data-origens-discovery]'))) return null;
+      if (!link || (link.id !== 'use-origens-return-link' && !link.closest('[data-origens-discovery], [data-origens-nav]'))) return null;
       try {
         const url = new URL(link.href);
         if (url.origin !== STOREFRONT_ORIGIN || (url.pathname !== '/sul' && !url.pathname.startsWith('/sul/'))) return null;
