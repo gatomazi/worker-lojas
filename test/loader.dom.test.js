@@ -17,9 +17,13 @@ function page({ url = 'https://www.usesul.com.br/usesul/product/serra-catarinens
   return dom;
 }
 
-async function load(dom) {
+// O loader monta 50 ms depois do primeiro tick; numa máquina carregada (load average > 100 medido) o `tick` fixo de 150 ms deixava o teste
+// ler o DOM ANTES da montagem. Agora, quando o link é esperado, espera pela CONDIÇÃO (até 6 s) em vez de um tempo fixo; a asserção não muda.
+// `expectLink: false` (páginas onde nada deve montar) mantém a espera curta, porque a ausência é o que se prova.
+async function load(dom, { expectLink = true } = {}) {
   dom.window.eval(SOURCE);
   await tick();
+  if (expectLink) for (let i = 0; i < 60 && !dom.window.document.getElementById(LINK); i++) await tick(100);
   return dom.window.document;
 }
 
@@ -71,13 +75,13 @@ test('falls back to the class selector when the id changes', async () => {
 });
 
 test('does nothing (and does not throw) when no CTA exists', async () => {
-  const doc = await load(page({ html: '<html><head></head><body><main>sem cta</main></body></html>' }));
+  const doc = await load(page({ html: '<html><head></head><body><main>sem cta</main></body></html>' }), { expectLink: false });
   assert.equal(links(doc).length, 0);
 });
 
 test('does nothing outside product pages or on another host', async () => {
   for (const url of ['https://www.usesul.com.br/usesul/cart', 'https://www.usesul.com.br/usesul', 'https://www.usesul.com.br/usesul/product/a/b', 'https://example.com/usesul/product/x']) {
-    assert.equal(links(await load(page({ url }))).length, 0, url);
+    assert.equal(links(await load(page({ url }), { expectLink: false })).length, 0, url);
   }
 });
 
@@ -134,7 +138,7 @@ test('a query string on an allowed path still mounts (matching is by path)', asy
 
 test('a look-alike path (trailing slash, other case, suffix) never mounts', async () => {
   for (const path of ['/usesul/product/serra-catarinense/', '/usesul/product/Serra-Catarinense', '/usesul/product/serra-catarinense-2']) {
-    assert.equal(links(await load(page({ url: 'https://www.usesul.com.br' + path }))).length, 0, path);
+    assert.equal(links(await load(page({ url: 'https://www.usesul.com.br' + path }), { expectLink: false })).length, 0, path);
   }
 });
 

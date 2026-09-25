@@ -6,6 +6,8 @@
 // O Worker local injeta o loader nas cinco páginas (mesmo papel do HTMLRewriter de produção); /__origens/** é atendido pelo Miniflare local.
 // Sessão anônima descartável, janela visível. Bloqueia as tags de analytics da INK (nenhum evento real chega à propriedade GA4 de
 // produção): os eventos que NÓS emitimos são capturados no dataLayer da página. Não abre checkout e não finaliza pedido.
+// DEPRECATED: os checks de jornada assumem o espelho gravando a cada mudança do carrinho (removido: agora é sob demanda). Use scripts/qa-global.mjs (local/--live). Para reexecutar esta versão histórica: QA_LEGACY=1.
+if (process.env.QA_LEGACY !== '1') { console.error('qa-expansao.mjs está DEPRECATED (semântica antiga do espelho). Use scripts/qa-global.mjs.'); process.exit(2); }
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
@@ -24,7 +26,7 @@ const path = (p) => '/usesul/product/' + p.slug;
 const EVIDENCE = new URL('../docs/evidence/expansao-5/', import.meta.url).pathname; mkdirSync(EVIDENCE, { recursive: true });
 const EVIDENCE_PD = new URL('../docs/evidence/product-discovery/', import.meta.url).pathname; mkdirSync(EVIDENCE_PD, { recursive: true });
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery';
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 const mf = LIVE ? null : new Miniflare({

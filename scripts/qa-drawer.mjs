@@ -20,7 +20,7 @@ const LIVE = process.argv.includes('--live'); // contra a produção REAL (sem W
 const mobile = WIDTH < 768;
 const label = arg('--width') ? 'w' + WIDTH : mode;
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 
 const mf = LIVE ? null : new Miniflare({
@@ -87,7 +87,7 @@ check('bloco de descoberta montou exatamente 1x dentro do drawer real', m.roots 
 check('ordem: botões nativos → nosso bloco → "As mais vendidas", sem sobreposição', m.ver && m.cont && m.root && m.sold && m.ver.bottom <= m.cont.top + 1 && m.cont.bottom <= m.root.top + 1 && m.root.bottom <= m.sold.top + 1 && !m.rootVsVer && !m.rootVsCont && !m.rootVsSold);
 check('"Ver carrinho" continua visível na área útil (não empurrado para fora)', m.verVisible, 'ver=' + JSON.stringify(m.ver) + ' vh=' + m.vh);
 check('campo de busca com alvo de toque >= 44 px (48)', m.input && m.input.h >= 44, 'h=' + (m.input && m.input.h));
-check('CTA "Explorar outras camisetas" >= 44 px', m.cta && m.cta.h >= 44, 'h=' + (m.cta && m.cta.h));
+check('CTA "Explorar todas as estampas" >= 44 px', m.cta && m.cta.h >= 44, 'h=' + (m.cta && m.cta.h));
 if (mobile) check('mobile: nosso bloco não causa overflow horizontal (largura idêntica com e sem o bloco; overflow preexistente da INK)', m.hScroll === m.hScrollWithout, 'com=' + m.hScroll + ' sem=' + m.hScrollWithout + ' (medida inicial da página: ' + mobileHs + ')');
 else check('desktop: sem overflow horizontal', m.hScroll <= m.vw, String(m.hScroll));
 console.log('INFO medidas', JSON.stringify({ wrapper: m.wrapper, wrapperScroll: m.wrapperScroll, root: m.root, ver: m.ver, input: m.input }));
@@ -104,7 +104,7 @@ await input.fill(''); await input.type('sc', { delay: 40 }); await page.waitForT
 check('busca "sc" → estado Santa Catarina primeiro', (await page.locator('[data-origens-discovery] .o-item .o-name').first().textContent()) === 'Santa Catarina');
 await input.fill(''); await input.type('xyzq', { delay: 40 }); await page.waitForSelector('[data-origens-discovery] .o-status:not(:empty)'); await page.waitForTimeout(900);
 await shot('search-empty');
-check('estado vazio com mensagem e CTA visível', /Ainda não encontramos essa cidade/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('[data-origens-discovery] .o-cta').isVisible()));
+check('estado vazio com mensagem e CTA visível', /Não encontramos essa cidade ou estado/.test(await page.locator('[data-origens-discovery] .o-status').textContent()) && (await page.locator('[data-origens-discovery] .o-cta').isVisible()));
 // Erro da busca: local = gateway responde 502 pela rota; LIVE = a falha é simulada SÓ no navegador de teste (a rota é
 // respondida com 502 no cliente; nada é derrubado na produção).
 if (LIVE) await page.route('**/__origens/search*', (r) => r.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"unavailable"}' }));

@@ -9,6 +9,9 @@ export const RUNTIME_HEAD = String.raw`(() => {
 
   const ALLOWED_PATHS = __ALLOWED_PATHS__;
   const FEATURES = __FEATURES__;
+  // "allowlist" (padrão): só ALLOWED_PATHS. "product-catalog": qualquer página verdadeira de produto (slug canônico + formulário nativo).
+  const SCOPE_MODE = __SCOPE_MODE__;
+  const CATALOG_PRODUCT_PATH = /^\/usesul\/product\/[a-z0-9][a-z0-9_-]{0,127}$/;
   const PRODUCT_PATH = /^\/usesul\/product\/[^/]+$/;
   // Rota canônica verificada do storefront. www.usesul.com.br/sul NÃO serve: responde 302 para /usesul.
   const STOREFRONT_ORIGIN = 'https://useorigens.com.br';
@@ -19,11 +22,16 @@ export const RUNTIME_HEAD = String.raw`(() => {
   let timer = null;
   let active = false;
 
-  // Só caminho exato da allowlist; lista vazia => nunca monta.
+  // allowlist: só caminho exato; lista vazia => nunca monta. product-catalog: slug canônico de produto (a URL de destino do Turbo).
   function pathAllowed(pathname) {
-    return window.location.hostname === 'www.usesul.com.br' && PRODUCT_PATH.test(pathname) && ALLOWED_PATHS.includes(pathname);
+    if (window.location.hostname !== 'www.usesul.com.br' || !PRODUCT_PATH.test(pathname)) return false;
+    return SCOPE_MODE === 'product-catalog' ? CATALOG_PRODUCT_PATH.test(pathname) : ALLOWED_PATHS.includes(pathname);
   }
-  function allowedNow() { return pathAllowed(window.location.pathname); }
+  // No modo catálogo a página ATUAL também precisa ter o formulário nativo de compra (404/página estranha com URL de produto = nada nosso).
+  function allowedNow() {
+    if (!pathAllowed(window.location.pathname)) return false;
+    return SCOPE_MODE !== 'product-catalog' || !!document.querySelector('form[id^="form-product-"]');
+  }
 
   // Desmonta TUDO nosso: UI, estilos, observers, timers e requisições. Idempotente.
   function teardown() {

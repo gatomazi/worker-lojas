@@ -9,7 +9,7 @@ export const DISCOVERY_LOADER = String.raw`
     if (!discoveryLoading) {
       discoveryLoading = new Promise((resolve) => {
         const script = document.createElement('script');
-        script.src = '/__origens/discovery.js?v=__VERSION__';
+        script.src = '/__origens/discovery.js?__DISCOVERY_QUERY__';
         script.async = true;
         script.setAttribute('data-use-origens-discovery', '__VERSION__');
         script.onload = () => { const api = window.__useOrigensDiscovery || null; if (!api) discoveryFailed = true; resolve(api); };

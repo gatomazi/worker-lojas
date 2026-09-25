@@ -13,12 +13,29 @@ import { PRODUCT_DISCOVERY } from './loader/product-discovery.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '4.2';
+export const LOADER_VERSION = '4.3';
 export { buildDiscoverySource };
+
+// Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano
+// (imutável) sem risco de servir uma versão velha após deploy, troca de escopo ou rollback. Determinístico e sem segredo.
+export function contentHash(text) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) { const ch = text.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+// Opções do discovery.js derivadas das features (mesma regra do Worker e do loader).
+export const discoveryOptions = (features) => ({ search: features.includes('city-search'), postAdd: features.includes('post-add-discovery'), cart: features.includes('cart-discovery'), product: features.includes('product-discovery') });
+
+const memo = new Map(); // por isolate: a configuração (features/escopo/allowlist) quase nunca muda; evita refazer a string e o hash a cada pedido
+const memoize = (key, make) => { if (!memo.has(key)) { if (memo.size > 64) memo.clear(); memo.set(key, make()); } return memo.get(key); };
+export const discoveryQuery = (features) => memoize('d:' + features.join(','), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildDiscoverySource(discoveryOptions(features))));
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
 // então JSON.stringify é seguro aqui.
-export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES) {
+export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES, scopeMode = 'allowlist') {
   const parts = [RUNTIME_HEAD];
   // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
   if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(TRACKING);
@@ -30,10 +47,14 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   if (features.includes('product-discovery')) parts.push(PRODUCT_DISCOVERY);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
+    .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))
     .replaceAll('__VERSION__', () => LOADER_VERSION)
     .replace('__ALLOWED_PATHS__', () => JSON.stringify(allowedPaths))
-    .replace('__FEATURES__', () => JSON.stringify(features));
+    .replace('__FEATURES__', () => JSON.stringify(features))
+    .replace('__SCOPE_MODE__', () => JSON.stringify(scopeMode === 'product-catalog' ? 'product-catalog' : 'allowlist'));
 }
+
+export const loaderQuery = (allowedPaths, features, scopeMode) => memoize('l:' + JSON.stringify([allowedPaths, features, scopeMode]), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildLoaderSource(allowedPaths, features, scopeMode)));
 
 // Sem allowlist embutida: nunca monta. Mantido para compatibilidade e testes de fail-closed.
 export const LOADER_SOURCE = buildLoaderSource([]);

@@ -1,63 +1,8 @@
 #!/usr/bin/env bash
-# Rollout em cadeia do cart-discovery SOMENTE em /usesul/product/serra-catarinense, com rollback automático.
-#   Pré-requisitos: `npx wrangler login` feito pelo proprietário; playwright-core em $PW_PATH (npm i --prefix /tmp/pw playwright-core).
-#   Uso: bash scripts/rollout-cart.sh
-# As features hoje ativas em produção são LIDAS do health e preservadas (ex.: cart-mirror): o script só liga/desliga cart-discovery.
-# Nunca liga cart-mirror por conta própria (isso exige o KV CART_REFS, declarado em wrangler.production.toml, e o consumidor no storefront).
-# NUNCA usar `wrangler deploy -c wrangler.production.toml` puro como atualização normal: isso desliga o piloto (só no rollback final).
-set -uo pipefail
-cd "$(dirname "$0")/.."
-export PW_PATH="${PW_PATH:-/tmp/pw}"
-CFG=wrangler.production.toml
-ALLOW=/usesul/product/serra-catarinense
-HEALTH=https://www.usesul.com.br/__origens/health
-CANON=(return-link post-add-discovery city-search cart-discovery cart-mirror product-discovery)     # mesma ordem de src/features.js (o health devolve nesta ordem)
-
-# widget_features do health, separadas por vírgula.
-live_features() { curl -sS "$HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const h=JSON.parse(s);if(h.features_status!=="ok"||!Array.isArray(h.widget_features))process.exit(1);console.log(h.widget_features.join(","))}catch(e){process.exit(1)}})'; }
-# with_feature "<lista>" <nome> | without_feature "<lista>" <nome>: ajustam UMA feature e mantêm as demais, em ordem canônica.
-with_feature() { local want=",$1,$2,"; local out=() f; for f in "${CANON[@]}"; do [[ "$want" == *",$f,"* ]] && out+=("$f"); done; (IFS=,; echo "${out[*]}"); }
-without_feature() { local want=",$1,"; local out=() f; for f in "${CANON[@]}"; do [[ "$want" == *",$f,"* && "$f" != "$2" ]] && out+=("$f"); done; (IFS=,; echo "${out[*]}"); }
-
-BASELINE_FEATURES="$(live_features)" || { echo "não consegui ler widget_features do health (features_status != ok?); abortando sem deploy"; exit 1; }
-[ -n "$BASELINE_FEATURES" ] || { echo "health sem features ativas; abortando sem deploy"; exit 1; }
-STAGE1_FEATURES="$(without_feature "$BASELINE_FEATURES" cart-discovery)"          # código novo, cart-discovery DESLIGADO (o resto do estado atual preservado)
-STAGE2_FEATURES="$(with_feature "$STAGE1_FEATURES" cart-discovery)"               # + descoberta no drawer do carrinho
-
-deploy() { npx wrangler deploy -c "$CFG" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$ALLOW" --var "WIDGET_FEATURES:$1"; }
-health_ok() { sleep 6; local h; h=$(curl -sS "$HEALTH") && echo "health: $h" && echo "$h" | grep -q '"widget_mode":"true"' && echo "$h" | grep -q '"allowlist_size":1' && echo "$h" | grep -q "\"widget_features\":\[$(printf '"%s"' "${1//,/\",\"}")\]"; }
-
-rollback() {
-  echo "!!! ROLLBACK: $1"
-  if deploy "$BASELINE_FEATURES" && health_ok "$BASELINE_FEATURES"; then echo "rollback OK: features restauradas para o estado anterior ($BASELINE_FEATURES)"; return 0; fi
-  echo "!!! rollback 1 falhou; voltando para a versão anterior publicada"
-  if npx wrangler rollback --name use-sul-widget -m "rollback cart-discovery" && sleep 6 && curl -sS "$HEALTH"; then echo; return 0; fi
-  echo "!!! rollback 2 falhou; desligando o widget (deploy puro: ENABLE_WIDGET=false, allowlist vazia)"
-  npx wrangler deploy -c "$CFG"; sleep 6; curl -sS "$HEALTH"; echo
-  return 1
-}
-
-echo "== antes: $(curl -sS "$HEALTH")"
-echo "== estado a preservar em caso de rollback: $BASELINE_FEATURES"
-echo "== ESTÁGIO 1: código novo, cart-discovery DESLIGADO ($STAGE1_FEATURES)"
-deploy "$STAGE1_FEATURES" || { echo "deploy do estágio 1 falhou"; exit 1; }
-health_ok "$STAGE1_FEATURES" || { rollback "health do estágio 1"; exit 1; }
-node scripts/rollout-smoke.mjs on || { rollback "smoke do estágio 1"; exit 1; }
-
-echo "== ESTÁGIO 2: cart-discovery ($STAGE2_FEATURES)"
-deploy "$STAGE2_FEATURES" || { rollback "deploy do estágio 2"; exit 1; }
-health_ok "$STAGE2_FEATURES" || { rollback "health do estágio 2"; exit 1; }
-node scripts/rollout-smoke.mjs on || { rollback "smoke do estágio 2"; exit 1; }
-# Matriz completa em produção: 6 viewports x (vazio + 1 item + fluxos | 2 itens | 3 itens | 8 variantes)
-for w in 1440 1280 768 440 390 320; do
-  if [ "$w" = 1280 ]; then A=(desktop); elif [ "$w" = 390 ]; then A=(mobile); else A=(mobile --width "$w"); fi
-  echo "== QA live viewport $w: carrinho vazio + 1 item + fluxos"
-  node scripts/qa-cart.mjs "${A[@]}" --live --tag after || { rollback "QA live do carrinho (vazio/1 item) em $w"; exit 1; }
-  for n in 2 3 8; do
-    echo "== QA live viewport $w: $n itens (variantes diferentes)"
-    node scripts/qa-cart-many.mjs "${A[@]}" --items "$n" --live || { rollback "QA live com $n itens em $w"; exit 1; }
-  done
-done
-node scripts/qa-drawer.mjs desktop --live --tag after || { rollback "regressão do drawer pós-adição (desktop)"; exit 1; }
-node scripts/qa-drawer.mjs mobile --live --tag after || { rollback "regressão do drawer pós-adição (mobile)"; exit 1; }
-echo "== OK: cart-discovery ativo SOMENTE em $ALLOW"; curl -sS "$HEALTH"; echo
+# DEPRECATED — NÃO USE.
+# Este script (rollout do cart-discovery) publicava com listas de features e allowlist fixas e antigas e o seu rollback restaurava um
+# estado anterior ao cart-mirror: rodá-lo hoje DESLIGARIA o espelho e o Product Discovery. Foi substituído por:
+#   scripts/preflight-global.sh   (somente leitura)  e  scripts/release-global.sh --deploy   (publicação controlada, com rollback automático)
+# O histórico do script está no Git. Nenhum deploy é feito aqui.
+echo "scripts/rollout-cart.sh está DEPRECATED e bloqueado. Use scripts/preflight-global.sh e scripts/release-global.sh --deploy (docs/expansao-global-ready.md)." >&2
+exit 2

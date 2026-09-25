@@ -19,7 +19,7 @@ const mobile = WIDTH < 768;
 const label = arg('--width') ? 'w' + WIDTH : mode;
 const HOST = 'https://www.usesul.com.br'; const P = '/usesul/product/serra-catarinense'; const OTHER = '/usesul/product/vida-no-sul-estancia-edition';
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 
 const mf = LIVE ? null : new Miniflare({
@@ -108,7 +108,7 @@ check('com resultados: "Finalizar compra" visível, rodapé imóvel, sem overflo
 check('requisição de busca same-origin, sem Cookie/Authorization', searchLog.length >= 1 && searchLog.every((s) => s.cookie === null && s.authorization === null));
 await input.fill(''); await input.type('xyzq', { delay: 40 }); await page.waitForSelector('.cart-drawer .o-status:not(:empty)'); await wait(900);
 await shot('search-empty');
-check('sem resultado: mensagem + "Explorar vitrine" visíveis; checkout visível', /Ainda não encontramos/.test(await page.locator('.cart-drawer .o-status').textContent()) && (await page.locator('.cart-drawer .o-cta').isVisible()) && (await G()).checkoutVisible);
+check('sem resultado: mensagem + "Explorar todas as estampas" visíveis; checkout visível', /Não encontramos essa cidade ou estado/.test(await page.locator('.cart-drawer .o-status').textContent()) && (await page.locator('.cart-drawer .o-cta').isVisible()) && (await G()).checkoutVisible);
 if (LIVE) await page.route('**/__origens/search*', failRoute); else searchFail = true;
 if (!LIVE) await page.route('**/__origens/search*', failRoute);
 await input.fill(''); await input.type('curitiba', { delay: 40 }); await wait(1300); await shot('search-error');

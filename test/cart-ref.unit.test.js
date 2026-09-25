@@ -139,3 +139,23 @@ test('five-product allowlist: POST is accepted from EXACTLY those five pages (qu
   for (const referer of denied) assert.equal((await refs.create(post(twoProducts, { referer }), ctx)).status, 403, referer);
   assert.equal(kv.puts.length, 5, 'nothing was stored for a denied referer');
 });
+
+test('KV failures never throw out of the Worker: put/get errors answer 503 JSON, are counted, and nothing else changes', async () => {
+  const bad = { async put() { throw new Error('KV put failed: 429'); }, async get() { throw new Error('KV get failed'); } };
+  const refs = createCartRefs();
+  const res = await refs.create(post(snapshot()), ctxFor(bad));
+  assert.equal(res.status, 503); assert.deepEqual(await res.json(), { error: 'unavailable' });
+  const read = await refs.read(new Request(ORIGIN + '/__origens/cart-ref/AbCdEfGhIjKlMnOpQrStUv'), { kv: bad, token: 'AbCdEfGhIjKlMnOpQrStUv' });
+  assert.equal(read.status, 503);
+  assert.deepEqual(refs.stats(), { writes: 0, write_failures: 1, reads: 1, read_hits: 0, read_misses: 0, rate_limited: 0, rejected: 0 });
+});
+
+test('aggregate counters: writes, reads (hit/miss), refusals and rate limiting are counted without any token, path or PII', async () => {
+  const kv = fakeKv(); const refs = createCartRefs();
+  const r = await refs.create(post(snapshot()), ctxFor(kv)); const { ref } = await r.json();
+  await refs.read(new Request(ORIGIN + '/__origens/cart-ref/' + ref), { kv, token: ref });
+  await refs.read(new Request(ORIGIN + '/__origens/cart-ref/ZyXwVuTsRqPoNmLkJiHgFe'), { kv, token: 'ZyXwVuTsRqPoNmLkJiHgFe' });
+  await refs.create(post(snapshot(), { referer: 'https://evil.example/x' }), ctxFor(kv));
+  assert.deepEqual(refs.stats(), { writes: 1, write_failures: 0, reads: 2, read_hits: 1, read_misses: 1, rate_limited: 0, rejected: 1 });
+  assert.ok(!JSON.stringify(refs.stats()).includes(ref));
+});

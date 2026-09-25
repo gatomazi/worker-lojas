@@ -4,6 +4,8 @@
 // Sessão anônima descartável, janela visível. Lê o carrinho REAL (turbo-frame#cart), confere o snapshot gravado no KV local,
 // muda a quantidade e remove o item pelos controles nativos, e abre o storefront real pelo NOSSO link (com ?cart_ref=).
 // Não abre checkout, não finaliza pedido, não aceita cookies. Sem KV de produção: a ponte só é habilitada localmente.
+// DEPRECATED: os checks assumem o espelho gravando ao adicionar/alterar o carrinho (removido: agora é sob demanda). Use scripts/qa-global.mjs (local/--live). Para reexecutar esta versão histórica: QA_LEGACY=1.
+if (process.env.QA_LEGACY !== '1') { console.error('qa-mirror.mjs está DEPRECATED (semântica antiga do espelho). Use scripts/qa-global.mjs.'); process.exit(2); }
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
@@ -11,7 +13,7 @@ const { chromium } = require('playwright-core');
 const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
 const HOST = 'https://www.usesul.com.br'; const P = '/usesul/product/serra-catarinense';
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 const mf = new Miniflare({
   modulesRoot: SRC, modules: FILES.map((f) => ({ type: 'ESModule', path: SRC + f })), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'],
