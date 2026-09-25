@@ -1,6 +1,6 @@
 # Descoberta na página de produto + revisão de comunicação (Fase 6)
 
-Data: 2026-09-24. Estado: **implementado, testado em local (Worker+KV locais, páginas REAIS da INK) e commitado; NÃO publicado.** Produção continua no Worker `81ce3c6f-47f4-408f-a4f3-e168dc99d395` (loader 4.1, cinco features, cinco caminhos). Loader novo: **4.2**. Contexto/eventos anteriores: [`expansao-cinco-produtos-analytics.md`](expansao-cinco-produtos-analytics.md).
+Data: 2026-09-24. Estado: **EM PRODUÇÃO nas cinco páginas** (seção 6). Worker ativo `4a3c5d13-632e-4fed-b6b8-028c0c40595d` (loader **4.2**, seis features, cinco caminhos exatos, `CART_REFS`); storefront `main` com o enum `ink_product_detail`. Versão estável anterior: `5790535f-b7f4-439e-beac-1a8ee257b050` (passo A, bloco desligado) e `81ce3c6f-47f4-408f-a4f3-e168dc99d395` (loader 4.1). Contexto/eventos anteriores: [`expansao-cinco-produtos-analytics.md`](expansao-cinco-produtos-analytics.md).
 
 ## 1. Comunicação (todas as superfícies)
 
@@ -55,7 +55,7 @@ Um evento novo de intenção, INK-side: **`origens_discovery_search_open`** (toq
 Overflow: em 320 (e 390 na 1ª visita) a **própria página da INK** já transborda na horizontal (`overflowWithout: true` com o bloco oculto); o QA compara com e sem o bloco e nenhum overflow é atribuível a ele.
 Capturas: `docs/evidence/product-discovery/` (`produto-*-{1280,390,320}-fechado.png`, `produto-paranaense-{1280,390,320}-busca-aberta.png`) e os drawers com o texto novo em `docs/evidence/expansao-5/drawer-*`.
 
-## 5. Publicação e rollback (a executar com autorização; nada foi publicado)
+## 5. Publicação e rollback (executado; mantido como referência)
 
 Versão estável a preservar no rollback: **`81ce3c6f-47f4-408f-a4f3-e168dc99d395`** (loader 4.1, cinco features, cinco caminhos, `CART_REFS`). Não usar deploy sem `--var` (desliga o piloto).
 
@@ -68,3 +68,15 @@ Versão estável a preservar no rollback: **`81ce3c6f-47f4-408f-a4f3-e168dc99d39
    ```
 3. **Worker, passo B (liga o bloco):** o mesmo comando com `WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery`. Health deve listar as seis; `node scripts/qa-expansao.mjs --live` (36 checagens + ida e volta pelo storefront).
 4. **Rollback:** (a) só o bloco: repetir o passo A (tira `product-discovery`, mantém as outras cinco); (b) tudo: `npx wrangler rollback 81ce3c6f-47f4-408f-a4f3-e168dc99d395 --name use-sul-widget -m "rollback fase-6"` (volta também a comunicação antiga). Confirmar health e smoke depois. Nunca rollback para a versão de um produto só.
+
+## 6. Produção (2026-09-24)
+
+**Sequência real:** storefront `12bca55` (PR → `main`, Railway; o bundle publicado passou a conter `ink_product_detail`) → Worker **passo A** `5790535f` (loader 4.2, bloco OFF; smoke: health `4.2`, 5 páginas com 1 loader e link antigo, `PRODUCT = false`, 5 produtos externos reais 200 sem loader, `/usesul`, `/usesul/products` sem loader, checkout 302, busca e `cart-ref` respondendo) → Worker **passo B** `4a3c5d13` (health: `version 4.2`, `allowlist_size 5`, seis features, `features_status ok`).
+
+**QA ao vivo** (`scripts/qa-expansao.mjs --live`, sessão anônima descartável, tags de analytics da INK bloqueadas, sem finalizar pedido): **40/40**. Cinco páginas × 1280/390/320×640 com 1 loader 4.2, seis features, **1 bloco e nenhum link antigo**, CTA/sticky nativos sem cobertura nossa; busca aberta pelo gateway real (≤4 resultados); destino `/sul` com as categorias; jornada de dois produtos, espelho, retorno pelo drawer nativo; 3+ peças com `Finalizar compra` visível em 1280/390/320×640. Capturas: `docs/evidence/product-discovery/live-*`.
+
+**Eventos observados no Network real** (uma visita de teste, `utm_source=qa`, propriedade `G-8GYTEJ1F77`; só o GA4 liberado — GTM, Meta, TikTok, Ads e New Relic bloqueados; cookies aceitos na INK e consentimento aceito no storefront): na INK `origens_discovery_search_open` e `origens_explore_storefront_click` (ambos `entry_point=ink_product_detail`, `product_slug=paranaense-essencia`); no storefront `origens_storefront_arrived` (`ink_product_detail`, mesmo slug) com `dl=https://useorigens.com.br/sul` e `dr=https://www.usesul.com.br/`. **Nenhum request GA contém `cart_ref`, `origens_src` ou `origens_p`.** (Junto vieram os hits normais da própria INK — `page_view`, `view_item` nas duas propriedades dela — e do storefront.)
+
+**Ainda NÃO confirmado no painel do GA4:** não há acesso ao Realtime/DebugView; evidência em Network não equivale a confirmação no painel. Dimensões `entry_point`, `product_slug`, `cart_items_bucket`, `mirror_age_bucket` e a redação de `cart_ref` ("Encobrir dados" no fluxo) dependem do proprietário. Vale o gate do aviso de cookies da INK (as medições do lado da INK só saem depois do aceite).
+
+**Rollback vigente:** só o bloco → repetir o passo A (`WIDGET_FEATURES` com as cinco features, sem `product-discovery`); tudo → `npx wrangler rollback 81ce3c6f-47f4-408f-a4f3-e168dc99d395 --name use-sul-widget -m "rollback fase-6"` (volta também a comunicação antiga). Confirmar health e smoke depois. Nunca a versão de um produto só.
