@@ -47,6 +47,8 @@ if H=$(health_ok allowlist 2>&1); then ok "health: seis features, allowlist 5, e
   if health_ok catalog >/dev/null 2>&1; then warn "produção JÁ está em product-catalog (release já aplicado?)"; else bad "health fora do estado protegido: $H"; fi; fi
 if node scripts/smoke-global.mjs --expect=allowlist >/tmp/preflight-smoke.out 2>&1; then ok "smoke público: $(tail -1 /tmp/preflight-smoke.out | cut -c1-110)"; else bad "smoke público falhou: $(grep '^FAIL' /tmp/preflight-smoke.out | head -3 | tr '\n' ' ')"; fi
 
+if storefront_ok; then ok "storefront alcançável ($(storefront_probe))"; else bad "storefront INACESSÍVEL agora ($(storefront_probe)): o QA da ida e volta INK → storefront → INK não pode ser validado (erro de rede/TLS, não do Worker)"; fi
+
 log "[7] Rollback e conta Cloudflare (exigem login; NÃO pedido esta noite)"
 if WHO=$(npx wrangler whoami 2>&1) && echo "$WHO" | grep -qi 'logged in'; then
   echo "$WHO" | grep -q "$EXPECTED_ACCOUNT_EMAIL" && ok "wrangler autenticado como $EXPECTED_ACCOUNT_EMAIL" || bad "wrangler autenticado em OUTRA conta"

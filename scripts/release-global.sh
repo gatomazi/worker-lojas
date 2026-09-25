@@ -52,10 +52,11 @@ PREV_VERSION=$(active_version) || die "não consegui capturar a versão ativa do
 PREV_HEALTH=$(health_json) || die "health ilegível"
 health_ok allowlist || die "produção NÃO está no estado protegido (cinco produtos, seis features)"
 PREV_LOADER=$(printf '%s' "$PREV_HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')
-mkdir -p .release; TS=$(date +%Y%m%d-%H%M%S); CAP=".release/capture-$TS.json"
+mkdir -p .release; TS=$(date +%Y%m%d-%H%M%S); CAP=".release/capture-$TS.json"; EVID="$ROOT/.release/evidence/$TS"; mkdir -p "$EVID"; chmod 700 "$EVID"
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1],JSON.stringify({captured_at:new Date().toISOString(),previous_version:process.argv[2],health:JSON.parse(process.argv[3])},null,1),{mode:0o600})' "$CAP" "$PREV_VERSION" "$PREV_HEALTH"
 log "   versão de rollback: $PREV_VERSION (loader $PREV_LOADER) — capturada em $CAP"
 smoke allowlist >/dev/null || die "smoke no estado atual falhou (as cinco páginas e a amostra fora do escopo precisam estar 200)"
+storefront_ok || die "storefront INACESSÍVEL ($(storefront_probe)). Nada foi publicado. Pré-condição: o QA valida INK → storefront → INK; erro de rede/TLS ali não é falha do Worker. Tente de novo quando o storefront responder."
 
 # ── F. rollback automático ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 rollback() {
@@ -71,14 +72,16 @@ rollback() {
   log "!!! CRÍTICO: o rollback automático NÃO se confirmou. Ação manual imediata:"
   log "    npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --yes     (NUNCA publique sem as --var: o TOML é fail-closed e desliga a integração)"; return 1
 }
-fail() { rollback "$1"; log ""; log "RELEASE ABORTADO: $1"; exit 1; }
+# Evidência ANTES do rollback (screenshot/URL/eventos vêm do QA em $EVID/qa; aqui health, sondas HTTP e deployments). Nunca impede o rollback.
+fail() { capture_evidence "$EVID/falha-$(date +%H%M%S)" "$1" || true; rollback "$1"; log ""; log "RELEASE ABORTADO: $1"; log "   evidências: .release/evidence/$TS/ (fora do Git)"; exit 1; }
+smoke_logged() { smoke "$@" 2>&1 | tee -a "$EVID/smoke-$1.log"; return "${PIPESTATUS[0]}"; }
 
 # ── B. código novo, escopo antigo ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 log "== B. código novo mantendo os cinco produtos =="
 deploy_worker allowlist || fail "deploy B falhou"
 sleep 8
 MSG=$(health_ok allowlist "$NEW_VERSION" 2>&1) || fail "health após B: $MSG"
-smoke allowlist "$NEW_VERSION" || fail "smoke após B"
+smoke_logged allowlist "$NEW_VERSION" || fail "smoke após B: $(grep -h '^FAIL' "$EVID"/smoke-allowlist.log | head -3 | tr '\n' ' ')"
 
 # ── C. liga o catálogo inteiro (só o escopo muda) ─────────────────────────────────────────────────────────────────────────────────────────
 log "== C. WIDGET_SCOPE_MODE=product-catalog =="
@@ -88,9 +91,16 @@ MSG=$(health_ok catalog "$NEW_VERSION" 2>&1) || fail "health após C: $MSG"
 
 # ── D/E. smoke público + navegador ────────────────────────────────────────────────────────────────────────────────────────────────────────
 log "== D/E. smoke =="
-smoke catalog "$NEW_VERSION" || fail "smoke do catálogo"
+smoke_logged catalog "$NEW_VERSION" || fail "smoke do catálogo: $(grep -h '^FAIL' "$EVID"/smoke-catalog.log | head -3 | tr '\n' ' ')"
 if [ "${RELEASE_SKIP_BROWSER:-}" = "1" ]; then log "   AVISO: QA em navegador PULADO (RELEASE_SKIP_BROWSER=1) — lacuna assumida pelo proprietário"
-else PW_PATH="$PW_PATH" node scripts/qa-global.mjs --live || fail "QA em navegador (jornada, espelho, Finalizar compra)"; fi
+else
+  # O QA grava screenshot, URL, eventos de navegação, resumo do carrinho, resposta do storefront e o motivo em $EVID/qa e CLASSIFICA a falha (QA|INK|Worker|Storefront).
+  PW_PATH="$PW_PATH" QA_EVIDENCE_DIR="$EVID/qa" node scripts/qa-global.mjs --live 2>&1 | tee "$EVID/qa-output.log"; QA_RC="${PIPESTATUS[0]}"
+  if [ "$QA_RC" != 0 ]; then
+    CLS=$(grep '^QA_FALHA_CLASSIFICADA' "$EVID/qa-output.log" | tail -1); FIRST=$(grep '^FAIL' "$EVID/qa-output.log" | head -2 | cut -c1-160 | tr '\n' ' ')
+    log "   classificação do QA: ${CLS:-sem classificação}"; fail "QA em navegador reprovou — ${CLS:-sem classificação} — $FIRST"
+  fi
+fi
 MSG=$(health_ok catalog "$NEW_VERSION" 2>&1) || fail "health final: $MSG"
 
 log ""; log "RELEASE CONCLUÍDO: catálogo inteiro em produção (Worker $NEW_VERSION)."

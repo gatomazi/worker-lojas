@@ -87,3 +87,37 @@ test('assert_deploy_vars refuses incomplete configurations (it is the gate in fr
   assert.equal(run('ALLOW="${ALLOW},/usesul/product/sexto"').status, 1, 'never widen the allowlist');
   assert.equal(spawnSync('bash', ['-c', 'source scripts/global-common.sh; assert_deploy_vars all'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' }).status, 1);
 });
+
+// ── hotfix pós-release abortado: evidência antes do rollback, precondição do storefront, QA com navegação estável e falhas classificadas ──────
+const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+const bash = (script, env = {}) => spawnSync('bash', ['-c', script], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', env: { ...process.env, ...env } });
+
+test('release: the exact gate reason and the evidence are saved BEFORE the rollback, which is never skipped; storefront reachability is checked before any deploy', () => {
+  const r = read('scripts/release-global.sh');
+  const failFn = r.match(/^fail\(\) \{.*$/m)[0];
+  assert.ok(failFn.indexOf('capture_evidence') !== -1 && failFn.indexOf('capture_evidence') < failFn.indexOf('rollback "$1"'), 'evidence first, then rollback');
+  assert.match(failFn, /\|\| true; rollback/, 'a failing evidence capture can never prevent the rollback');
+  assert.match(r, /QA_EVIDENCE_DIR="\$EVID\/qa"/); assert.match(r, /tee "\$EVID\/qa-output\.log"/); assert.match(r, /QA_FALHA_CLASSIFICADA/);
+  assert.ok(r.indexOf('storefront_ok || die') < r.indexOf('deploy_worker allowlist ||'), 'the storefront precondition comes before the first deploy (nothing to roll back)');
+  assert.match(read('scripts/preflight-global.sh'), /storefront_ok/);
+});
+
+test('capture_evidence writes reason/health/probes/deployments and returns even when everything else fails; run_limited enforces its time limit', () => {
+  const dir = '/tmp/release-evidence-test-' + process.pid;
+  const res = bash(`source scripts/global-common.sh; STOREFRONT_URL=http://127.0.0.1:9; capture_evidence "${dir}" "smoke após B: FAIL exemplo"; echo rc=$?; cat "${dir}/reason.txt"; cat "${dir}/http-probes.txt" | head -2; ls "${dir}"`);
+  assert.match(res.stdout, /rc=0/); assert.match(res.stdout, /motivo exato do gate: smoke após B: FAIL exemplo/); assert.match(res.stdout, /storefront: .*http=000/);
+  for (const f of ['reason.txt', 'health.json', 'http-probes.txt', 'deployments.txt']) assert.match(res.stdout, new RegExp(f.replace('.', '\\.')));
+  const t0 = Date.now(); const lim = bash('source scripts/global-common.sh; run_limited 1 sleep 6; echo rc=$?'); assert.ok(Date.now() - t0 < 4500, 'limited to ~1 s'); assert.match(lim.stdout, /rc=(143|137|1|\d+)/);
+  bash(`rm -rf "${dir}"`);
+});
+
+test('qa-global: product navigation does not depend on the load event; one bounded retry with an HTTP probe; failures are classified and leave evidence; snapshots are read patiently', () => {
+  const q = read('scripts/qa-global.mjs');
+  assert.doesNotMatch(q.slice(q.indexOf('async function gotoProduct'), q.indexOf('async function captureEvidence')), /waitUntil: 'load'/, 'gotoProduct never requires the load event');
+  assert.match(q, /waitUntil: 'domcontentloaded'/); assert.match(q, /form\[id\^="form-product-"\]/); assert.match(q, /attempts = 2/);
+  assert.match(q, /probeHttp\(/); assert.match(q, /QA_FALHA_CLASSIFICADA/); assert.match(q, /classe: \$\{kind\}/); assert.match(q, /'Storefront'/); assert.match(q, /'Worker'/); assert.match(q, /'INK'/);
+  for (const name of ['framenavigated', 'requestfailed', 'pageerror', 'console']) assert.ok(q.includes(name), name);
+  assert.match(q, /readRefPatient/); assert.match(q, /controlTotals/); assert.match(q, /widgetFree/);
+  assert.match(q, /waitUntil: 'commit'/, 'arrival = commit + 200, independent of load and of analytics');
+  assert.match(q, /function info\(/, 'analytics/URL-cleaning are informational, kept apart from the functional criterion');
+});

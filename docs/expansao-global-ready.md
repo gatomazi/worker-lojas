@@ -2,6 +2,8 @@
 
 ## Status: **READY** (com pendências manuais listadas na seção 9)
 
+> **Atualização 2026-09-25 (hotfix pós-release abortado):** a primeira tentativa foi revertida automaticamente para `4a3c5d13`; a causa das 3 falhas do gate foi um reset de conexão do storefront (rede/TLS) tratado por um QA frágil. Análise, correções (QA e release: navegação estável, classificação, evidência antes do rollback, precondição do storefront) e regressão em [`hotfix-qa-global.md`](hotfix-qa-global.md). O preflight agora também exige o storefront alcançável.
+
 Nada foi publicado, enviado ou mesclado. Sem `wrangler login`, sem deploy/rollback, sem push/merge, sem tocar em DNS, WAF, rotas ou KV real. Produção continua **nos cinco produtos, com as seis features** (conferido só por leitura pública, seção 3). Amanhã resta **uma decisão e um comando** (seção 10).
 
 Branch local `feature/expansao-global` (a partir de `origin/main` = `aecd7a6`), commits locais: `4765488` (escopo + espelho sob demanda), `e7b8948` (preflight/release/verificações), `f479a8e` (falha aberta, URLs com hash, QA) e o commit desta documentação.
