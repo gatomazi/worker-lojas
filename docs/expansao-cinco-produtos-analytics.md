@@ -4,7 +4,7 @@ Data: 2026-09-24. Repos: `use-origens-workers` (branch `feature/ink-loader-fase2
 
 ## Declaração de status
 
-> **`0/5 em produção nesta rodada` — código, testes e QA local prontos; NENHUM deploy foi feito.** Produção segue como antes: Worker `f8178f82`, allowlist só na Serra (`allowlist_size=1`), cinco features ativas, KV `CART_REFS` preservado. O que falta é ação do proprietário: push/deploy do storefront (Railway), login Cloudflare + deploy do Worker, e a verificação em produção (seção 7). Nada aqui foi medido em GA4 real (analytics da INK bloqueado nos testes; DebugView/Realtime dependem do deploy).
+> **`5/5 em produção` (2026-09-24).** Worker `81ce3c6f-47f4-408f-a4f3-e168dc99d395` (loader **4.1**, `allowlist_size=5`, as cinco features, KV `CART_REFS` preservado) e storefront `main` = `c6b88a4` (PR #2, Railway) no ar. Verificado em produção: smoke HTTP nas cinco páginas + controles externos, jornada real de 31 checagens (31/31), e auditoria de requests reais do GA4 (sem token). **Não verificado:** GA4 Realtime/DebugView (sem acesso ao painel) e o rate limit da zona (sem permissão de WAF). Detalhes na seção 9.
 
 ## 1. Estado no início (verificado, não presumido)
 
@@ -65,7 +65,7 @@ Regressão Turbo (A→B→fora→Serra): teste jsdom `tracking.dom.test.js` (mon
 
 ## 5. Limites do que foi verificado
 
-- **Nada foi deployado nem medido em GA4/DebugView reais.** Os eventos foram provados no `dataLayer`/`gtag` simulados e no navegador real com as tags bloqueadas para não poluir a propriedade de produção.
+- (Antes do rollout) Os eventos foram provados no `dataLayer`/`gtag` simulados e no navegador real com as tags bloqueadas para não poluir a propriedade de produção. Depois do rollout, ver a seção 9 para o que foi provado em produção.
 - As capturas com "carrinho de 3 peças" mostram o drawer com a busca aberta; a captura exata "total promocional" e a do storefront `Meu carrinho`/retorno dependem do deploy do storefront (o espelho local já existente foi capturado na rodada anterior).
 - Erros de Turbo/Stimulus preexistentes da INK não foram investigados nem alterados.
 - 429: o limitador do Worker (20 POST/min/IP/isolate) não gerou 429 no fluxo de QA (poucos POSTs, debounce de 800 ms). Se aparecer 429 legítimo em rede compartilhada, documentar a causa **antes** de mexer nele.
@@ -74,7 +74,7 @@ Regressão Turbo (A→B→fora→Serra): teste jsdom `tracking.dom.test.js` (mon
 
 Eventos: `origens_go_to_cart_click`, `origens_native_cart_opened`, `origens_explore_storefront_click`, `origens_storefront_arrived`, `origens_cart_mirror_view`. Dimensões personalizadas de evento a registrar: `entry_point`, `product_slug`, `cart_items_bucket`, `mirror_age_bucket`. Comparações: `mirror_view → go_to_cart_click → native_cart_opened`; `explore_storefront_click → storefront_arrived` por `entry_point`; volume por `product_slug`. **Clique observado ≠ chegada confirmada**; não há causalidade de vendas.
 
-## 7. Rollout (a executar com autorização) e rollback
+## 7. Rollout (executado; ver seção 9) e rollback
 
 Ordem da rodada: **1) storefront, 2) Worker**. O `cart_ref` já é sanitizado hoje; o storefront novo só acrescenta eventos e o consumo do marcador, então é seguro publicar antes.
 
@@ -104,6 +104,21 @@ Ordem da rodada: **1) storefront, 2) Worker**. O `cart_ref` já é sanitizado ho
 
 ## 8. Commits
 
-- Worker: `eeccb56` (tracking, testes, allowlist/referer); o commit seguinte inclui o gate do aviso de cookies da INK, `qa-expansao.mjs`, capturas e este documento (ver `git log`).
-- Storefront: `a333578` (eventos + marcador); doc `docs/analytics-origens-events.md` no commit seguinte.
-- Estado remoto/merge: **nada foi enviado**; nenhum merge.
+- Worker (`feature/ink-loader-fase2a`, no remoto): `eeccb56` (tracking, testes, allowlist/referer), `df78a87` (gate do aviso de cookies da INK, `qa-expansao.mjs`, capturas, este documento) e o commit desta atualização (modo `--live`, capturas de produção, seção 9). A branch do Worker **não foi mergeada** em `main`.
+- Storefront: `c95502e` (eventos + marcador) e `bafff82` (`docs/analytics-origens-events.md`), mergeados no `main` pelo PR #2 (`c6b88a4`).
+
+## 9. Rollout executado e verificação em produção
+
+**Antes (capturado):** Worker `f8178f82-31c4-4898-b8d0-9fe0bbeb0c39`, loader 4.0, `allowlist_size=1`; storefront `main` `81f2477` (CMS, PR #1). **Depois:** storefront `main` `c6b88a4` (PR #2, deploy automático no Railway; o bundle publicado passou a conter `origens_storefront_arrived`; `/sul` 200, `/api/ready` `ready:true`, `/admin` no host público 404); Worker `81ce3c6f-47f4-408f-a4f3-e168dc99d395` (deploy manual do proprietário com o comando da seção 7; `wrangler` deslogado ao final). Ordem respeitada: storefront primeiro, Worker depois.
+
+**Health** (`GET /__origens/health`): `version 4.1`, `widget_mode "true"`, `allowlist_status ok`, `allowlist_size 5`, `features_status ok`, `widget_features = return-link, post-add-discovery, city-search, cart-discovery, cart-mirror`.
+
+**Smoke HTTP:** as cinco URLs → 200, `turbo-frame#cart` presente, **exatamente um** loader (`/__origens/loader.js?v=4.1`) cada; requisição com `Turbo-Frame: cart` → 200 **sem** loader. Controles externos **reais**, fora da allowlist: `santa-catarina-clean`, `catarinense-essencia`, `parana-clean`, `rio-grande-do-sul-atlas-do-sul`, `gaucho-essencia` → todos 200 sem loader. `/usesul` e `/usesul/products` 200 sem loader; `/usesul/checkout/contact_and_shipping_details` 302 sem loader; `/` 301. (Um slug inventado para testar 404 não conta como prova de isolamento.)
+
+**Jornada real em produção** (`scripts/qa-expansao.mjs --live`, sessão anônima descartável, tags de analytics da INK bloqueadas, sem finalizar pedido): **31/31**. Loader único + 5 features + retorno + CTA nativo nas cinco páginas em 1280 e 390; Serra + Paranaense no mesmo carrinho com snapshot dos dois e variantes; drawer aberto por "Ver carrinho" e pelo ícone; `Explorar outras camisetas`/`Explorar vitrine` com evento e marcador corretos; **storefront real**: chegada com `?origens_src=…&origens_p=…&cart_ref=…` deixa o endereço em `/sul`, guarda só o token, `Meu carrinho` mostra os dois produtos (`Paranaense | Essência`, `Serra Catarinense`, `Preta · M`, total `R$ 219,80` vindo da INK); `Ir para meu carrinho` → INK com drawer nativo aberto, 2 itens e total preservados, parâmetro consumido, 1 `origens_native_cart_opened`; 3 peças com a promoção da INK (`totalText R$ 304,70`); **`Finalizar compra` visível** em 1280, 390×844 e 320×640 com a busca aberta; nenhum POST do espelho com Cookie. Capturas: `docs/evidence/expansao-5/live-*` (e as locais).
+
+**Requests reais do GA4 (storefront, propriedade `G-8GYTEJ1F77`, uma visita de teste com consentimento aceito e um token sintético na URL):** 2 hits — `page_view` e `origens_storefront_arrived`; `dl=https://www.useorigens.com.br/sul?utm_source=qa` e `dr=https://www.usesul.com.br/usesul/product/paranaense-essencia`; o token e `origens_src`/`origens_p` **não aparecem em nenhum payload**. (O Meta Pixel foi bloqueado no teste. Esses 2 hits reais entram na propriedade: origem `utm_source=qa`, produto `paranaense-essencia`.)
+
+**429 / rate limit:** nenhum 429 no fluxo (todos os POSTs de `cart-ref` retornaram 201). O rate limit da zona (50 req/10 s/IP informado pelo proprietário) **continua não verificado** por mim; o limitador do Worker (20 POST/min/IP/isolate) não foi alterado.
+
+**Não verificado / pendências:** (1) GA4 Realtime/DebugView e o cadastro das dimensões personalizadas e da redação de `cart_ref` no painel (passos em `analytics-origens-events.md`); (2) medição do lado da INK só depois de aceitar o aviso de cookies da INK — os eventos `origens_explore_storefront_click`/`origens_native_cart_opened` foram provados no `dataLayer`, não no painel; (3) regressões preexistentes de Turbo/Stimulus da INK não foram avaliadas; (4) a branch do Worker ainda não foi mergeada em `main`.

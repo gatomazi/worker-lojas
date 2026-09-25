@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // QA da EXPANSÃO para 5 produtos contra as páginas REAIS da INK, com Worker + KV LOCAIS (nada é publicado, nenhum deploy).
 //   PW_PATH=/caminho/com/playwright-core node scripts/qa-expansao.mjs
+// Com --live: contra o Worker PUBLICADO (nenhum Miniflare, nenhuma injeção local); mesmas verificações, capturas com prefixo live-.
+//   PW_PATH=... node scripts/qa-expansao.mjs --live
 // O Worker local injeta o loader nas cinco páginas (mesmo papel do HTMLRewriter de produção); /__origens/** é atendido pelo Miniflare local.
 // Sessão anônima descartável, janela visível. Bloqueia as tags de analytics da INK (nenhum evento real chega à propriedade GA4 de
 // produção): os eventos que NÓS emitimos são capturados no dataLayer da página. Não abre checkout e não finaliza pedido.
@@ -8,7 +10,8 @@ import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
-const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
+const LIVE = process.argv.includes('--live');
+const { Miniflare } = LIVE ? { Miniflare: null } : await import(process.env.MINIFLARE || 'miniflare');
 const HOST = 'https://www.usesul.com.br';
 const PRODUCTS = [
   { name: 'Serra Catarinense', uf: 'SC', slug: 'serra-catarinense', short: 'serra' },
@@ -23,7 +26,7 @@ const SRC = new URL('../src/', import.meta.url).pathname;
 const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror';
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
-const mf = new Miniflare({
+const mf = LIVE ? null : new Miniflare({
   modulesRoot: SRC, modules: FILES.map((f) => ({ type: 'ESModule', path: SRC + f })), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'],
   bindings: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: PRODUCTS.map(path).join(','), WIDGET_FEATURES: FEATURES },
   outboundService: async (req) => (new URL(req.url).host === 'useorigens.com.br' ? new Response(readFileSync(new URL('../test/fixtures/search/cidades-sul.json', import.meta.url)), { headers: { 'content-type': 'application/json' } }) : new Response('no', { status: 502 }))
@@ -36,7 +39,13 @@ async function newSession(viewport) {
   await ctx.route(/googletagmanager|google-analytics|facebook|connect\.facebook|newrelic|nr-data|tiktok|doubleclick/, (r) => r.abort());
   const page = await ctx.newPage(); const state = { refs: [], posts: [], events: [], ctx, page };
   await page.addInitScript(() => { window.__events = []; const dl = window.dataLayer = window.dataLayer || []; const push = dl.push.bind(dl); dl.push = function () { for (const a of arguments) { if (a && a[0] === 'event' && String(a[1]).startsWith('origens_')) window.__events.push(JSON.parse(JSON.stringify([a[1], a[2]]))); } return push.apply(null, arguments); }; });
-  await page.route('**/__origens/**', async (route) => {
+  if (LIVE) page.on('response', async (res) => {
+    const req = res.request(); const url = new URL(res.url());
+    if (url.pathname !== '/__origens/cart-ref' || req.method() !== 'POST') return;
+    const h = await req.allHeaders(); state.posts.push({ status: res.status(), cookieSent: !!h['cookie'] });
+    try { const j = await res.json(); if (j.ref) state.refs.push(j.ref); } catch (_) { /* ignora */ }
+  });
+  if (!LIVE) await page.route('**/__origens/**', async (route) => {
     const req = route.request(); const url = new URL(req.url()); const h = req.headers();
     const res = await mf.dispatchFetch(url.href, { method: req.method(), headers: { 'content-type': h['content-type'] || '', origin: h['origin'] || '', referer: h['referer'] || '', 'sec-fetch-site': h['sec-fetch-site'] || '' }, body: req.method() === 'POST' ? req.postData() : undefined });
     const buf = Buffer.from(await res.arrayBuffer());
@@ -44,7 +53,7 @@ async function newSession(viewport) {
     await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: buf });
   });
   // Injeção local do loader nas cinco páginas (só HTML de documento da allowlist), como o Worker de produção faz.
-  await page.route((u) => PRODUCTS.some((p) => u.pathname === path(p)) && u.host === 'www.usesul.com.br', async (route) => {
+  if (!LIVE) await page.route((u) => PRODUCTS.some((p) => u.pathname === path(p)) && u.host === 'www.usesul.com.br', async (route) => {
     if (route.request().resourceType() !== 'document') return route.continue();
     const res = await route.fetch(); const html = await res.text();
     // Como o HTMLRewriter de produção: não duplica se a página já traz o loader (a Serra já recebe a tag do Worker publicado).
@@ -54,7 +63,7 @@ async function newSession(viewport) {
   return state;
 }
 const wait = (page, ms) => page.waitForTimeout(ms);
-const readRef = async (ref) => { const r = await mf.dispatchFetch(HOST + '/__origens/cart-ref/' + ref); return { status: r.status, body: r.status === 200 ? await r.json() : null }; };
+const readRef = async (ref) => { const r = LIVE ? await fetch(HOST + '/__origens/cart-ref/' + ref) : await mf.dispatchFetch(HOST + '/__origens/cart-ref/' + ref); return { status: r.status, body: r.status === 200 ? await r.json() : null }; };
 const events = (s) => s.page.evaluate(() => window.__events.slice());
 const checkoutVisible = (page) => page.evaluate(() => { const els = [...document.querySelectorAll('.cart-drawer a, .cart-drawer button')].filter((e) => /finalizar compra/i.test(e.textContent || '')); if (!els.length) return { found: false }; const r = els[0].getBoundingClientRect(); return { found: true, visible: r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight + 1 }; });
 
@@ -82,7 +91,7 @@ for (const [w, h] of [[1280, 900], [390, 844]]) {
     await s.page.goto(HOST + path(p), { waitUntil: 'load' }); await wait(s.page, 3500);
     const info = await s.page.evaluate(() => ({ loader: window.__useOrigensLoader, features: window.__useOrigens && window.__useOrigens.features, scripts: document.querySelectorAll('script[src*="/__origens/loader.js"]').length, ret: !!document.getElementById('use-origens-return-link'), cta: !!document.querySelector('#add-to-cart-desk, #add-to-cart-mob'), nativeSizes: document.querySelectorAll('input[type=radio][id*="-size-"]').length }));
     check(`[${w}] ${p.short}: loader 4.1 único, 5 features, "← Voltar a procurar" e CTA nativo da INK`, info.loader === '4.1' && info.scripts === 1 && info.features && info.features.length === 5 && info.ret && info.cta && (w < 768 || info.nativeSizes > 0), JSON.stringify(info));
-    await s.page.screenshot({ path: EVIDENCE + `produto-${i + 1}-${p.short}-${w}.png` });
+    await s.page.screenshot({ path: EVIDENCE + (LIVE ? 'live-' : '') + `produto-${i + 1}-${p.short}-${w}.png` });
   }
   await s.ctx.close();
 }
@@ -108,13 +117,41 @@ await s.page.waitForSelector('.cart-drawer.open [data-origens-discovery="cart"]'
 const two = await s.page.evaluate(() => ({ header: document.getElementById('quantity-header')?.getAttribute('data-quantityheader'), names: [...document.querySelectorAll('turbo-frame#cart li.main-list__item .item-details p:first-child')].map((e) => e.textContent.trim()) }));
 check('drawer (via "Ver carrinho"): 2 produtos diferentes + bloco de descoberta', two.header === '2' && new Set(two.names).size === 2, JSON.stringify(two));
 const co1 = await checkoutVisible(s.page); check('"Finalizar compra" visível no drawer com o bloco montado (1280)', co1.found && co1.visible, JSON.stringify(co1));
-await s.page.screenshot({ path: EVIDENCE + 'drawer-dois-produtos-1280.png' });
+await s.page.screenshot({ path: EVIDENCE + (LIVE ? 'live-' : '') + 'drawer-dois-produtos-1280.png' });
 const lastRef = s.refs.at(-1); const snap = await readRef(lastRef);
 check('espelho (KV): snapshot com os DOIS produtos e suas variantes, lido da INK', snap.status === 200 && snap.body.items.length === 2 && new Set(snap.body.items.map((i) => i.productId)).size === 2 && snap.body.items.every((i) => i.variant && i.color && i.size), JSON.stringify(snap.body && snap.body.items.map((i) => [i.name, i.color, i.size, i.quantity])));
 await s.page.evaluate(() => { const a = document.querySelector('.cart-drawer [data-origens-discovery="cart"] .o-cta'); a.addEventListener('click', (e) => e.preventDefault(), { once: true }); });
 await s.page.locator('.cart-drawer [data-origens-discovery="cart"] .o-cta').click({ noWaitAfter: true }); await wait(s.page, 300);
 ev = await events(s); const cartHref = await s.page.evaluate(() => document.querySelector('.cart-drawer [data-origens-discovery="cart"] .o-cta').href); const u = new URL(cartHref);
 check('"Explorar vitrine" do drawer: evento ink_cart_drawer, marcador + cart_ref no link, storefront /sul', ev.some((e) => e[0] === 'origens_explore_storefront_click' && e[1].entry_point === 'ink_cart_drawer') && u.searchParams.get('origens_src') === 'ink_cart_drawer' && u.searchParams.get('cart_ref') === lastRef && u.pathname === '/sul' && u.origin === 'https://useorigens.com.br');
+// ── D) só com --live: ida e volta REAL pelo storefront publicado (mesma sessão descartável), com o link e o cart_ref que o drawer gerou ──
+if (LIVE) {
+  const sf = await s.ctx.newPage();
+  await sf.addInitScript(() => {
+    window.__events = []; const dl = window.dataLayer = window.dataLayer || []; const push = dl.push.bind(dl);
+    dl.push = function () { for (const a of arguments) { if (a && a[0] === 'event' && String(a[1]).startsWith('origens_')) window.__events.push(JSON.parse(JSON.stringify([a[1], a[2]]))); } return push.apply(null, arguments); };
+    if (location.hostname === 'useorigens.com.br' || location.hostname === 'www.useorigens.com.br') {
+      window.__g = []; window.gtag = function () { window.__g.push(JSON.parse(JSON.stringify([...arguments]))); };
+      window.localStorage.setItem('useorigens:consent:marketing', JSON.stringify({ choice: 'accepted', version: 2, decidedAt: new Date().toISOString() }));
+    }
+  });
+  await sf.goto(cartHref, { waitUntil: 'load', referer: HOST + path(p2) }); await wait(sf, 3500);
+  const sfState = await sf.evaluate(() => ({ url: location.pathname + location.search, ref: sessionStorage.getItem('origens:cart_ref') ? 'token-guardado' : null, trigger: !!document.querySelector('[data-testid="cart-mirror-trigger"]') }));
+  check('storefront REAL: marcador e cart_ref saíram do endereço na chegada; só o token ficou no sessionStorage', sfState.url === '/sul' && sfState.ref === 'token-guardado' && sfState.trigger, JSON.stringify(sfState));
+  await sf.locator('[data-testid="cart-mirror-trigger"]').click(); await wait(sf, 1500);
+  const panel = await sf.evaluate(() => ({ count: document.querySelector('[data-testid="cart-mirror-count"]')?.textContent, items: [...document.querySelectorAll('[data-testid="cart-mirror-item"]')].map((e) => e.textContent.replace(/\s+/g, ' ').slice(0, 80)), total: document.querySelector('[data-testid="cart-mirror-total"]')?.textContent, age: document.querySelector('[data-testid="cart-mirror-age"]')?.textContent }));
+  check('"Meu carrinho" no storefront mostra os DOIS produtos com variantes e total da INK', /2 produtos/.test(panel.count || '') && panel.items.length === 2 && /Paranaense/.test(panel.items.join('|')) && /Serra/.test(panel.items.join('|')) && !!panel.total, JSON.stringify(panel));
+  await sf.screenshot({ path: EVIDENCE + 'live-storefront-meu-carrinho-1280.png' });
+  const gs = await sf.evaluate(() => window.__g.filter((c) => c[0] === 'event' && String(c[1]).startsWith('origens_')));
+  const gsText = JSON.stringify(await sf.evaluate(() => window.__g));
+  check('storefront: 1 origens_storefront_arrived (ink_cart_drawer + slug) e 1 origens_cart_mirror_view; sem token/marcador em nenhum payload', gs.filter((c) => c[1] === 'origens_storefront_arrived').length === 1 && gs.find((c) => c[1] === 'origens_storefront_arrived')[2].entry_point === 'ink_cart_drawer' && gs.find((c) => c[1] === 'origens_storefront_arrived')[2].product_slug === p2.slug && gs.filter((c) => c[1] === 'origens_cart_mirror_view').length === 1 && !gsText.includes(lastRef) && !/origens_src|origens_p"/.test(gsText.replace(/"origens_(storefront|cart|go)[a-z_]*"/g, '')), JSON.stringify(gs.map((c) => [c[1], c[2]])));
+  await sf.locator('[data-testid="cart-mirror-go"]').click(); await sf.waitForURL(/usesul\.com\.br\/usesul\/product\/serra-catarinense/, { timeout: 20000 });
+  await sf.waitForSelector('.cart-drawer.open', { timeout: 20000 }); await wait(sf, 1500);
+  const ret = await sf.evaluate(() => ({ search: location.search, header: document.getElementById('quantity-header')?.getAttribute('data-quantityheader'), total: [...document.querySelectorAll('.cart-drawer__footer p, .cart-drawer__footer span')].map((e) => e.textContent.trim()).find((t) => /^R\$/.test(t)), events: window.__events }));
+  check('"Ir para meu carrinho" → INK real: drawer nativo aberto, 2 itens e total preservados, parâmetro consumido, 1 origens_native_cart_opened', ret.header === '2' && ret.search === '' && !!ret.total && ret.events.filter((e) => e[0] === 'origens_native_cart_opened').length === 1, JSON.stringify(ret));
+  await sf.screenshot({ path: EVIDENCE + 'live-retorno-drawer-nativo-1280.png' });
+  await sf.close();
+}
 // caminho 2: ícone do cabeçalho (recarrega a página; o carrinho da INK persiste na sessão)
 await s.page.goto(HOST + path(p1), { waitUntil: 'load' }); await wait(s.page, 3500);
 await s.page.evaluate(() => { const b = [...document.querySelectorAll('[id^=shopping-cart-menu]')].find((e) => e.getClientRects().length); b && b.click(); });
@@ -140,7 +177,7 @@ for (const [w, h, tag] of [[1280, 900, '1280'], [390, 844, '390'], [320, 640, '3
   const toggle = s.page.locator('.cart-drawer [data-origens-discovery="cart"] .o-toggle'); if (await toggle.count() && await toggle.isVisible()) { await toggle.click().catch(() => {}); await wait(s.page, 700); }
   const co = await checkoutVisible(s.page);
   check(`[${tag}] 3+ peças, busca aberta: "Finalizar compra" continua visível`, co.found && co.visible, JSON.stringify(co));
-  await s.page.screenshot({ path: EVIDENCE + `drawer-3pecas-busca-${tag}.png` });
+  await s.page.screenshot({ path: EVIDENCE + (LIVE ? 'live-' : '') + `drawer-3pecas-busca-${tag}.png` });
 }
 check('nenhum POST do espelho levou Cookie da INK', s.posts.every((p) => !p.cookieSent));
 await browser.close();
