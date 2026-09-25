@@ -68,7 +68,7 @@ test('enabled worker injects loader only on product HTML', async () => {
   const ctx = mockEnvironment();
   const response = await worker.fetch(new Request(host + '/usesul/product/serra-catarinense'), { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: ALLOW });
   const text = await response.text();
-  assert.ok(text.includes('src="/__origens/loader.js?v=' + LOADER_VERSION + '"'));
+  assert.match(text, new RegExp('src="/__origens/loader\\.js\\?v=' + LOADER_VERSION.replace('.', '\\.') + '&c=[0-9a-z]+"'));
   assert.match(text, /data-cfasync="false"/);
   assert.equal(text.match(/data-use-origens-widget/g)?.length, 1);
   assert.equal(ctx.originCalls, 1);

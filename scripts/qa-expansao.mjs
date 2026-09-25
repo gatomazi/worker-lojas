@@ -6,6 +6,8 @@
 // O Worker local injeta o loader nas cinco páginas (mesmo papel do HTMLRewriter de produção); /__origens/** é atendido pelo Miniflare local.
 // Sessão anônima descartável, janela visível. Bloqueia as tags de analytics da INK (nenhum evento real chega à propriedade GA4 de
 // produção): os eventos que NÓS emitimos são capturados no dataLayer da página. Não abre checkout e não finaliza pedido.
+// DEPRECATED: os checks de jornada assumem o espelho gravando a cada mudança do carrinho (removido: agora é sob demanda). Use scripts/qa-global.mjs (local/--live). Para reexecutar esta versão histórica: QA_LEGACY=1.
+if (process.env.QA_LEGACY !== '1') { console.error('qa-expansao.mjs está DEPRECATED (semântica antiga do espelho). Use scripts/qa-global.mjs.'); process.exit(2); }
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');

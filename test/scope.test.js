@@ -26,3 +26,23 @@ test('inScope: allowlist mode = exact list only (five stay five); catalog mode =
   assert.equal(inScope(catalog, { paths: [] }, '/usesul/product/qualquer-outro'), true);
   assert.equal(inScope(catalog, five, '/usesul/cart'), false); assert.equal(inScope(catalog, five, '/usesul/checkout/x'), false);
 });
+
+// ── falha ABERTA do Worker (Node não tem HTMLRewriter: a reescrita lança e a página original da INK precisa sair intacta) ──────────────────
+import createDefault, { createWorker } from '../src/worker.js';
+test('fail-open: if OUR rewrite throws, the original INK page is returned untouched (catalog and allowlist modes) — the purchase never depends on the widget', async () => {
+  const html = '<!doctype html><html><head></head><body><form id="form-product-1"></form></body></html>';
+  const upstream = async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html' } });
+  const worker = createWorker(upstream);
+  for (const env of [{ ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: '/usesul/product/x', WIDGET_FEATURES: 'return-link', WIDGET_SCOPE_MODE: 'product-catalog' }, { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: '/usesul/product/x', WIDGET_FEATURES: 'return-link' }]) {
+    const res = await worker.fetch(new Request('https://www.usesul.com.br/usesul/product/x'), env, { waitUntil() {} });
+    assert.equal(res.status, 200); assert.equal(await res.text(), html);
+  }
+});
+
+test('an unexpected error inside the cart-ref endpoints answers 503 JSON (never an unhandled exception page)', async () => {
+  const worker = createWorker(async () => new Response('x'));
+  const env = { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: '/usesul/product/x', WIDGET_FEATURES: 'cart-mirror', CART_REFS: { async put() { throw new Error('boom'); }, async get() { throw new Error('boom'); } } };
+  const res = await worker.fetch(new Request('https://www.usesul.com.br/__origens/cart-ref/AbCdEfGhIjKlMnOpQrStUv'), env, { waitUntil() {} });
+  assert.equal(res.status, 503); assert.deepEqual(await res.json(), { error: 'unavailable' });
+  assert.equal(typeof createDefault.fetch, 'function');
+});

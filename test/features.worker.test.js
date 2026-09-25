@@ -61,7 +61,7 @@ test('injection: default features inject the loader (pilot compatible); empty or
 
 test('the injected tag carries the current loader version (cache-buster for the loader URL)', async () => {
   const html = await (await get({ ...base, WIDGET_FEATURES: ALL }, '/usesul/product/serra-catarinense')).text();
-  assert.ok(html.includes('src="/__origens/loader.js?v=' + LOADER_VERSION + '"'));
+  assert.match(html, new RegExp('src="/__origens/loader\\.js\\?v=' + LOADER_VERSION.replace('.', '\\.') + '&c=[0-9a-z]+"'));
 });
 
 test('product-discovery: health lists it, the loader carries the module, discovery.js serves mountProduct only when the flag is on; no flag = the pilot link', async () => {

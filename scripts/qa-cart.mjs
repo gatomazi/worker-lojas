@@ -108,7 +108,7 @@ check('com resultados: "Finalizar compra" visível, rodapé imóvel, sem overflo
 check('requisição de busca same-origin, sem Cookie/Authorization', searchLog.length >= 1 && searchLog.every((s) => s.cookie === null && s.authorization === null));
 await input.fill(''); await input.type('xyzq', { delay: 40 }); await page.waitForSelector('.cart-drawer .o-status:not(:empty)'); await wait(900);
 await shot('search-empty');
-check('sem resultado: mensagem + "Explorar vitrine" visíveis; checkout visível', /Ainda não encontramos/.test(await page.locator('.cart-drawer .o-status').textContent()) && (await page.locator('.cart-drawer .o-cta').isVisible()) && (await G()).checkoutVisible);
+check('sem resultado: mensagem + "Explorar todas as estampas" visíveis; checkout visível', /Não encontramos essa cidade ou estado/.test(await page.locator('.cart-drawer .o-status').textContent()) && (await page.locator('.cart-drawer .o-cta').isVisible()) && (await G()).checkoutVisible);
 if (LIVE) await page.route('**/__origens/search*', failRoute); else searchFail = true;
 if (!LIVE) await page.route('**/__origens/search*', failRoute);
 await input.fill(''); await input.type('curitiba', { delay: 40 }); await wait(1300); await shot('search-error');

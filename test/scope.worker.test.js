@@ -114,3 +114,22 @@ test('cart-ref POST Referer: allowlist mode accepts only the five; catalog mode 
   for (const ref of [HOST + '/usesul', HOST + '/usesul/products', HOST + '/usesul/cart', HOST + '/usesul/checkout/x', HOST + '/usesul/product/a/b', 'https://evil.example/usesul/product/bah-dizeres', 'http://www.usesul.com.br/usesul/product/bah-dizeres', '']) assert.equal((await post(CATALOG, ref)).status, 403, ref);
   const h = await (await get(CATALOG, '/__origens/health')).json(); assert.ok(h.cart_ref_stats.writes >= 1 && h.cart_ref_stats.rejected >= 1);
 });
+
+test('content-addressed URLs: the tag carries a hash of the served content; a matching URL is cached for a year (immutable), a stale/absent hash is served fresh with a SHORT cache', async () => {
+  const tag = (await html(CATALOG, '/usesul/product/bah-dizeres')).body.match(/loader\.js\?(v=[^&"]+&c=[0-9a-z]+)"/)[1];
+  const fresh = await get(CATALOG, '/__origens/loader.js?' + tag);
+  assert.equal(fresh.status, 200); assert.equal(fresh.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  for (const q of ['', '?v=' + LOADER_VERSION, '?v=' + LOADER_VERSION + '&c=zzzz', '?v=4.2&c=' + tag.split('&c=')[1]]) assert.equal((await get(CATALOG, '/__origens/loader.js' + q)).headers.get('cache-control'), 'public, max-age=60', q || '(sem query)');
+  // o hash acompanha o CONTEÚDO: escopo diferente = URL diferente = arquivo imutável diferente
+  const allowTag = (await html(base, '/usesul/product/' + FIVE[0])).body.match(/c=([0-9a-z]+)"/)[1];
+  assert.notEqual(allowTag, tag.split('&c=')[1]);
+  assert.equal((await get(base, '/__origens/loader.js?v=' + LOADER_VERSION + '&c=' + tag.split('&c=')[1])).headers.get('cache-control'), 'public, max-age=60', 'a hash from another configuration never becomes immutable here');
+  // discovery.js: o loader aponta para a URL com hash; o mesmo critério
+  const loader = await (await get(CATALOG, '/__origens/loader.js?' + tag)).text();
+  const discoveryUrl = loader.match(/script\.src = '(\/__origens\/discovery\.js\?[^']+)'/)[1];
+  assert.match(discoveryUrl, /\?v=[^&]+&c=[0-9a-z]+$/);
+  const disc = await get(CATALOG, discoveryUrl); assert.equal(disc.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal((await get(CATALOG, '/__origens/discovery.js?v=' + LOADER_VERSION)).headers.get('cache-control'), 'public, max-age=60');
+  // desligado = sem cache (rollback/kill switch efetivos na hora)
+  assert.equal((await get({ ...CATALOG, ENABLE_WIDGET: 'false' }, '/__origens/loader.js?' + tag)).headers.get('cache-control'), 'no-store');
+});

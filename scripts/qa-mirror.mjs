@@ -4,6 +4,8 @@
 // Sessão anônima descartável, janela visível. Lê o carrinho REAL (turbo-frame#cart), confere o snapshot gravado no KV local,
 // muda a quantidade e remove o item pelos controles nativos, e abre o storefront real pelo NOSSO link (com ?cart_ref=).
 // Não abre checkout, não finaliza pedido, não aceita cookies. Sem KV de produção: a ponte só é habilitada localmente.
+// DEPRECATED: os checks assumem o espelho gravando ao adicionar/alterar o carrinho (removido: agora é sob demanda). Use scripts/qa-global.mjs (local/--live). Para reexecutar esta versão histórica: QA_LEGACY=1.
+if (process.env.QA_LEGACY !== '1') { console.error('qa-mirror.mjs está DEPRECATED (semântica antiga do espelho). Use scripts/qa-global.mjs.'); process.exit(2); }
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
