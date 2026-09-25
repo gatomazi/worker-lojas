@@ -22,9 +22,10 @@ const PRODUCTS = [
 ];
 const path = (p) => '/usesul/product/' + p.slug;
 const EVIDENCE = new URL('../docs/evidence/expansao-5/', import.meta.url).pathname; mkdirSync(EVIDENCE, { recursive: true });
+const EVIDENCE_PD = new URL('../docs/evidence/product-discovery/', import.meta.url).pathname; mkdirSync(EVIDENCE_PD, { recursive: true });
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
-const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror';
+const FILES = ['worker.js', 'allowlist.js', 'features.js', 'search-gateway.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery';
 const results = []; const check = (n, ok, d = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '')); };
 const mf = LIVE ? null : new Miniflare({
   modulesRoot: SRC, modules: FILES.map((f) => ({ type: 'ESModule', path: SRC + f })), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'],
@@ -32,7 +33,7 @@ const mf = LIVE ? null : new Miniflare({
   outboundService: async (req) => (new URL(req.url).host === 'useorigens.com.br' ? new Response(readFileSync(new URL('../test/fixtures/search/cidades-sul.json', import.meta.url)), { headers: { 'content-type': 'application/json' } }) : new Response('no', { status: 502 }))
 });
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: false, args: ['--window-size=1300,950'] });
-const LOADER_TAG = '<script src="/__origens/loader.js?v=4.1" defer></script>';
+const LOADER_TAG = '<script src="/__origens/loader.js?v=4.2" defer></script>';
 
 async function newSession(viewport) {
   const ctx = await browser.newContext({ viewport, locale: 'pt-BR' });
@@ -84,16 +85,43 @@ async function addToCart(s, p) {
   return { pid, synced: s.posts.length > before };
 }
 
-// ── A) as cinco páginas: loader único, cinco features, link de retorno, CTA nativo; captura em 1280 e 390 ────────────────────────
-for (const [w, h] of [[1280, 900], [390, 844]]) {
+// ── A) as cinco páginas: loader único, seis features, UM bloco de descoberta (sem o link antigo), CTA/sticky intactos; 1280, 390 e 320×640 ──
+for (const [w, h] of [[1280, 900], [390, 844], [320, 640]]) {
   const s = await newSession({ width: w, height: h });
   for (const [i, p] of PRODUCTS.entries()) {
-    await s.page.goto(HOST + path(p), { waitUntil: 'load' }); await wait(s.page, 3500);
-    const info = await s.page.evaluate(() => ({ loader: window.__useOrigensLoader, features: window.__useOrigens && window.__useOrigens.features, scripts: document.querySelectorAll('script[src*="/__origens/loader.js"]').length, ret: !!document.getElementById('use-origens-return-link'), cta: !!document.querySelector('#add-to-cart-desk, #add-to-cart-mob'), nativeSizes: document.querySelectorAll('input[type=radio][id*="-size-"]').length }));
-    check(`[${w}] ${p.short}: loader 4.1 único, 5 features, "← Voltar a procurar" e CTA nativo da INK`, info.loader === '4.1' && info.scripts === 1 && info.features && info.features.length === 5 && info.ret && info.cta && (w < 768 || info.nativeSizes > 0), JSON.stringify(info));
-    await s.page.screenshot({ path: EVIDENCE + (LIVE ? 'live-' : '') + `produto-${i + 1}-${p.short}-${w}.png` });
+    await s.page.goto(HOST + path(p), { waitUntil: 'load' }); await wait(s.page, 3800);
+    const info = await s.page.evaluate(() => {
+      const cta = document.querySelector('#add-to-cart-desk'); const mob = document.querySelector('#add-to-cart-mob'); const block = document.querySelector('[data-origens-discovery="product"]');
+      const covered = (el) => { if (!el || !el.getClientRects().length) return null; const r = el.getBoundingClientRect(); const top = document.elementFromPoint(Math.min(innerWidth - 2, r.left + r.width / 2), Math.min(innerHeight - 2, Math.max(1, r.top + r.height / 2))); return !!top && !!top.closest('[data-origens-discovery]'); };
+      const overflowNow = document.documentElement.scrollWidth > innerWidth + 1; let overflowWithout = null; if (block) { block.style.display = 'none'; overflowWithout = document.documentElement.scrollWidth > innerWidth + 1; block.style.display = ''; }
+      return { overflowWithout, loader: window.__useOrigensLoader, features: window.__useOrigens && window.__useOrigens.features, scripts: document.querySelectorAll('script[src*="/__origens/loader.js"]').length, blocks: document.querySelectorAll('[data-origens-discovery="product"]').length, oldLink: !!document.getElementById('use-origens-return-link'),
+        title: block && block.querySelector('.o-title').textContent, lead: block && block.querySelector('.o-lead').textContent, cta: block && block.querySelector('.o-cta').textContent, toggle: block && block.querySelector('.o-toggle').textContent, collapsed: block && block.querySelector('.o-panel').hidden,
+        nativeCta: !!cta, nativeMob: !!mob, overflow: overflowNow, blockRight: block ? Math.round(block.getBoundingClientRect().right) : null, vw: innerWidth, nativeDeskCovered: covered(cta), nativeMobCovered: covered(mob), afterCta: !!cta && cta.nextElementSibling === block };
+    });
+    const ok = info.loader === '4.2' && info.scripts === 1 && info.features && info.features.length === 6 && info.blocks === 1 && !info.oldLink && info.title === 'Continue explorando' && info.lead === 'De cidades a expressões e outras ideias: descubra mais estampas com a sua cara.' && info.cta === 'Explorar todas as estampas' && info.toggle === 'Buscar cidade ou estado' && info.collapsed === true && (info.nativeCta || info.nativeMob) && (!info.overflow || info.overflowWithout) && info.blockRight <= info.vw && info.nativeDeskCovered !== true && info.nativeMobCovered !== true;
+    check(`[${w}] ${p.short}: 1 loader 4.2, 6 features, 1 bloco "Continue explorando" (sem link antigo), CTA/sticky nativos livres, sem overflow`, ok, JSON.stringify({ blocks: info.blocks, afterCta: info.afterCta, overflow: info.overflow, overflowWithout: info.overflowWithout, blockRight: info.blockRight, vw: info.vw, deskCovered: info.nativeDeskCovered, mobCovered: info.nativeMobCovered, hasMob: info.nativeMob }));
+    { const notice = s.page.locator('.cookie-acceptance button'); if (await notice.count() && await notice.first().isVisible()) { await notice.first().click(); await wait(s.page, 300); } }
+    await s.page.evaluate(() => document.querySelector('[data-origens-discovery="product"]').scrollIntoView({ block: 'center' })); await wait(s.page, 500);
+    await s.page.screenshot({ path: EVIDENCE_PD + (LIVE ? 'live-' : '') + `produto-${i + 1}-${p.short}-${w}-fechado.png` });
+    if (i === 3) { // um produto por largura: painel de busca aberto, resultado real do gateway, e o CTA de compra continua acessível
+      const probe = (tag) => s.page.evaluate((tag) => { const b = document.querySelector('[data-origens-discovery="product"]'); return { tag, exists: !!b, marker: !!(b && b.__m), panelHidden: b && b.querySelector('.o-panel').hidden, focus: document.activeElement && (document.activeElement.className || document.activeElement.tagName), y: Math.round(scrollY) }; }, tag);
+      await s.page.evaluate(() => { document.querySelector('[data-origens-discovery="product"]').__m = true; window.__dbg = []; const t0 = performance.now(); new MutationObserver((recs) => { for (const r of recs) for (const n of r.removedNodes) { if (n.nodeType === 1 && (n.matches('[data-origens-discovery="product"]') || n.querySelector('[data-origens-discovery="product"]'))) window.__dbg.push({ t: Math.round(performance.now() - t0), removed: (n.id || n.className || n.tagName).toString().slice(0, 60), from: (r.target.id || r.target.className || r.target.tagName).toString().slice(0, 60) }); } }).observe(document.documentElement, { childList: true, subtree: true }); for (const ev of ['resize', 'turbo:render', 'turbo:load', 'turbo:before-render', 'turbo:frame-render', 'turbo:frame-load', 'pageshow', 'popstate', 'visibilitychange']) (ev.startsWith('turbo') ? document : window).addEventListener(ev, () => window.__dbg.push({ t: Math.round(performance.now() - t0), ev }), true); });
+      await s.page.locator('[data-origens-discovery="product"] .o-toggle').click(); if (process.env.QA_DEBUG) console.log(JSON.stringify(await probe('after-toggle')));
+      await s.page.locator('[data-origens-discovery="product"] .o-input').fill('floria'); if (process.env.QA_DEBUG) console.log(JSON.stringify(await probe('after-fill')));
+      await wait(s.page, 1800); if (process.env.QA_DEBUG) { console.log(JSON.stringify(await probe('after-wait'))); console.log('DBG', JSON.stringify(await s.page.evaluate(() => window.__dbg))); }
+      const open = await s.page.evaluate(() => { const b = document.querySelector('[data-origens-discovery="product"]'); const items = [...b.querySelectorAll('.o-item')]; const cta = document.querySelector('#add-to-cart-desk'); const mob = document.querySelector('#add-to-cart-mob'); const under = (el) => { if (!el || !el.getClientRects().length) return null; const r = el.getBoundingClientRect(); const t = document.elementFromPoint(Math.min(innerWidth - 2, r.left + r.width / 2), Math.min(innerHeight - 2, Math.max(1, r.top + r.height / 2))); return !!t && !!t.closest('[data-origens-discovery]'); }; return { status: (b.querySelector('.o-status') || {}).textContent, panelHidden: b.querySelector('.o-panel').hidden, n: items.length, first: items[0] && items[0].textContent, href: items[0] && items[0].getAttribute('href'), overflow: document.documentElement.scrollWidth > innerWidth + 1, overflowWithout: (() => { b.style.display = 'none'; const o = document.documentElement.scrollWidth > innerWidth + 1; b.style.display = ''; return o; })(), deskCovered: under(cta), mobCovered: under(mob) }; });
+      check(`[${w}] ${p.short}: busca aberta usa o gateway real (só cidades/estados), sem overflow e sem cobrir o CTA de compra`, open.n >= 1 && /Florian/.test(open.first || '') && /^https:\/\/useorigens\.com\.br\/sul\/[a-z]{2}/.test(open.href || '') && open.n <= 4 && (!open.overflow || open.overflowWithout) && open.deskCovered !== true && open.mobCovered !== true, JSON.stringify(open));
+      await s.page.screenshot({ path: EVIDENCE_PD + (LIVE ? 'live-' : '') + `produto-${p.short}-${w}-busca-aberta.png` });
+    }
   }
   await s.ctx.close();
+}
+// Destino de "Explorar todas as estampas": a vitrine REAL precisa dar acesso às demais categorias (não só cidades) antes de usarmos o texto.
+{
+  const r = await fetch('https://useorigens.com.br/sul'); const html = await r.text();
+  const has = (t) => new RegExp('<h[23][^>]*>[^<]*' + t + '[^<]*</h[23]>', 'i').test(html);
+  const inkLinks = (html.match(/https:\/\/www\.usesul\.com\.br\/usesul\/product\/[a-z0-9-]+/g) || []);
+  check('destino "Explorar todas as estampas" (/sul): 200 e seções além de cidades — Da Nossa Terra, Redesenhos, Feito Para Você, Fala daqui, Estados', r.status === 200 && has('Da Nossa Terra') && has('Redesenhos') && has('Feito Para Voc') && has('Fala daqui') && has('Escolha o seu estado'), `status ${r.status}, ${new Set(inkLinks).size} produtos INK distintos linkados`);
 }
 
 // ── B) jornada: dois produtos DIFERENTES no mesmo carrinho, INK → drawer → vitrine, dois caminhos de abertura ────────────────────
@@ -104,7 +132,7 @@ const a2 = await addToCart(s, p2);
 check(`adicionar ${p2.short} (outro produto) → novo snapshot`, a2.synced && a1.pid !== a2.pid);
 await wait(s.page, 1000);
 const postAdd = await s.page.evaluate(() => { const b = document.querySelector('#modal-wrapper [data-origens-discovery="post-add"]'); return b ? { cta: b.querySelector('.o-cta')?.textContent } : null; });
-check('pós-adição: bloco de descoberta presente ("Explorar outras camisetas")', postAdd && /explorar/i.test(postAdd.cta));
+check('pós-adição: bloco de descoberta presente ("Explorar todas as estampas")', postAdd && postAdd.cta === 'Explorar todas as estampas');
 await s.page.evaluate(() => { const a = document.querySelector('#modal-wrapper [data-origens-discovery="post-add"] .o-cta'); a.addEventListener('click', (e) => e.preventDefault(), { once: true }); });
 await s.page.locator('#modal-wrapper [data-origens-discovery="post-add"] .o-cta').click({ noWaitAfter: true }); await wait(s.page, 300);
 let ev = await events(s); const postAddHref = await s.page.evaluate(() => document.querySelector('#modal-wrapper [data-origens-discovery="post-add"] .o-cta').href);
