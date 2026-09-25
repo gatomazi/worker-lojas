@@ -63,3 +63,20 @@ test('the injected tag carries the current loader version (cache-buster for the 
   const html = await (await get({ ...base, WIDGET_FEATURES: ALL }, '/usesul/product/serra-catarinense')).text();
   assert.ok(html.includes('src="/__origens/loader.js?v=' + LOADER_VERSION + '"'));
 });
+
+test('product-discovery: health lists it, the loader carries the module, discovery.js serves mountProduct only when the flag is on; no flag = the pilot link', async () => {
+  const on = { ...base, WIDGET_FEATURES: 'return-link,city-search,product-discovery' };
+  const h = await (await get(on, '/__origens/health')).json();
+  assert.deepEqual(h.widget_features, ['return-link', 'city-search', 'product-discovery']); assert.equal(h.features_status, 'ok');
+  const loader = await (await get(on, '/__origens/loader.js')).text();
+  assert.match(loader, /id: 'product-discovery'/); assert.match(loader, /discovery\.js\?v=/);
+  const disc = await (await get(on, '/__origens/discovery.js')).text();
+  assert.match(disc, /const PRODUCT = true;/); assert.match(disc, /mountProduct/);
+  const off = { ...base, WIDGET_FEATURES: 'return-link,city-search' };
+  const loaderOff = await (await get(off, '/__origens/loader.js')).text();
+  assert.doesNotMatch(loaderOff, /id: 'product-discovery'/);
+  const none = await (await get(off, '/__origens/discovery.js')).text();
+  assert.doesNotMatch(none, /mountProduct/);
+  const page = await (await get(on, '/usesul/product/serra-catarinense')).text();
+  assert.equal((page.match(/__origens\/loader\.js/g) || []).length, 1, 'exactly one loader tag');
+});

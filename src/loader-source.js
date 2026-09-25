@@ -9,10 +9,11 @@ import { CART_WATCH } from './loader/cart-watch.js';
 import { DISCOVERY_LOADER } from './loader/discovery-loader.js';
 import { CART_MIRROR } from './loader/cart-mirror.js';
 import { TRACKING } from './loader/tracking.js';
+import { PRODUCT_DISCOVERY } from './loader/product-discovery.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '4.1';
+export const LOADER_VERSION = '4.2';
 export { buildDiscoverySource };
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
@@ -20,12 +21,13 @@ export { buildDiscoverySource };
 export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES) {
   const parts = [RUNTIME_HEAD];
   // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
-  if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery')) parts.push(TRACKING);
+  if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(TRACKING);
   if (features.includes('return-link')) parts.push(RETURN_LINK);
-  if (features.includes('post-add-discovery') || features.includes('cart-discovery')) parts.push(DISCOVERY_LOADER);
+  if (features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(DISCOVERY_LOADER);
   if (features.includes('post-add-discovery')) parts.push(DRAWER_WATCH);
   if (features.includes('cart-discovery')) parts.push(CART_WATCH);
   if (features.includes('cart-mirror')) parts.push(CART_MIRROR);
+  if (features.includes('product-discovery')) parts.push(PRODUCT_DISCOVERY);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
     .replaceAll('__VERSION__', () => LOADER_VERSION)

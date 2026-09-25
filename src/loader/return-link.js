@@ -15,39 +15,21 @@ export const RETURN_LINK = String.raw`
     const param = new URL(window.location.href).searchParams.get('origens_return');
     return safeReturnUrl(param) || DEFAULT_RETURN;
   }
-  function insideFixed(el) {
-    for (let node = el; node && node !== document.body; node = node.parentElement) {
-      if (getComputedStyle(node).position === 'fixed') return true;
-    }
-    return false;
-  }
-  // Âncora: o CTA "em fluxo". #add-to-cart-mob é uma barra fixa no rodapé e NÃO é âncora.
-  function findAnchor() {
-    const byId = document.getElementById('add-to-cart-desk');
-    if (byId && byId.getClientRects().length > 0) return byId;
-    const byClass = document.querySelector('.form-product-options__add-to-cart-btn');
-    if (byClass && byClass.getClientRects().length > 0 && !insideFixed(byClass)) return byClass;
-    const scope = document.querySelector('main') || document;
-    for (const button of scope.querySelectorAll('button')) {
-      if (/adicionar ao carrinho/i.test(button.textContent || '') &&
-          !button.closest('header, footer') && button.getClientRects().length > 0 && !insideFixed(button)) {
-        return button;
-      }
-    }
-    return null;
-  }
-
   register({
     id: 'return-link',
     mount() {
       if (document.getElementById('use-origens-return-link')) return;
+      // Com product-discovery ligada o bloco de descoberta substitui este link (nunca os dois); ele só volta como plano B quando o
+      // módulo de descoberta não pôde ser carregado.
+      const replaced = FEATURES.includes('product-discovery');
+      if (replaced && !(typeof productFallback !== 'undefined' && productFallback)) return;
       const anchor = findAnchor();
       if (!anchor) return;
       const link = document.createElement('a');
       link.id = 'use-origens-return-link';
       link.href = getReturnUrl();
-      link.textContent = '← Voltar a procurar';
-      link.setAttribute('aria-label', 'Voltar a procurar outra cidade na Use Origens');
+      link.textContent = replaced ? 'Explorar todas as estampas' : '← Voltar a procurar';
+      link.setAttribute('aria-label', replaced ? 'Explorar todas as estampas da Use Origens' : 'Voltar a procurar outra cidade na Use Origens');
       // Alvo de toque ≥ 44 px no mobile; desktop mantém a aparência do piloto.
       const touch = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
       Object.assign(link.style, {

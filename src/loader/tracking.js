@@ -10,7 +10,7 @@
 export const TRACKING = String.raw`
   const GA_MEASUREMENT_ID = 'G-8GYTEJ1F77';
   const REQUIRE_INK_COOKIE_NOTICE_ACCEPTED = true;
-  const ENTRY_POINTS = ['ink_cart_drawer', 'ink_post_add', 'ink_product_return', 'storefront_return'];
+  const ENTRY_POINTS = ['ink_cart_drawer', 'ink_post_add', 'ink_product_detail', 'ink_product_return', 'storefront_return'];
   const SRC_PARAM = 'origens_src';
   const PRODUCT_PARAM = 'origens_p';
 
@@ -38,11 +38,14 @@ export const TRACKING = String.raw`
       return true;
     } catch (_) { return false; /* medir nunca quebra a INK nem a navegação */ }
   }
+  // Superfície do nosso bloco -> entry_point (enum fechado). O link de retorno (plano B do product-discovery) mantém ink_product_return.
+  function entryPointOfRoot(root) {
+    const kind = root && root.getAttribute('data-origens-discovery');
+    return kind === 'cart' ? 'ink_cart_drawer' : kind === 'product' ? 'ink_product_detail' : kind === 'post-add' ? 'ink_post_add' : null;
+  }
   function entryPointOf(link) {
     if (link.id === 'use-origens-return-link') return 'ink_product_return';
-    const root = link.closest('[data-origens-discovery]');
-    if (!root) return null;
-    return root.getAttribute('data-origens-discovery') === 'cart' ? 'ink_cart_drawer' : 'ink_post_add';
+    return entryPointOfRoot(link.closest('[data-origens-discovery]'));
   }
   function isStorefrontLink(link) {
     try {
@@ -63,6 +66,8 @@ export const TRACKING = String.raw`
       document.addEventListener('click', (event) => this.onLink(event, event.button === 0), options);
       document.addEventListener('auxclick', (event) => this.onLink(event, event.button === 1), options);
       document.addEventListener('contextmenu', (event) => this.onLink(event, false), options);
+      // Intenção de busca: abrir o painel "Buscar cidade ou estado" (uma vez por toque; nunca o texto digitado).
+      document.addEventListener('click', (event) => this.onSearchOpen(event), options);
     },
 
     onLink(event, emit) {
@@ -78,6 +83,15 @@ export const TRACKING = String.raw`
         if (slug) url.searchParams.set(PRODUCT_PARAM, slug);
         link.href = url.href;
         if (emit) track('origens_explore_storefront_click', entryPoint);
+      } catch (_) { /* ignora */ }
+    },
+
+    onSearchOpen(event) {
+      try {
+        if (!allowedNow() || event.button !== 0) return;
+        const toggle = event.target && event.target.closest ? event.target.closest('.o-toggle') : null;
+        const entryPoint = toggle ? entryPointOfRoot(toggle.closest('[data-origens-discovery]')) : null;
+        if (entryPoint) track('origens_discovery_search_open', entryPoint);
       } catch (_) { /* ignora */ }
     },
 

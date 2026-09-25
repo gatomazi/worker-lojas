@@ -65,9 +65,9 @@ test('opened by the header icon: one compact block inside the scrollable main ar
   assert.equal(root.parentElement.tagName, 'LI'); assert.equal(root.parentElement.getAttribute('role'), 'none'); assert.equal(root.parentElement.parentElement.lastElementChild, root.parentElement);
   assert.equal(t.doc.querySelector('.cart-drawer__main').children.length, 1); // main continua com o <ul> como único filho
   assert.equal(root.closest('.cart-drawer__footer'), null);
-  assert.equal(root.querySelector('.o-title').textContent, 'Procurar outra cidade');
+  assert.equal(root.querySelector('.o-title').textContent, 'Descubra outras estampas');
   assert.equal(root.querySelector('.o-lead').textContent, 'Continue escolhendo sem perder seu carrinho.');
-  assert.equal(root.querySelector('.o-cta').textContent, 'Explorar vitrine'); assert.equal(root.querySelector('.o-cta').href, 'https://useorigens.com.br/sul');
+  assert.equal(root.querySelector('.o-cta').textContent, 'Explorar todas as estampas'); assert.equal(root.querySelector('.o-cta').href, 'https://useorigens.com.br/sul');
   // recolhido por padrão: só o botão e o CTA; o painel de busca está oculto
   assert.equal(root.querySelector('.o-panel').hidden, true); assert.equal(root.querySelector('.o-toggle').getAttribute('aria-expanded'), 'false');
   assert.equal(t.doc.getElementById('checkout-btn').parentElement.parentElement.classList.contains('cart-drawer__footer'), true);
@@ -151,7 +151,7 @@ test('search: results link to the storefront, Enter follows the highlighted resu
   for (const impl of [(u, res) => res(json({ results: [] })), (u, res) => res(json({ e: 1 }, 502)), (u, res, rej) => rej(new Error('rede'))]) {
     const x = setup({ fetchImpl: impl }); await tick(); openDrawer(x.doc); await tick(350);
     const r = x.doc.querySelector('[data-origens-discovery="cart"]'); r.querySelector('.o-toggle').click(); type(x.w, r.querySelector('.o-input'), 'xyzq'); await tick(450);
-    assert.match(r.querySelector('.o-status').textContent, /Ainda não encontramos|A busca não está disponível/);
+    assert.match(r.querySelector('.o-status').textContent, /Não encontramos essa cidade ou estado|A busca não está disponível/);
     assert.ok(r.querySelector('.o-cta')); assert.ok(x.doc.getElementById('checkout-btn'));
   }
 });
@@ -182,7 +182,7 @@ test('feature gating: without cart-discovery the cart drawer is ignored; with on
   openDrawer(only.doc); await tick(450);
   assert.equal(roots(only.doc), 1); assert.equal(only.doc.querySelectorAll('#modal-wrapper [data-origens-discovery]').length, 0);
   const noSearch = setup({ features: ['cart-discovery'] }); openDrawer(noSearch.doc); await tick(400);
-  assert.equal(roots(noSearch.doc), 1); assert.equal(noSearch.doc.querySelectorAll('.o-toggle, .o-input').length, 0); assert.equal(noSearch.doc.querySelector('.o-cta').textContent, 'Explorar vitrine');
+  assert.equal(roots(noSearch.doc), 1); assert.equal(noSearch.doc.querySelectorAll('.o-toggle, .o-input').length, 0); assert.equal(noSearch.doc.querySelector('.o-cta').textContent, 'Explorar todas as estampas');
 });
 
 test('post-add block and cart block are independent: both can coexist, each mounts once, unmounting one keeps the other and the shared style', async () => {

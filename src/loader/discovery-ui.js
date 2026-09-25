@@ -1,10 +1,13 @@
 // discovery.js (sob demanda): blocos de descoberta + busca real. Duas instâncias independentes:
-//   'post-add' -> "Qual é a próxima cidade?" no drawer pós-adição (feature post-add-discovery)
-//   'cart'     -> "Procurar outra cidade" COMPACTO dentro da área rolável do drawer do carrinho (feature cart-discovery);
+//   'post-add' -> "Descubra outras estampas" no drawer pós-adição (feature post-add-discovery)
+//   'cart'     -> "Descubra outras estampas" COMPACTO dentro da área rolável do drawer do carrinho (feature cart-discovery);
 //                 o rodapé nativo (cupom, frete, totais, "Finalizar compra") nunca é tocado.
+//   'product'  -> "Continue explorando" logo abaixo do CTA nativo de compra da página do produto (feature product-discovery).
+// Duas ações distintas em todos: "Buscar cidade ou estado" (SÓ o índice geográfico via /__origens/search; nunca apresentada como busca
+// no catálogo) e "Explorar todas as estampas" (a vitrine, onde estão também expressões, humor e identidade regional).
 // Regras: nada de innerHTML com dados externos (só textContent/atributos), links validados, CSS sob raiz exclusiva
 // [data-origens-discovery], sem fontes/imagens externas, sem polling, sem cookies/armazenamento, tudo abortável.
-// __SEARCH__ / __POSTADD__ / __CART__ são true/false (features): sem busca o bloco mostra só o retorno à vitrine.
+// __SEARCH__ / __POSTADD__ / __CART__ / __PRODUCT__ são true/false (features): sem busca o bloco mostra só o link para a vitrine.
 export const DISCOVERY_TEMPLATE = String.raw`(() => {
   'use strict';
   const rt = window.__useOrigens;
@@ -13,14 +16,24 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   const SEARCH = __SEARCH__;
   const POSTADD = __POSTADD__;
   const CART = __CART__;
+  const PRODUCT = __PRODUCT__;
   const STOREFRONT = rt.storefront + '/sul';
   const SEARCH_ENDPOINT = '/__origens/search';
   const OLIVE = '#4d543d';
-  const MAX_RESULTS = { 'post-add': 5, cart: 3 };
+  const MAX_RESULTS = { 'post-add': 5, cart: 3, product: 4 };
   const MIN_CHARS = 2;
   const DEBOUNCE_MS = 200;
   const TIMEOUT_MS = 4000;
   const SAFE_HREF = /^\/sul(?:\/[a-z]{2}(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)?)?$/;
+
+  // Comunicação (texto único por superfície). O bloco do produto usa a frase aprovada; os drawers, a versão curta.
+  const CTA_TEXT = 'Explorar todas as estampas';
+  const SEARCH_TEXT = 'Buscar cidade ou estado';
+  const COPY = {
+    'post-add': { eyebrow: 'Continue explorando', title: 'Descubra outras estampas', lead: 'Seu carrinho continua salvo enquanto você explora.' },
+    cart: { title: 'Descubra outras estampas', lead: 'Continue escolhendo sem perder seu carrinho.' },
+    product: { title: 'Continue explorando', lead: 'De cidades a expressões e outras ideias: descubra mais estampas com a sua cara.' }
+  };
 
   const instances = {}; // kind -> { kind, root, style, ac, timer, abort, seq, results, active, uid, input, list, status, wrapper, panel, toggle }
 
@@ -47,6 +60,9 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     '[data-origens-discovery] .o-cta{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:12px;padding:8px 12px;border:1px solid ' + OLIVE + ';border-radius:8px;background:transparent;color:' + OLIVE + ';font-size:14px;font-weight:500;line-height:20px;text-decoration:none}',
     '[data-origens-discovery] .o-cta:hover{background:' + OLIVE + ';color:#fff}',
     '[data-origens-discovery] .o-cta:focus-visible{outline:2px solid ' + OLIVE + ';outline-offset:2px}',
+    '[data-origens-discovery="product"]{margin:16px 0 8px;padding:14px 16px;background:#f6f4ec}',
+    '[data-origens-discovery="product"] .o-title{font-size:16px}',
+    '[data-origens-discovery="product"] .o-lead{margin:4px 0 12px;font-size:13px}',
     '[data-origens-discovery="cart"]{margin:12px 16px 16px;padding:12px 14px;background:#f6f4ec}',
     '[data-origens-discovery="cart"] .o-title{font-size:15px}',
     '[data-origens-discovery="cart"] .o-lead{margin:2px 0 10px;font-size:12px}',
@@ -185,11 +201,11 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
       if (results === null) throw new Error('schema');
       if (instances[s.kind] !== s || seq !== s.seq || !rt.allowed()) return; // resposta atrasada/obsoleta é descartada
       renderResults(s, results);
-      setStatus(s, results.length ? results.length + (results.length === 1 ? ' resultado.' : ' resultados.') : 'Ainda não encontramos essa cidade. Tente o nome completo ou explore todas as camisetas.');
+      setStatus(s, results.length ? results.length + (results.length === 1 ? ' resultado.' : ' resultados.') : 'Não encontramos essa cidade ou estado. Tente o nome completo ou explore todas as estampas.');
     } catch (_) {
       if (instances[s.kind] !== s || seq !== s.seq) return;
       renderResults(s, []);
-      setStatus(s, 'A busca não está disponível agora. Você ainda pode explorar todas as camisetas.');
+      setStatus(s, 'A busca não está disponível agora. Você ainda pode explorar todas as estampas.');
     } finally {
       clearTimeout(timeout);
     }
@@ -222,7 +238,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   // Campo + lista + status (compartilhado pelas duas variantes).
   function buildSearch(uid) {
     const field = el('div', 'o-field');
-    const label = el('label', null, 'Buscar cidade ou estado');
+    const label = el('label', null, SEARCH_TEXT);
     label.setAttribute('for', uid + '-input');
     label.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
     const input = el('input', 'o-input');
@@ -231,7 +247,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     input.setAttribute('autocomplete', 'off'); input.setAttribute('autocapitalize', 'none'); input.setAttribute('spellcheck', 'false');
     input.setAttribute('inputmode', 'search'); input.setAttribute('enterkeyhint', 'go');
     field.appendChild(label); field.appendChild(icon()); field.appendChild(input);
-    const list = el('div', 'o-list'); list.id = uid + '-list'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Resultados da busca'); list.hidden = true;
+    const list = el('div', 'o-list'); list.id = uid + '-list'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Cidades e estados encontrados'); list.hidden = true;
     const status = el('p', 'o-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     return { field, input, list, status };
   }
@@ -241,24 +257,25 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     root.setAttribute('data-origens-discovery', kind);
     root.setAttribute('aria-labelledby', uid + '-title');
     const parts = { root, input: null, list: null, status: null, panel: null, toggle: null, close: null };
+    const copy = COPY[kind];
     if (kind === 'post-add') {
-      root.appendChild(el('p', 'o-eyebrow', 'Continue descobrindo o Sul'));
-      const title = el('h4', 'o-title', 'Qual é a próxima cidade?'); title.id = uid + '-title'; root.appendChild(title);
-      root.appendChild(el('p', 'o-lead', 'Seu carrinho continua salvo enquanto você procura.'));
+      root.appendChild(el('p', 'o-eyebrow', copy.eyebrow));
+      const title = el('h4', 'o-title', copy.title); title.id = uid + '-title'; root.appendChild(title);
+      root.appendChild(el('p', 'o-lead', copy.lead));
       if (SEARCH) { const b = buildSearch(uid); Object.assign(parts, b); root.appendChild(b.field); root.appendChild(b.list); root.appendChild(b.status); }
-      const cta = el('a', 'o-cta', 'Explorar outras camisetas'); cta.href = STOREFRONT; root.appendChild(cta);
+      const cta = el('a', 'o-cta', CTA_TEXT); cta.href = STOREFRONT; root.appendChild(cta);
       return parts;
     }
-    // Carrinho: COMPACTO. Recolhido = título + 2 ações; a busca só aparece quando o visitante toca em "Buscar cidade ou estado".
-    const title = el('h4', 'o-title', 'Procurar outra cidade'); title.id = uid + '-title'; root.appendChild(title);
-    root.appendChild(el('p', 'o-lead', 'Continue escolhendo sem perder seu carrinho.'));
+    // Carrinho e produto: COMPACTOS. Recolhido = título + 2 ações; a busca só aparece quando o visitante toca em "Buscar cidade ou estado".
+    const title = el('h4', 'o-title', copy.title); title.id = uid + '-title'; root.appendChild(title);
+    root.appendChild(el('p', 'o-lead', copy.lead));
     const actions = el('div', 'o-actions');
     if (SEARCH) {
-      const toggle = el('button', 'o-toggle', 'Buscar cidade ou estado');
+      const toggle = el('button', 'o-toggle', SEARCH_TEXT);
       toggle.type = 'button'; toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', uid + '-panel');
       actions.appendChild(toggle); parts.toggle = toggle;
     }
-    const cta = el('a', 'o-cta', 'Explorar vitrine'); cta.href = STOREFRONT; actions.appendChild(cta);
+    const cta = el('a', 'o-cta', CTA_TEXT); cta.href = STOREFRONT; actions.appendChild(cta);
     root.appendChild(actions);
     if (SEARCH) {
       const panel = el('div', 'o-panel'); panel.id = uid + '-panel'; panel.hidden = true;
@@ -321,7 +338,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
       parts.input.addEventListener('keydown', (event) => onKeydown(s, event), { signal: ac.signal });
       // Em telas pequenas o teclado cobre o campo: garante que ele fique visível dentro do painel rolável da INK.
       parts.input.addEventListener('focus', () => { try { parts.input.scrollIntoView({ block: 'nearest' }); } catch (_) { /* ignora */ } }, { signal: ac.signal });
-      if (kind === 'cart') {
+      if (kind === 'cart' || kind === 'product') {
         parts.toggle.addEventListener('click', () => {
           parts.panel.hidden = false; parts.toggle.hidden = true; parts.toggle.setAttribute('aria-expanded', 'true');
           reveal(s);
@@ -378,15 +395,29 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   }
   function unmountCart() { unmountKind('cart'); }
 
+  // ---- página do produto: logo abaixo do CTA nativo de compra (âncora achada pelo loader), FORA do <form> nativo.
+  // O CTA vive dentro de um turbo-frame que a INK recarrega/re-renderiza (no mobile, logo depois de carregar e ao rolar): um irmão do CTA
+  // seria descartado junto e a busca aberta perderia o foco. O <form> é o último bloco da compra e não é reescrito pelo frame, então
+  // o bloco logo depois dele fica na mesma posição visual, sem mexer em variantes, CTA nem barra fixa.
+  function mountProduct(ctx) {
+    if (!PRODUCT || !ctx || !ctx.anchor) return;
+    const form = ctx.anchor.closest('form');
+    const host = form && form.parentElement ? form : ctx.anchor;
+    mountKind('product', (root) => { host.insertAdjacentElement('afterend', root); return true; });
+  }
+  function unmountProduct() { unmountKind('product'); }
+
   const api = { unmount: unmount };
   if (POSTADD) api.mount = mount;
   if (CART) { api.mountCart = mountCart; api.unmountCart = unmountCart; }
+  if (PRODUCT) { api.mountProduct = mountProduct; api.unmountProduct = unmountProduct; }
   window.__useOrigensDiscovery = Object.freeze(api);
 })();`;
 
-export function buildDiscoverySource({ search = false, postAdd = true, cart = false } = {}) {
+export function buildDiscoverySource({ search = false, postAdd = true, cart = false, product = false } = {}) {
   return DISCOVERY_TEMPLATE
     .replace('__SEARCH__', () => (search ? 'true' : 'false'))
     .replace('__POSTADD__', () => (postAdd ? 'true' : 'false'))
-    .replace('__CART__', () => (cart ? 'true' : 'false'));
+    .replace('__CART__', () => (cart ? 'true' : 'false'))
+    .replace('__PRODUCT__', () => (product ? 'true' : 'false'));
 }

@@ -11,7 +11,7 @@ export PW_PATH="${PW_PATH:-/tmp/pw}"
 CFG=wrangler.production.toml
 ALLOW=/usesul/product/serra-catarinense
 HEALTH=https://www.usesul.com.br/__origens/health
-CANON=(return-link post-add-discovery city-search cart-discovery cart-mirror)     # mesma ordem de src/features.js (o health devolve nesta ordem)
+CANON=(return-link post-add-discovery city-search cart-discovery cart-mirror product-discovery)     # mesma ordem de src/features.js (o health devolve nesta ordem)
 
 # widget_features do health, separadas por vírgula.
 live_features() { curl -sS "$HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const h=JSON.parse(s);if(h.features_status!=="ok"||!Array.isArray(h.widget_features))process.exit(1);console.log(h.widget_features.join(","))}catch(e){process.exit(1)}})'; }
