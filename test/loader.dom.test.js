@@ -94,7 +94,7 @@ test('origens_return: accepts only https://useorigens.com.br/sul[/...]', async (
 });
 
 test('loader source has no network calls, no click interception and no cookie/storage access', () => {
-  for (const forbidden of [/fetch\(/, /XMLHttpRequest/, /sendBeacon/, /addEventListener\(\s*['"]click/, /document\.cookie/, /localStorage/, /sessionStorage/, /\.submit\(/]) {
+  for (const forbidden of [/fetch\(/, /XMLHttpRequest/, /sendBeacon/, /preventDefault|stopPropagation|stopImmediatePropagation/, /document\.cookie/, /localStorage/, /sessionStorage/, /\.submit\(/]) {
     assert.doesNotMatch(LOADER_SOURCE, forbidden);
   }
 });

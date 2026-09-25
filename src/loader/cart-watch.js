@@ -12,11 +12,16 @@ export const CART_WATCH = String.raw`
     url.searchParams.delete('origens_open_cart');
     try { window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch (_) { /* ignora */ }
     let tries = 0;
+    // Aberto de verdade (classe "open" da INK + visível). O evento só sai DEPOIS disso, nunca pela mera presença do parâmetro na URL.
+    const drawerOpen = () => { const drawer = document.querySelector('.cart-drawer.open'); return !!drawer && drawer.getClientRects().length > 0; };
+    const opened = () => { if (typeof track === 'function') track('origens_native_cart_opened', 'storefront_return'); };
     const attempt = () => {
-      if (!allowedNow() || document.querySelector('.cart-drawer.open')) return;
+      if (!allowedNow()) return;
+      if (drawerOpen()) return opened();
       const opener = [...document.querySelectorAll('[id^="shopping-cart-menu"]')].find((el) => el.getClientRects().length > 0);
       if (opener) opener.click();
       if (++tries < 8) setTimeout(attempt, 500);
+      else setTimeout(() => { if (allowedNow() && drawerOpen()) opened(); }, 600);
     };
     setTimeout(attempt, 400);
   }

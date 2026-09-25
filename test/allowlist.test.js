@@ -72,3 +72,12 @@ test('production routes are exactly the two www routes; staging has none', () =>
   const dev = readFileSync(new URL('../wrangler.dev.toml', import.meta.url), 'utf8');
   assert.doesNotMatch(dev, /^\s*(pattern|\[\[routes\]\])/m);
 });
+
+test('given exactly five real product paths, then all five are allowed; one malformed/missing-slug entry fails the whole list closed', () => {
+  const five = ['serra-catarinense', 'made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241', 'made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829', 'paranaense-essencia', 'made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a'].map((s) => '/usesul/product/' + s);
+  const ok = parseAllowlist(five.join(','));
+  assert.equal(ok.status, 'ok'); assert.deepEqual(ok.paths, five);
+  for (const bad of [[...five, '/usesul/product/'], [...five, '/usesul/product/Maiuscula'], [...five, '/usesul/product/a/b'], [...five, '/usesul/product/*'], [...five, '/usesul/product/x?y=1'], [...five, '']]) {
+    assert.deepEqual(parseAllowlist(bad.join(',')), { status: 'invalid', paths: [] }, bad.at(-1));
+  }
+});

@@ -78,8 +78,9 @@ function serveDiscovery(request, mode, features) {
   }
   const postAdd = features.features.includes('post-add-discovery');
   const cart = features.features.includes('cart-discovery');
-  if (mode !== 'true' || (!postAdd && !cart)) return javascript(request, DISABLED_JS, 'no-store');
-  return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search'), postAdd, cart }), 'public, max-age=60');
+  const product = features.features.includes('product-discovery');
+  if (mode !== 'true' || (!postAdd && !cart && !product)) return javascript(request, DISABLED_JS, 'no-store');
+  return javascript(request, buildDiscoverySource({ search: features.features.includes('city-search'), postAdd, cart, product }), 'public, max-age=60');
 }
 
 async function injectLoader(request, url, mode, allowlist, upstream) {

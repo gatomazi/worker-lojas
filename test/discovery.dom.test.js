@@ -78,10 +78,10 @@ test('mounts exactly once AFTER the INK renders the confirmation, between the na
   const root = wrapper.querySelector('[data-origens-discovery]');
   assert.equal(root.previousElementSibling, wrapper.querySelector('.add-product-modal__modal-content__footer'));
   assert.equal(root.nextElementSibling, wrapper.querySelector('#most_sold_frame'));
-  assert.equal(root.querySelector('.o-title').textContent, 'Qual é a próxima cidade?');
-  assert.equal(root.querySelector('.o-lead').textContent, 'Seu carrinho continua salvo enquanto você procura.');
+  assert.equal(root.querySelector('.o-title').textContent, 'Descubra outras estampas');
+  assert.equal(root.querySelector('.o-lead').textContent, 'Seu carrinho continua salvo enquanto você explora.');
   const cta = root.querySelector('.o-cta');
-  assert.equal(cta.textContent, 'Explorar outras camisetas'); assert.equal(cta.href, 'https://useorigens.com.br/sul');
+  assert.equal(cta.textContent, 'Explorar todas as estampas'); assert.equal(cta.href, 'https://useorigens.com.br/sul');
 });
 
 test('native drawer stays untouched: same nodes, same texts, no extra handlers on native buttons, no focus stealing', async () => {
@@ -263,7 +263,7 @@ test('search: query is sanitized before it leaves the browser; 1 character never
 test('search: empty state and error state keep the return CTA visible and the drawer usable', async () => {
   const empty = await withDrawer({ fetchImpl: (u, resolve) => resolve(json({ results: [] })) });
   await type(empty.w, empty.input, 'xyzq'); await tick(450);
-  assert.match(empty.doc.querySelector('.o-status').textContent, /Ainda não encontramos essa cidade/);
+  assert.match(empty.doc.querySelector('.o-status').textContent, /Não encontramos essa cidade ou estado/);
   assert.equal(items(empty.doc).length, 0); assert.equal(empty.input.getAttribute('aria-expanded'), 'false');
   assert.ok(empty.doc.querySelector('.o-cta'));
   for (const impl of [(u, resolve) => resolve(json({ error: 'unavailable' }, 502)), (u, resolve) => resolve(new Response('lixo', { status: 200 })), (u, resolve) => resolve(json({ nao: 'schema' })), (u, resolve, reject) => reject(new Error('rede'))]) {

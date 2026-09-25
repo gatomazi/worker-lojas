@@ -126,3 +126,16 @@ test('a real-sized cart (12 different variants) is accepted; 21 are refused', ()
   assert.equal(validateSnapshot(snapshot({ count: 12, items: rows(12) })).items.length, 12);
   assert.equal(validateSnapshot(snapshot({ count: 21, items: rows(21) })), null);
 });
+
+test('five-product allowlist: POST is accepted from EXACTLY those five pages (query allowed), refused from anything else; a mixed two-product cart is stored', async () => {
+  const five = ['serra-catarinense', 'made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241', 'made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829', 'paranaense-essencia', 'made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a'].map((slug) => '/usesul/product/' + slug);
+  const kv = fakeKv(); const refs = createCartRefs();
+  const ctx = { kv, allowedPaths: five, origin: ORIGIN };
+  const twoProducts = snapshot({ count: 2, items: [snapshot().items[0], { ...snapshot().items[0], productId: '3844110', name: 'Paranaense | Essência', variant: 'Preta-Feminino-P', quantity: 1, linePriceText: 'R$ 109,90', linePrice: 109.9 }] });
+  for (const path of five) assert.equal((await refs.create(post(twoProducts, { referer: ORIGIN + path + '?origens_src=ink_cart_drawer' }), ctx)).status, 201, path);
+  assert.equal(kv.puts.length, 5);
+  const stored = JSON.parse([...kv.store.values()][0]); assert.equal(stored.items.length, 2); assert.deepEqual(stored.items.map((i) => i.productId), ['4932916', '3844110']);
+  const denied = [ORIGIN + '/usesul/product/outro-produto', ORIGIN + five[1] + '/', ORIGIN + five[3] + 'x', ORIGIN + '/usesul/product', ORIGIN + '/usesul/cart', ORIGIN + '/', 'https://evil.example' + five[0], 'http://www.usesul.com.br' + five[0]];
+  for (const referer of denied) assert.equal((await refs.create(post(twoProducts, { referer }), ctx)).status, 403, referer);
+  assert.equal(kv.puts.length, 5, 'nothing was stored for a denied referer');
+});
