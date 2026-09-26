@@ -28,7 +28,7 @@ let refreshed = false;
 async function cf(method, path, body) {
   const go = () => fetch(API + path, { method, headers: { Authorization: 'Bearer ' + token(), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   let r = await go();
-  if (r.status === 401 && !refreshed) { refreshed = true; spawnSync('npx', ['wrangler', 'whoami'], { stdio: 'ignore' }); r = await go(); } // o wrangler renova o OAuth ao ser usado
+  if ((r.status === 401 || r.status === 403) && !refreshed) { refreshed = true; spawnSync('npx', ['wrangler', 'whoami'], { stdio: 'ignore' }); r = await go(); } // o wrangler renova o OAuth ao ser usado
   const j = await r.json().catch(() => ({}));
   if (!j.success) throw new Error(`Cloudflare ${method} ${path.replace(/\/zones\/[0-9a-f]+/, '/zones/<id>')}: HTTP ${r.status} ${JSON.stringify(j.errors || j).slice(0, 300)}`);
   return j.result;

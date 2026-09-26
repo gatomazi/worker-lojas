@@ -171,7 +171,7 @@ fi
 MSG=$(health_ok_navbar "$NAV_EXPECT" "$NAV_SIZE" "$NEW_VERSION" 2>&1) || fail "health final: $MSG"
 
 log ""; log "RELEASE CONCLUÍDO: navbar da INK em produção (Worker $NEW_VERSION, escopo $NAV_SCOPE preservado)."
-log "   rollback disponível: npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --message \"rollback navbar\" --yes"
+log "   rollback disponível (versão E rotas, juntos): node scripts/zone-routes.mjs restore $SNAP && npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --message \"rollback navbar\" --yes"
 log "   só a navbar (mantendo o resto): republicar com as seis features (o mesmo escopo e allowlist) — ver docs/navbar-ink-busca.md"
 log "   Depois: npx wrangler logout"
 exit 0
