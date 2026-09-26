@@ -81,7 +81,7 @@ const sortedEq = (a, b) => a.length === b.length && [...a].sort().every((x, i) =
 // nomes de binding do TOML. Saída: { ok, problems, deploy } — `deploy` preserva exatamente ENABLE_WIDGET, WIDGET_ALLOWLIST e WIDGET_SCOPE_MODE
 // capturados e só acrescenta `header-nav` à lista de features (que TEM de ser exatamente as seis). Qualquer divergência entre o que a versão
 // diz e o que o health público mostra é problema (a captura não é confiável).
-export function planNavbarRelease({ health, captured, tomlBindings }) {
+export function planNavbarRelease({ health, captured, tomlBindings, newVersion = null }) {
   const problems = [];
   if (!health || typeof health !== 'object') return { ok: false, problems: ['health ilegível'], deploy: null };
   if (!captured || !captured.vars) return { ok: false, problems: ['variáveis da versão ativa ilegíveis (wrangler versions view)'], deploy: null };
@@ -90,18 +90,24 @@ export function planNavbarRelease({ health, captured, tomlBindings }) {
   const scope = vars.WIDGET_SCOPE_MODE === undefined ? 'allowlist' : vars.WIDGET_SCOPE_MODE;
   if (scope !== 'allowlist' && scope !== 'product-catalog') problems.push(`WIDGET_SCOPE_MODE capturado inválido: ${scope}`);
   const featureList = (vars.WIDGET_FEATURES || '').split(',').map((f) => f.trim()).filter(Boolean);
-  if (featureList.includes(NAVBAR_FEATURE)) problems.push('header-nav JÁ está ativa em produção (nada a publicar)');
-  else if (!sortedEq(featureList, SIX_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as seis: ${SIX_FEATURES.join(',')})`);
+  // Dois modos: "enable" (as seis exatas -> as seis + header-nav) e "update" (a navbar JÁ está ativa: as sete exatas, com um loader mais NOVO que o publicado).
+  const active = featureList.includes(NAVBAR_FEATURE);
+  let mode = 'enable';
+  if (active) {
+    mode = 'update';
+    if (!sortedEq(featureList, SEVEN_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as sete: ${SEVEN_FEATURES.join(',')})`);
+    if (newVersion && health.version === newVersion) problems.push(`a navbar já está publicada nesta versão do loader (${newVersion}): nada a publicar`);
+  } else if (!sortedEq(featureList, SIX_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as seis: ${SIX_FEATURES.join(',')})`);
   const allow = (vars.WIDGET_ALLOWLIST || '').split(',').map((p) => p.trim()).filter(Boolean);
   if (allow.length === 0 || allow.some((p) => !SLUG_PATH.test(p)) || new Set(allow).size !== allow.length) problems.push('WIDGET_ALLOWLIST capturada vazia, duplicada ou malformada');
   // O health público tem de descrever a MESMA configuração (a captura não pode estar velha nem ser de outra versão).
-  const h = evaluateHealth(health, scope === 'product-catalog' ? 'catalog' : 'allowlist', { allowlistSize: allow.length });
+  const h = evaluateHealth(health, scope === 'product-catalog' ? 'catalog' : 'allowlist', { allowlistSize: allow.length, features: mode === 'update' ? SEVEN_FEATURES : SIX_FEATURES });
   if (!h.ok) problems.push(...h.problems.map((x) => 'health x captura: ' + x));
   // Bindings: o deploy publica o TOML; um binding a mais/menos em produção seria perdido/criado sem querer.
   const captKv = bindings.map((b) => b.name);
   if (!sortedEq(captKv, tomlBindings || [])) problems.push(`bindings da versão ativa [${captKv.join(',')}] != TOML [${(tomlBindings || []).join(',')}]`);
   if (problems.length) return { ok: false, problems, deploy: null };
-  return { ok: true, problems: [], deploy: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: allow.join(','), WIDGET_SCOPE_MODE: scope, WIDGET_FEATURES: SEVEN_FEATURES.join(','), expect: scope === 'product-catalog' ? 'catalog' : 'allowlist', allowlistSize: allow.length } };
+  return { ok: true, problems: [], deploy: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: allow.join(','), WIDGET_SCOPE_MODE: scope, WIDGET_FEATURES: SEVEN_FEATURES.join(','), expect: scope === 'product-catalog' ? 'catalog' : 'allowlist', allowlistSize: allow.length, mode } };
 }
 
 // Depois do deploy da navbar (ou do rollback), o health mostra a configuração planejada? `before` = health capturado antes.

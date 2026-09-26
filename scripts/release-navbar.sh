@@ -13,7 +13,7 @@
 #   A. captura: versão ativa + health + variáveis/bindings REAIS da versão (escopo, allowlist, features); as features TÊM de ser exatamente as seis
 #      (header-nav já ativa, feature a mais/menos ou health divergente da versão => para, sem publicar)
 #   B. publica o mesmo código com as MESMAS variáveis (escopo/allowlist/ENABLE_WIDGET preservados) e WIDGET_FEATURES = as seis + header-nav
-#   C. health (sete features, mesmo escopo/allowlist, loader novo) + smoke público + rota /__origens/navbar igual à do storefront
+#   C. health (sete features, mesmo escopo/allowlist, loader novo, shell_pages) + smoke público (produto, páginas de casca com 1 loader, conta/login/carrinho sem) + /__origens/navbar igual à do storefront
 #   D. QA em navegador REAL ao vivo (1280/390/320, Enter na lupa, cart_ref verdadeiro, drawer/CTA nativos)
 #   E. falha crítica: evidência ANTES, depois `wrangler rollback` para a versão CAPTURADA em A (KV e checkout intactos) + health/smoke conferidos
 set -uo pipefail
@@ -26,7 +26,7 @@ MODE=""
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
 [ -n "$MODE" ] || { usage; log ""; log "Nada foi feito (falta --check ou --deploy)."; exit 2; }
 cd "$ROOT" || exit 1
-NEW_VERSION=$(node -e 'import("./src/loader-source.js").then((m)=>console.log(m.LOADER_VERSION))')
+NEW_VERSION=$(node -e 'import("./src/loader-source.js").then((m)=>console.log(m.LOADER_VERSION))'); export NAV_NEW_VERSION="$NEW_VERSION"
 FAILS=(); WARNS=()
 ok()   { log "  OK    $*"; }
 warn() { WARNS+=("$*"); log "  WARN  $*"; }
@@ -62,6 +62,7 @@ HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 [ -n "$HEALTH_NOW" ] && ok "health lido: versão $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log(h.version+", escopo "+(h.scope_mode||"allowlist")+", "+(h.widget_features||[]).length+" features, allowlist "+h.allowlist_size)})')" || bad "health ilegível"
 if [ "$MODE" = check ]; then
   git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
+  ROUTES=$(grep -c '^pattern = ' "$CFG"); grep -Eq '^pattern = "[^"]*(cart|checkout|store_sessions)' "$CFG" && bad "rota do TOML no caminho de compra/login" || ok "rotas do TOML: $ROUTES (produto, __origens e as de casca: home, products, collections, about, orders); nenhuma de carrinho/checkout/login. O deploy aplica as rotas; elas NÃO são versionadas (um rollback de versão as mantém, e o código anterior só repassa essas páginas)"
   git rev-parse --verify -q origin/main >/dev/null && { git diff --quiet origin/main -- "$CFG" && ok "$CFG idêntico ao da main (rotas e bindings iguais aos do último release)" || warn "$CFG difere de origin/main: conferir rotas/bindings"; }
   if WHO=$(npx wrangler whoami 2>&1) && echo "$WHO" | grep -qi 'logged in' && echo "$WHO" | grep -q "$EXPECTED_ACCOUNT_EMAIL"; then
     ok "wrangler autenticado como $EXPECTED_ACCOUNT_EMAIL"
@@ -90,12 +91,14 @@ PREV_VERSION=$(active_version) || die "não consegui capturar a versão ativa do
 PREV_HEALTH=$(health_json) || die "health ilegível"
 PLAN=$(capture_navbar_plan "$PREV_VERSION" "$PREV_HEALTH" 2>&1) || die "a produção atual não permite o release com segurança: $PLAN"
 PLAN_FIELD() { printf '%s' "$PLAN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[process.argv[1]]))' "$1"; }
-NAV_ALLOW=$(PLAN_FIELD WIDGET_ALLOWLIST); NAV_SCOPE=$(PLAN_FIELD WIDGET_SCOPE_MODE); NAV_EXPECT=$(PLAN_FIELD expect); NAV_SIZE=$(PLAN_FIELD allowlistSize)
+NAV_ALLOW=$(PLAN_FIELD WIDGET_ALLOWLIST); NAV_SCOPE=$(PLAN_FIELD WIDGET_SCOPE_MODE); NAV_EXPECT=$(PLAN_FIELD expect); NAV_SIZE=$(PLAN_FIELD allowlistSize); NAV_MODE=$(PLAN_FIELD mode)
+# "enable": as seis -> seis + header-nav. "update": a navbar JÁ está ativa (sete features, loader mais antigo): o estado ANTERIOR e o restaurado por um rollback também têm as sete, sem páginas de casca ainda.
+[ "$NAV_MODE" = update ] && PRE_FLAGS="--features=seven --shell=off" || PRE_FLAGS=""
 PREV_LOADER=$(printf '%s' "$PREV_HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')
 mkdir -p .release; TS=$(date +%Y%m%d-%H%M%S); CAP=".release/navbar-capture-$TS.json"; EVID="$ROOT/.release/evidence/navbar-$TS"; mkdir -p "$EVID"; chmod 700 "$EVID"
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1],JSON.stringify({captured_at:new Date().toISOString(),previous_version:process.argv[2],health:JSON.parse(process.argv[3]),plan:{scope:process.argv[4],allowlist_paths:Number(process.argv[5])}},null,1),{mode:0o600})' "$CAP" "$PREV_VERSION" "$PREV_HEALTH" "$NAV_SCOPE" "$NAV_SIZE"
-log "   versão de rollback: $PREV_VERSION (loader $PREV_LOADER), escopo $NAV_SCOPE, $NAV_SIZE caminho(s) — capturados em $CAP"
-smoke_six() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$1" --allowlist-size="$NAV_SIZE" ${2:+--version="$2"}); }
+log "   modo: $NAV_MODE — versão de rollback: $PREV_VERSION (loader $PREV_LOADER), escopo $NAV_SCOPE, $NAV_SIZE caminho(s) — capturados em $CAP"
+smoke_six() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$1" --allowlist-size="$NAV_SIZE" $PRE_FLAGS ${2:+--version="$2"}); }
 smoke_six "$NAV_EXPECT" >/dev/null || die "smoke no estado atual falhou (nada foi publicado)"
 storefront_ok || die "storefront INACESSÍVEL ($(storefront_probe)). Nada foi publicado."
 
@@ -104,7 +107,7 @@ rollback() {
   if (cd "$ROOT" && npx wrangler rollback "$PREV_VERSION" --name "$WORKER_NAME" --message "release-navbar rollback: $1" --yes); then
     sleep 8
     if printf '%s' "$PREV_HEALTH" | node -e 'import("./scripts/lib/release-lib.mjs").then((m)=>{let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const now=await (await fetch(process.argv[1])).json();process.exit(m.sameConfig(JSON.parse(s),now)?0:1)})})' "$HEALTH_URL" && smoke_six "$NAV_EXPECT" "$PREV_LOADER" >/dev/null; then
-      log "!!! rollback CONFIRMADO: versão capturada, mesmo escopo/allowlist/features (sem header-nav), KV intacto."; return 0; fi
+      log "!!! rollback CONFIRMADO: versão capturada, mesmo escopo/allowlist/features, KV intacto. (As rotas da Cloudflare não são versionadas e continuam: o código restaurado só repassa as páginas de casca.)"; return 0; fi
     log "!!! rollback aplicado, mas o health/smoke não conferem com o capturado."
   fi
   log "!!! CRÍTICO: o rollback automático NÃO se confirmou. Ação manual imediata:"
@@ -113,7 +116,7 @@ rollback() {
 fail() { capture_evidence "$EVID/falha-$(date +%H%M%S)" "$1" || true; rollback "$1"; log ""; log "RELEASE ABORTADO: $1"; log "   evidências: .release/evidence/navbar-$TS/ (fora do Git)"; exit 1; }
 smoke_navbar() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$NAV_EXPECT" --features=seven --allowlist-size="$NAV_SIZE" --version="$NEW_VERSION") 2>&1 | tee -a "$EVID/smoke-navbar.log"; return "${PIPESTATUS[0]}"; }
 
-log "== B. publicação: mesmo escopo/allowlist, features = as seis + header-nav =="
+log "== B. publicação ($NAV_MODE): mesmo escopo/allowlist, features = as seis + header-nav =="
 deploy_worker_navbar "$NAV_ALLOW" "$NAV_SCOPE" || fail "deploy da navbar falhou"
 sleep 8
 MSG=$(health_ok_navbar "$NAV_EXPECT" "$NAV_SIZE" "$NEW_VERSION" 2>&1) || fail "health após o deploy: $MSG"

@@ -14,8 +14,10 @@ import { HEADER_NAV } from './loader/header-nav.js';
 import { clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
+import { shellPageKind, shellEnabled } from './scope.js';
+import { ACTIVE_STORE } from './stores.js';
 
-export const LOADER_VERSION = '4.5';
+export const LOADER_VERSION = '4.6';
 export { buildDiscoverySource };
 
 // Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano
@@ -53,6 +55,9 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
     .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))
     .replaceAll('__VERSION__', () => LOADER_VERSION)
     .replace('__NAV_STORE__', () => JSON.stringify(clientStore()))
+    .replace('__SHELL_FN__', () => shellPageKind.toString())
+    .replace('__SHELL_ENABLED__', () => String(shellEnabled(scopeMode, features)))
+    .replace('__INK_BASE__', () => JSON.stringify(ACTIVE_STORE.inkBase))
     .replace('__ALLOWED_PATHS__', () => JSON.stringify(allowedPaths))
     .replace('__FEATURES__', () => JSON.stringify(features))
     .replace('__SCOPE_MODE__', () => JSON.stringify(scopeMode === 'product-catalog' ? 'product-catalog' : 'allowlist'));

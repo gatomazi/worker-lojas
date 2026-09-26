@@ -22,7 +22,8 @@ if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then AHEAD=$(git rev-list 
 
 log "[2] Configuração e scripts"
 grep -q '^ENABLE_WIDGET = "false"' "$CFG" && ok "$CFG segue fail-closed (ENABLE_WIDGET=false)" || bad "$CFG não está fail-closed"
-[ "$(grep -c 'pattern = ' "$CFG")" = 2 ] && grep -q 'www.usesul.com.br/usesul/product/\*' "$CFG" && grep -q 'www.usesul.com.br/__origens/\*' "$CFG" && ok "rotas: só /usesul/product/* e /__origens/* em www" || bad "rotas do TOML diferentes das duas esperadas"
+ROUTES=$(grep -o 'pattern = "[^"]*"' "$CFG" | sed -E 's/pattern = "(.*)"/\1/' | tr '\n' ' ')
+[ "$(grep -c 'pattern = ' "$CFG")" = 7 ] && ! grep -Eq 'pattern = "[^"]*(cart|checkout|store_sessions)' "$CFG" && grep -q 'www.usesul.com.br/usesul/product/\*' "$CFG" && grep -q 'www.usesul.com.br/__origens/\*' "$CFG" && ok "rotas: produto, __origens e as 5 de casca (home, products, collections, about, orders); nenhuma de carrinho/checkout/login" || bad "rotas do TOML diferentes das esperadas: $ROUTES"
 KVID=$(grep -A2 'binding = "CART_REFS"' "$CFG" | grep '^id' | sed -E 's/id = "([0-9a-f]+)"/\1/'); [ -n "$KVID" ] && ok "binding CART_REFS presente (id ${KVID:0:8}…)" || bad "binding CART_REFS ausente"
 assert_deploy_vars allowlist >/dev/null && assert_deploy_vars product-catalog >/dev/null && ok "argumentos de deploy completos (6 features, 5 caminhos, CART_REFS, escopo explícito)" || bad "argumentos de deploy incompletos"
 STRAY=$(grep -n 'wrangler deploy' scripts/release-global.sh scripts/rollout-cart.sh 2>/dev/null | grep -v '^scripts/[a-z-]*\.sh:[0-9]*:\s*#' | grep -v 'deploy_worker\|Não \|NUNCA\|^\S*:[0-9]*:#' || true)

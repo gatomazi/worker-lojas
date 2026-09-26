@@ -68,7 +68,9 @@ test('wrangler dev and production ship the same safe defaults', () => {
 test('production routes are exactly the two www routes; staging has none', () => {
   const prod = readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8');
   const patterns = [...prod.matchAll(/^pattern\s*=\s*"([^"]+)"/gm)].map((m) => m[1]);
-  assert.deepEqual(patterns, ['www.usesul.com.br/usesul/product/*', 'www.usesul.com.br/__origens/*']);
+  assert.deepEqual(patterns, ['www.usesul.com.br/usesul/product/*', 'www.usesul.com.br/__origens/*', 'www.usesul.com.br/usesul', 'www.usesul.com.br/usesul/products*', 'www.usesul.com.br/usesul/collections/*', 'www.usesul.com.br/usesul/about*', 'www.usesul.com.br/usesul/orders*']);
+  // Nunca uma rota que ponha o Worker no caminho da compra ou do login, nem um curinga amplo sobre a loja toda.
+  for (const pattern of patterns) { assert.doesNotMatch(pattern, /cart|checkout|store_sessions/, pattern); assert.ok(!['www.usesul.com.br/usesul/*', 'www.usesul.com.br/usesul*', 'www.usesul.com.br/*'].includes(pattern), pattern); }
   const dev = readFileSync(new URL('../wrangler.dev.toml', import.meta.url), 'utf8');
   assert.doesNotMatch(dev, /^\s*(pattern|\[\[routes\]\])/m);
 });

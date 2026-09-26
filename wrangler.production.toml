@@ -13,6 +13,30 @@ zone_name = "usesul.com.br"
 pattern = "www.usesul.com.br/__origens/*"
 zone_name = "usesul.com.br"
 
+# Páginas "de casca" (não transacionais) que também recebem a navbar quando o escopo é de catálogo e a feature da navbar está ligada (src/scope.js shellPageKind):
+# home, listagem, coleções, sobre e conta/pedidos. A rota só CHAMA o Worker; quem decide é o código (fail-closed: sem a feature da navbar ou fora do catálogo ele só repassa).
+# Login (store_sessions), carrinho, checkout e o resto de /usesul/* NÃO têm rota: o Worker nunca fica no caminho da compra. Rotas não são versionadas: um rollback de
+# versão não as remove, mas o código anterior simplesmente repassa essas páginas.
+[[routes]]
+pattern = "www.usesul.com.br/usesul"
+zone_name = "usesul.com.br"
+
+[[routes]]
+pattern = "www.usesul.com.br/usesul/products*"
+zone_name = "usesul.com.br"
+
+[[routes]]
+pattern = "www.usesul.com.br/usesul/collections/*"
+zone_name = "usesul.com.br"
+
+[[routes]]
+pattern = "www.usesul.com.br/usesul/about*"
+zone_name = "usesul.com.br"
+
+[[routes]]
+pattern = "www.usesul.com.br/usesul/orders*"
+zone_name = "usesul.com.br"
+
 # Mesmos valores padrão do staging (garantido por test/config.test.js).
 [vars]
 # "false" (padrão) | "dry-run" (só loga, não altera HTML) | "true" (injeta SOMENTE na allowlist).

@@ -25,3 +25,23 @@ export const isCatalogProductPath = (pathname) => typeof pathname === 'string' &
 export function inScope(scope, allowlist, pathname) {
   return scope.mode === CATALOG_MODE ? isCatalogProductPath(pathname) : allowlist.paths.includes(pathname);
 }
+
+// ── Páginas "de casca" (shell): onde só o cabeçalho e o FAB nossos aparecem, sem nenhum módulo de produto ────────────────────────────────────
+// A navbar (header-nav + FAB de WhatsApp + a ponte do carrinho) acompanha o cliente pelas páginas NÃO transacionais da loja: home, listagem, coleções, sobre e
+// conta/pedidos. Ficam FORA, sempre: login (store_sessions), carrinho, checkout e qualquer outro caminho. Só vale com o escopo de catálogo E a feature header-nav.
+// Função PURA e autocontida: o mesmo código roda no Worker e (via toString) no loader do navegador — uma única definição, testada aqui.
+//   base = prefixo da loja na INK (ex.: "/usesul"). O pathname vem sem query string.
+export function shellPageKind(pathname, base) {
+  if (typeof pathname !== 'string' || typeof base !== 'string' || base === '') return null;
+  if (pathname === base || pathname === base + '/') return 'home';
+  if (pathname.slice(0, base.length + 1) !== base + '/') return null;
+  const rest = pathname.slice(base.length + 1).replace(/\/$/, '');
+  if (rest === 'products') return 'products';
+  if (rest === 'about') return 'about';
+  if (rest === 'orders') return 'orders';
+  if (/^collections\/[a-z0-9][a-z0-9_-]{0,127}$/.test(rest)) return 'collection';
+  if (/^orders\/[A-Za-z0-9_-]{1,64}$/.test(rest)) return 'order'; // /orders/<pedido> e /orders/trackings
+  return null;
+}
+// O escopo de casca está ligado? (catálogo + header-nav; nunca no modo de allowlist de cinco produtos)
+export const shellEnabled = (scopeMode, features) => scopeMode === CATALOG_MODE && Array.isArray(features) && features.includes('header-nav');

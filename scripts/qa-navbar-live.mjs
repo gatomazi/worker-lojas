@@ -10,6 +10,7 @@
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildLoaderSource, LOADER_VERSION } from '../src/loader-source.js';
+import { shellPageKind } from '../src/scope.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 const LOCALW = process.argv.includes('--local-worker');   // Worker LOCAL (Miniflare) na frente da INK REAL: a mesma injeção de produção (tag do loader no HTML), sem stub de loader
@@ -66,9 +67,11 @@ async function session(viewport, cfg = REHEARSAL) {
       await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
     });
     // O HTML de produto passa pelo Worker de verdade (mesma reescrita do HTMLRewriter de produção).
-    await page.route((u) => u.host === 'www.usesul.com.br' && /^\/usesul\/product\/[^/]+$/.test(u.pathname), async (route) => {
+    await page.route((u) => u.host === 'www.usesul.com.br' && (/^\/usesul\/product\/[^/]+$/.test(u.pathname) || shellPageKind(u.pathname, '/usesul') !== null), async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue();
-      const res = await route.fetch(); upstreamInk.html = await res.text(); upstreamInk.status = res.status();
+      const res = await route.fetch({ maxRedirects: 0 }); // redirects da INK (ex.: /orders sem sessão -> login) passam direto, como o Worker real os repassa
+      if (res.status() >= 300 && res.status() < 400) return route.fulfill({ response: res });
+      upstreamInk.html = await res.text(); upstreamInk.status = res.status();
       const out = await mf.dispatchFetch(route.request().url()); await route.fulfill({ response: res, body: await out.text() });
     });
     await page.route(SF + '/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><h1>Buscar estampas (stub do ensaio)</h1></body></html>' }));
@@ -97,6 +100,21 @@ async function openProduct(s, path = PRODUCT, { attempts = 2 } = {}) {
   await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {});
   await wait(s.page, 800);
 }
+
+// Página de casca (home, listagem, coleções, sobre, conta/pedidos): mesma navegação estável (uma nova tentativa registrada); no ensaio simples injeta o loader à mão.
+async function openShell(s, path) {
+  for (let n = 1; n <= 2; n++) {
+    try { await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }); break; }
+    catch (e) { if (n === 2) throw e; info(`navegação para ${path} falhou (${String(e.message).split('\n')[0]}); nova tentativa`); await wait(s.page, 2000); }
+  }
+  await ensureInjected(s);
+}
+async function ensureInjected(s) {
+  if (INJECT) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
+  await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {});
+  await wait(s.page, 800);
+}
+const shellState = (page) => page.evaluate(() => ({ path: location.pathname, desktop: document.querySelectorAll('[data-origens-nav="desktop"]').length, forms: document.querySelectorAll('#o-nav-search').length, menu: document.querySelectorAll('[data-origens-nav="menu"]').length, fabs: document.querySelectorAll('#o-wa-fab').length, returnLink: !!document.getElementById('use-origens-return-link'), discovery: document.querySelectorAll('[data-origens-discovery]').length, features: (window.__useOrigens || {}).features || [], overlap: (() => { const items = [...document.querySelectorAll('[data-origens-nav="desktop"] .o-nav-logo, [data-origens-nav="desktop"] .o-nav-full > *, [data-origens-nav="desktop"] .o-nav-compact .o-dd-btn, [data-origens-nav="desktop"] .o-nav-links > a, [data-origens-nav="desktop"] .o-nav-lupa, .menu-icons')].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect()); return items.some((a, i) => items.some((c, j) => j > i && a.x < c.right - 1 && c.x < a.right - 1 && a.y < c.bottom - 1 && c.y < a.bottom - 1)); })(), sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth }));
 const acceptNotice = async (page) => { const n = page.locator('.cookie-acceptance button'); if (await n.count() && await n.first().isVisible()) { await n.first().click(); await wait(page, 400); } };
 const geometry = (page) => page.evaluate(() => {
   const vis = (e) => e && e.getClientRects().length > 0;
@@ -235,7 +253,8 @@ try {
   const nav = () => d.page.evaluate(() => ({ desktop: document.querySelectorAll('[data-origens-nav="desktop"]').length, forms: document.querySelectorAll('#o-nav-search').length, any: document.querySelectorAll('[data-origens-nav]').length, fabs: document.querySelectorAll('#o-wa-fab').length, path: location.pathname }));
   if (await turbo('/usesul/product/serra-catarinense')) {
     const a = await nav(); check('[1280] Turbo produto → produto: um cabeçalho nosso e no máximo um FAB (sem duplicar)', a.path.endsWith('serra-catarinense') && a.desktop === 1 && a.forms === 1 && a.fabs <= 1, JSON.stringify(a));
-    await turbo('/usesul/about'); const b = await nav(); check('[1280] Turbo para página que não é produto: nada nosso fica e o cabeçalho nativo é o da INK', b.any === 0 && b.fabs === 0 && await d.page.locator('nav.navbar:not([data-controller]) > ul.navbar-list').first().waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), JSON.stringify(b));
+    await turbo('/usesul/about'); const shell1 = await nav(); check('[1280] Turbo produto → página de casca (sobre): a navbar continua, uma só, e o FAB também', shell1.desktop === 1 && shell1.forms === 1 && shell1.fabs <= 1 && shell1.path === '/usesul/about', JSON.stringify(shell1));
+    await turbo('/usesul/store_sessions/new'); const b = await nav(); check('[1280] Turbo para o LOGIN: nada nosso fica e o cabeçalho é o da INK', b.any === 0 && b.fabs === 0 && b.path === '/usesul/store_sessions/new', JSON.stringify(b));
     await turbo(PRODUCT);
     if (INJECT && !(await d.page.evaluate(() => !!(window.__useOrigens && window.__useOrigens.features.includes('header-nav'))))) { await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }); await d.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await d.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); await wait(d.page, 2500); }
     await d.page.waitForSelector('header [data-origens-nav]', { timeout: 20000 }).catch(() => {}); await wait(d.page, 500);
@@ -273,6 +292,37 @@ try {
   check('[1280] drawer nativo abre, "Finalizar compra" visível, habilitado e descoberto (não clicado); o FAB recua com o drawer aberto', checkout.found && checkout.visible && checkout.enabled && !checkout.covered && fabDrawer.shown === false, JSON.stringify({ checkout, fabShown: fabDrawer.shown }));
   await d.page.screenshot({ path: OUT + 'desktop-drawer-fab-1280.png' });
   await d.ctx.close();
+
+
+  // ── Páginas de casca: a navbar acompanha o cliente (home, listagem, coleções, sobre, conta/pedidos); login/carrinho/checkout nunca ──────────
+  {
+    const sh = await session({ width: 1280, height: 800 });
+    const collection = (expected.top[0] || expected.more[0] || { slug: 'novidades' }).slug;
+    for (const path of ['/usesul', '/usesul/products', '/usesul/collections/' + collection, '/usesul/about', '/usesul/orders/trackings']) {
+      await openShell(sh, path); const st = await shellState(sh.page);
+      check(`[casca ${path}] navbar montada uma vez (cabeçalho, formulário, menu lateral) e FAB de WhatsApp, sem módulo de produto, sem overlap/overflow`, st.path === path && st.desktop === 1 && st.forms === 1 && st.menu === 1 && st.fabs === 1 && st.features.includes('header-nav') && !st.returnLink && st.discovery === 0 && !st.overlap && st.sw <= st.vw + 1, JSON.stringify(st));
+      if (path === '/usesul') await sh.page.screenshot({ path: OUT + 'casca-home-1280.png', clip: { x: 0, y: 0, width: 1280, height: 220 } });
+    }
+    // O caso do dono: clicar numa coleção DA PRÓPRIA navbar não pode fazer a navbar sumir.
+    await openProduct(sh);
+    const link = sh.page.locator(`[data-origens-nav="desktop"] a[href="/usesul/collections/${collection}"]`).first();
+    if (await link.count() && await link.isVisible()) {
+      await link.click({ noWaitAfter: true });
+      await sh.page.waitForURL((u) => u.pathname === '/usesul/collections/' + collection, { timeout: 45000 }).catch(() => {});
+      await ensureInjected(sh); const st = await shellState(sh.page);
+      check('[casca] clicar numa coleção da própria navbar leva à página da coleção COM a navbar (não some)', st.path === '/usesul/collections/' + collection && st.desktop === 1 && st.forms === 1 && !st.returnLink && st.discovery === 0, JSON.stringify(st));
+      await sh.page.screenshot({ path: OUT + 'casca-colecao-1280.png', clip: { x: 0, y: 0, width: 1280, height: 220 } });
+    } else info('a coleção escolhida está em Demais categorias ou no Menu compacto: o clique direto na barra foi pulado (a página da coleção já foi coberta acima)');
+    // Excluídas: login e carrinho; /usesul/orders sem sessão redireciona ao login (o Worker repassa) e o login não recebe nada nosso.
+    for (const path of ['/usesul/store_sessions/new', '/usesul/cart']) {
+      await sh.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {}); await wait(sh.page, 1500);
+      const st = await shellState(sh.page); check(`[casca] ${path} NÃO recebe nada nosso`, st.desktop === 0 && st.forms === 0 && st.fabs === 0 && st.menu === 0, JSON.stringify(st));
+    }
+    await sh.page.goto(HOST + '/usesul/orders', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {}); await wait(sh.page, 1500);
+    const orders = await shellState(sh.page); check('[casca] /usesul/orders sem sessão: a INK leva ao login e o login não recebe nada nosso', /store_sessions/.test(orders.path) && orders.desktop === 0 && orders.fabs === 0, JSON.stringify(orders));
+    info('conta LOGADA (/usesul/orders, /usesul/orders/<pedido> depois do login) não é exercida ao vivo (sem sessão de teste autorizada): classificação, montagem, saudação/Meus pedidos/Sair e Dashboard têm cobertura DOM e workerd.');
+    await sh.ctx.close();
+  }
 
   // ── Muitas coleções no Topo em 1280 (ensaio): a apresentação vira Menu ▾ compacto, sem overflow nem sobreposição ─────────────────────────
   if (REHEARSE && !LOCALW) {
