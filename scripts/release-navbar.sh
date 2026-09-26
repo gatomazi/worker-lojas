@@ -9,7 +9,7 @@
 # não altera DNS/WAF/rotas, não apaga KV e nunca faz push/merge. Não faz compra: o QA ao vivo só adiciona um item ao carrinho ANÔNIMO.
 #
 # Ordem (o storefront e o CMS vêm ANTES; este script confere que já estão no ar e NÃO publica o storefront):
-#   0. pré-condições em produção: /api/navbar/sul (formato e lista), /sul/busca (resultados, sem resultado, cabeçalho de cache, coleção >48 completa)
+#   0. pré-condições em produção: /api/navbar/sul (contrato v2: grupos top/more e estados), /sul/busca (resultados, sem resultado, cabeçalho de cache, coleção >48 completa)
 #   A. captura: versão ativa + health + variáveis/bindings REAIS da versão (escopo, allowlist, features); as features TÊM de ser exatamente as seis
 #      (header-nav já ativa, feature a mais/menos ou health divergente da versão => para, sem publicar)
 #   B. publica o mesmo código com as MESMAS variáveis (escopo/allowlist/ENABLE_WIDGET preservados) e WIDGET_FEATURES = as seis + header-nav
@@ -38,9 +38,9 @@ search_count() { curl -sS --max-time 20 "$STOREFRONT_URL/sul/busca?q=$1" | node 
 storefront_prereqs() {
   local api code cache n
   api=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/navbar/sul" 2>/dev/null)
-  if printf '%s' "$api" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const ok=j.v===1&&j.region==="sul"&&Array.isArray(j.collections)&&j.collections.length<=8&&j.collections.every(c=>Object.keys(c).sort().join()==="name,slug"&&/^[a-z0-9][a-z0-9-]{0,80}$/.test(c.slug));if(!ok)process.exit(1);console.log(j.collections.length)}catch(e){process.exit(1)}})' >/tmp/navbar-count.$$ 2>/dev/null; then
-    n=$(cat /tmp/navbar-count.$$); ok "storefront: /api/navbar/sul válido com $n coleção(ões)"
-    [ "$n" -ge 1 ] || { if [ "${NAVBAR_ALLOW_EMPTY:-}" = "1" ]; then warn "lista da navbar VAZIA (NAVBAR_ALLOW_EMPTY=1): o cabeçalho monta só com logo, Cidades e busca"; else bad "lista da navbar VAZIA: escolha as coleções no CMS de produção e publique (ou exporte NAVBAR_ALLOW_EMPTY=1 para assumir o estado vazio)"; fi; }
+  if printf '%s' "$api" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const slug=/^[a-z0-9][a-z0-9-]{0,80}$/;const grp=(g)=>Array.isArray(g)&&g.length<=60&&g.every(c=>c&&Number.isInteger(c.id)&&typeof c.title==="string"&&slug.test(c.slug)&&typeof c.url==="string"&&Number.isInteger(c.order));const both=[...j.top||[],...j.more||[]].map(c=>c.slug);const ok=j.v===2&&j.region==="sul"&&grp(j.top)&&grp(j.more)&&new Set(both).size===both.length&&Array.isArray(j.states)&&j.states.length>0&&j.states.every(x=>/^[A-Z]{2}$/.test(x.uf)&&x.path==="/sul/"+x.uf.toLowerCase());if(!ok)process.exit(1);console.log(j.top.length+" no topo, "+j.more.length+" em demais");console.log(both.length)}catch(e){process.exit(1)}})' >/tmp/navbar-count.$$ 2>/dev/null; then
+    n=$(sed -n 2p /tmp/navbar-count.$$); ok "storefront: /api/navbar/sul (v2) válido: $(sed -n 1p /tmp/navbar-count.$$)"
+    [ "$n" -ge 1 ] || { if [ "${NAVBAR_ALLOW_EMPTY:-}" = "1" ]; then warn "grupos da navbar VAZIOS (NAVBAR_ALLOW_EMPTY=1): o cabeçalho monta só com logo, Regiões, Cidades e busca"; else bad "grupos da navbar VAZIOS: escolha as coleções (Topo / Demais categorias) no CMS de produção e publique (ou exporte NAVBAR_ALLOW_EMPTY=1 para assumir o estado vazio)"; fi; }
   else bad "storefront: /api/navbar/sul indisponível ou fora do formato (o storefront precisa estar no ar ANTES do Worker)"; fi
   rm -f /tmp/navbar-count.$$
   code=$(curl -sS -o /dev/null --max-time 20 -w '%{http_code}' "$STOREFRONT_URL/sul/busca?q=chimarrao" 2>/dev/null)
