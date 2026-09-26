@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // QA da navbar da INK (header-nav + FAB de WhatsApp) em NAVEGADOR REAL contra a página REAL da INK. Só os cenários críticos (sem stress).
 //   PW_PATH=/caminho/com/playwright-core node scripts/qa-navbar-live.mjs             -> AO VIVO (depois do deploy): Worker PUBLICADO, POST de cart-ref e leitura do KV VERDADEIROS
+//   PW_PATH=... node scripts/qa-navbar-live.mjs --local-worker                        -> ENSAIO FIEL: Worker local (Miniflare, KV local) na frente da INK REAL; o HTML de produto passa pelo Worker
+//                                                                                       (mesma tag de loader, mesmo Turbo do ambiente real); config real do storefront de produção
 //   PW_PATH=... node scripts/qa-navbar-live.mjs --rehearse                           -> ENSAIO (antes do deploy): loader LOCAL injetado; /__origens/navbar e cart-ref respondidos por
 //                                                                                       page.route com uma configuração de teste (nenhum KV real é escrito)
 // Chamado por scripts/release-navbar.sh. Sessão ANÔNIMA descartável (o estado logado NÃO é coberto aqui: ver docs). NÃO faz compra: só adiciona UM item ao
@@ -10,7 +12,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildLoaderSource, LOADER_VERSION } from '../src/loader-source.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
-const REHEARSE = process.argv.includes('--rehearse');
+const LOCALW = process.argv.includes('--local-worker');   // Worker LOCAL (Miniflare) na frente da INK REAL: a mesma injeção de produção (tag do loader no HTML), sem stub de loader
+const REHEARSE = process.argv.includes('--rehearse') || LOCALW;
+const INJECT = REHEARSE && !LOCALW;                         // só o ensaio simples injeta o loader à mão
 const HOST = 'https://www.usesul.com.br';
 const SF = 'https://useorigens.com.br';
 const PRODUCT = '/usesul/product/paranaense-essencia';
@@ -27,6 +31,19 @@ const STATES = [{ uf: 'PR', name: 'Paraná', path: '/sul/pr' }, { uf: 'SC', name
 const MORE = entries(['Personalizados', 'Pré-treino Raiz', 'Rio Grande do Sul', 'Santa Catarina', 'Paraná', 'Carnaval', 'Ruas de Origem', 'Fé de Origem', 'Cidades mais pedidas', 'Outra 1', 'Outra 2', 'Outra 3'], 100);
 const REHEARSAL = { v: 2, states: STATES, top: entries(['Novidades', 'Seu Lugar', 'Do Nosso Jeito', 'Feito Para Você']), more: MORE };
 const REHEARSAL_LARGE = { v: 2, states: STATES, top: entries(['Novidades', 'Seu Lugar', 'Do Nosso Jeito', 'Da Nossa Terra', 'Feito Para Você', 'Fala Daqui', 'Kits', 'Parceiros']), more: MORE };
+const upstreamInk = { html: '', status: 200 };
+let mf = null;
+if (LOCALW) {
+  const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
+  const { workerModules } = await import('../test/helpers.js');
+  const allow = '/usesul/product/serra-catarinense';
+  mf = new Miniflare({
+    ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'],
+    bindings: { ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: allow, WIDGET_FEATURES: 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav' },
+    // A INK é a página real (buscada pelo navegador); o storefront de PRODUÇÃO responde a configuração da navbar (o gateway lê o mesmo endpoint que em produção).
+    outboundService: async (req) => (new URL(req.url).host === 'useorigens.com.br' ? fetch(req.url, { headers: { accept: 'application/json' } }) : new Response(upstreamInk.html, { status: upstreamInk.status, headers: { 'content-type': 'text/html; charset=utf-8' } }))
+  });
+}
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: process.env.QA_HEADED !== '1' });
 const wait = (page, ms) => page.waitForTimeout(ms);
 let expected = null; // a configuração que a página DEVE mostrar (ensaio: a de teste; ao vivo: a do Worker)
@@ -41,17 +58,42 @@ async function session(viewport, cfg = REHEARSAL) {
     if (u.host === 'www.usesul.com.br' && u.pathname.startsWith('/__origens/')) { s.ours.push(req.method() + ' ' + u.pathname); if (req.method() === 'POST' && u.pathname === '/__origens/cart-ref') s.posts.push(Date.now()); }
     if (u.host === 'useorigens.com.br' && req.resourceType() === 'document') s.sfDocs.push(req.url());
   });
-  if (REHEARSE) {
+  if (process.env.QA_DEBUG) { page.on('requestfailed', (r) => console.log('DBG FAILED', r.url().slice(0, 90), r.failure() && r.failure().errorText)); page.on('request', (r) => { if (/usesul\.com\.br/.test(r.url())) console.log('DBG REQ', r.method(), r.url().slice(0, 100)); }); }
+  if (LOCALW) {
+    await page.route('**/__origens/**', async (route) => {
+      const req = route.request(); const url = new URL(req.url()); const h = req.headers();
+      const res = await mf.dispatchFetch(url.href, { method: req.method(), headers: { 'content-type': h['content-type'] || '', origin: h['origin'] || '', referer: h['referer'] || '', 'sec-fetch-site': h['sec-fetch-site'] || '' }, body: req.method() === 'POST' ? req.postData() : undefined });
+      await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
+    });
+    // O HTML de produto passa pelo Worker de verdade (mesma reescrita do HTMLRewriter de produção).
+    await page.route((u) => u.host === 'www.usesul.com.br' && /^\/usesul\/product\/[^/]+$/.test(u.pathname), async (route) => {
+      if (route.request().resourceType() !== 'document') return route.continue();
+      const res = await route.fetch(); upstreamInk.html = await res.text(); upstreamInk.status = res.status();
+      const out = await mf.dispatchFetch(route.request().url()); await route.fulfill({ response: res, body: await out.text() });
+    });
+    await page.route(SF + '/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><h1>Buscar estampas (stub do ensaio)</h1></body></html>' }));
+  } else if (REHEARSE) {
     await page.route('**/__origens/navbar', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cfg) }));
     await page.route('**/__origens/cart-ref', (r) => r.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ ref: 'AbCdEfGhIjKlMnOpQrStUv', ttl: 1800 }) }));
     await page.route(SF + '/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><h1>Buscar estampas (stub do ensaio)</h1></body></html>' }));
   }
   return s;
 }
-async function openProduct(s, path = PRODUCT) {
-  await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await s.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 });
-  if (REHEARSE) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
+// Navegação estável: o sinal de "produto carregado" é o documento 2xx + domcontentloaded + o formulário nativo de compra (não o evento load). Um timeout/erro de
+// rede do navegador recebe UMA nova tentativa, registrada; falha persistente reprova (o gate não é relaxado). A INK às vezes segura o documento por dezenas de segundos.
+async function openProduct(s, path = PRODUCT, { attempts = 2 } = {}) {
+  for (let n = 1; n <= attempts; n++) {
+    try {
+      await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await s.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 });
+      break;
+    } catch (e) {
+      if (n === attempts) throw e;
+      info(`navegação para ${path} falhou (${String(e.message).split('\n')[0]}); nova tentativa ${n + 1}/${attempts}`);
+      await wait(s.page, 2000);
+    }
+  }
+  if (INJECT) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
   await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {});
   await wait(s.page, 800);
 }
@@ -107,7 +149,7 @@ try {
   // ── Desktop 1280 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   const d = await session({ width: 1280, height: 800 });
   await openProduct(d);
-  expected = REHEARSE ? REHEARSAL : await (await fetch(HOST + '/__origens/navbar')).json();
+  expected = LOCALW ? await (await fetch(SF + '/api/navbar/sul')).json() : REHEARSE ? REHEARSAL : await (await fetch(HOST + '/__origens/navbar')).json();
   const g0 = await geometry(d.page);
   check('[1280] navbar montada' + (REHEARSE ? ' (ENSAIO: loader local)' : ' pelo Worker PUBLICADO') + `: loader ${g0.loader}, header-nav ativa, 1 formulário de busca`, g0.loader === LOADER_VERSION && g0.features.includes('header-nav') && await d.page.locator('#o-nav-search').count() === 1, JSON.stringify({ loader: g0.loader, features: g0.features }));
   check('[1280] sem sobreposição, pesquisa nativa escondida, conta e carrinho nativos visíveis', !g0.overlap && g0.nativeSearchHidden && g0.cartVisible && await d.page.locator('.menu-icons #menu-user-link, .menu-icons .menu-user').count() > 0, JSON.stringify(g0));
@@ -181,13 +223,22 @@ try {
   await d.page.setViewportSize({ width: 1280, height: 800 }); await wait(d.page, 500);
 
   // Turbo: produto → produto → página que não é produto → produto (um só cabeçalho e um só FAB)
-  const turbo = async (path) => { const ok = await d.page.evaluate((p) => { if (!window.Turbo) return false; window.Turbo.visit(p); return true; }, path); await wait(d.page, 3500); return ok; };
+  // Espera o DESTINO (rota + documento pronto), não um tempo fixo: a INK pode demorar mais que 3,5 s.
+  const turbo = async (path) => {
+    const ok = await d.page.evaluate((p) => { if (!window.Turbo) return false; window.Turbo.visit(p); return true; }, path);
+    if (!ok) return false;
+    await d.page.waitForFunction((p) => location.pathname === p && document.readyState !== 'loading', path, { timeout: 45000 }).catch(() => {});
+    if (/^\/usesul\/product\//.test(path)) await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }).catch(() => {});
+    await wait(d.page, 2500);
+    return true;
+  };
   const nav = () => d.page.evaluate(() => ({ desktop: document.querySelectorAll('[data-origens-nav="desktop"]').length, forms: document.querySelectorAll('#o-nav-search').length, any: document.querySelectorAll('[data-origens-nav]').length, fabs: document.querySelectorAll('#o-wa-fab').length, path: location.pathname }));
   if (await turbo('/usesul/product/serra-catarinense')) {
     const a = await nav(); check('[1280] Turbo produto → produto: um cabeçalho nosso e no máximo um FAB (sem duplicar)', a.path.endsWith('serra-catarinense') && a.desktop === 1 && a.forms === 1 && a.fabs <= 1, JSON.stringify(a));
-    await turbo('/usesul/about'); const b = await nav(); check('[1280] Turbo para página que não é produto: nada nosso fica e o cabeçalho nativo é o da INK', b.any === 0 && b.fabs === 0 && await d.page.locator('nav.navbar:not([data-controller]) > ul.navbar-list').first().isVisible(), JSON.stringify(b));
+    await turbo('/usesul/about'); const b = await nav(); check('[1280] Turbo para página que não é produto: nada nosso fica e o cabeçalho nativo é o da INK', b.any === 0 && b.fabs === 0 && await d.page.locator('nav.navbar:not([data-controller]) > ul.navbar-list').first().waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), JSON.stringify(b));
     await turbo(PRODUCT);
-    if (REHEARSE && !(await d.page.evaluate(() => !!(window.__useOrigens && window.__useOrigens.features.includes('header-nav'))))) { await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }); await d.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await d.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); await wait(d.page, 2500); }
+    if (INJECT && !(await d.page.evaluate(() => !!(window.__useOrigens && window.__useOrigens.features.includes('header-nav'))))) { await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }); await d.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await d.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); await wait(d.page, 2500); }
+    await d.page.waitForSelector('header [data-origens-nav]', { timeout: 20000 }).catch(() => {}); await wait(d.page, 500);
     const c = await nav(); check('[1280] Turbo de volta ao produto: monta de novo, uma vez', c.desktop === 1 && c.forms === 1 && c.fabs <= 1, JSON.stringify(c));
   } else check('[1280] Turbo disponível na página da INK', false);
 
@@ -224,7 +275,7 @@ try {
   await d.ctx.close();
 
   // ── Muitas coleções no Topo em 1280 (ensaio): a apresentação vira Menu ▾ compacto, sem overflow nem sobreposição ─────────────────────────
-  if (REHEARSE) {
+  if (REHEARSE && !LOCALW) {
     const c = await session({ width: 1280, height: 800 }, REHEARSAL_LARGE); await openProduct(c);
     const gc = await geometry(c.page);
     check('[1280] muitas coleções no Topo (8): só a APRESENTAÇÃO vira Menu ▾ compacto, sem overflow nem sobreposição', gc.compact && !gc.overlap && gc.sw <= gc.vw + 1 && gc.cartVisible, JSON.stringify(gc));
@@ -288,6 +339,7 @@ try {
   check('roteiro concluído sem exceção', false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e);
 }
 await browser.close();
-writeFileSync(OUT + 'resultado.json', JSON.stringify({ mode: REHEARSE ? 'rehearse' : 'live', at: new Date().toISOString(), checks: results.length, passed: results.filter(Boolean).length, failures }, null, 1));
-console.log(`\n${results.filter(Boolean).length}/${results.length} checks (${REHEARSE ? 'ENSAIO' : 'AO VIVO'})`);
+if (mf) await mf.dispose();
+writeFileSync(OUT + 'resultado.json', JSON.stringify({ mode: LOCALW ? 'local-worker' : REHEARSE ? 'rehearse' : 'live', at: new Date().toISOString(), checks: results.length, passed: results.filter(Boolean).length, failures }, null, 1));
+console.log(`\n${results.filter(Boolean).length}/${results.length} checks (${LOCALW ? 'WORKER LOCAL' : REHEARSE ? 'ENSAIO' : 'AO VIVO'})`);
 process.exit(results.length > 0 && failures.length === 0 ? 0 : 1);
