@@ -93,8 +93,45 @@ Storefront `GET /api/navbar/sul` → `{ v: 2, region, states: [{uf,name,path}], 
 
 **Loader.** `register({ shell: true })` marca os widgets que rodam também nas páginas de casca: `header-nav`, o FAB de WhatsApp e a ponte do carrinho (`cart-mirror`, para os links da navbar levarem `cart_ref`). **Nenhum módulo de produto** monta ali (retorno, descoberta, drawer, discovery.js, tracking); numa transição Turbo produto → coleção eles saem e a navbar fica (um só cabeçalho/FAB); indo ao login/carrinho tudo sai; de volta ao produto tudo volta. A config da navbar é buscada uma vez por visita.
 
-**Cloudflare.** Rotas novas em `wrangler.production.toml` (só CHAMAM o Worker; quem decide é o código): `/usesul`, `/usesul/products*`, `/usesul/collections/*`, `/usesul/about*`, `/usesul/orders*`. **Nenhuma** rota de login, carrinho ou checkout, e nenhum curinga sobre a loja toda: o Worker continua fora do caminho da compra. Rotas **não são versionadas**: um `wrangler rollback` de versão as mantém, e o código anterior simplesmente repassa essas páginas. O smoke confere que `/usesul?utm_source=smoke` (query na home) também recebe o loader; se a Cloudflare não casar a query na rota exata `/usesul`, esse check reprova e o release reverte (a correção seria `/usesul*` com o filtro no código, que já existe).
+**Cloudflare.** Ver a seção "Rotas da zona" abaixo: rotas específicas + `/usesul*` para o Worker e uma **exclusão `/usesul/*` sem Worker** na zona. Login, carrinho e checkout continuam fora, com ou sem query string; o filtro exato de `pathname` no código é a segunda camada.
 
 **Release.** `release-navbar.sh` ganhou o modo **update** (a navbar já está ativa com as sete features e um loader mais antigo): recusa republicar a mesma versão do loader, exige as sete exatas, preserva escopo/allowlist e usa `--features=seven --shell=off` no smoke do estado anterior/restaurado. O smoke pós-deploy passa a exigir 1 loader em `/usesul` (com query), `/usesul/products`, coleção, `/about`, `/orders/trackings`, o redirect de `/usesul/orders` repassado e **0** em login, `/orders/1/2` e `/collections`.
 
 **Validação.** `npm test` 333/333 (scope, workerd 6, DOM 8 de casca, release). Ensaio fiel `qa-navbar-live.mjs --local-worker` (Worker local Miniflare na frente da INK REAL, mesma tag de loader): **57/57**, incluindo home/listagem/coleção/sobre/`orders/trackings` com navbar + FAB e sem módulo de produto, o clique numa coleção **da própria navbar** chegando à coleção **com** a navbar, Turbo produto → sobre → login → produto, login e carrinho sem nada nosso e `/orders` sem sessão redirecionando ao login. **Não validado:** a conta LOGADA (`/usesul/orders`, `/usesul/orders/<pedido>` depois do login) — sem sessão de teste; a classificação, a montagem, a saudação/Meus pedidos/Sair e o Dashboard têm cobertura DOM e workerd com a fixture logada, e a página real de conta logada precisa de conferência manual após o deploy.
+
+## Rotas da zona (rodada 5): exclusão por padrão + rota abrangente
+
+**Por que mudou.** O deploy 4.6 foi revertido só por um check do smoke: `/usesul?utm_source=…` não recebeu o loader, porque uma rota **exata** (`/usesul`) não casa com URL que tem query string. A correção pedida foi `www.usesul.com.br/usesul*` (Worker) **mais** `www.usesul.com.br/usesul/*` **sem Worker** (exclusão), mantendo as rotas específicas.
+
+**Desenho (estado final, 10 rotas, todas no host `www`).**
+
+| Rota | Worker | Papel |
+|---|---|---|
+| `/usesul*` | sim | home (com e sem query) e o resto |
+| `/usesul/*` | **não** | **exclusão**: tudo sob `/usesul/` fica fora por padrão (login `store_sessions`, carrinho, checkout, …) |
+| `/usesul/` | sim | home com barra final (sem query) |
+| `/usesul`, `/usesul/products*`, `/usesul/collections/*`, `/usesul/about*`, `/usesul/orders*`, `/usesul/product/*`, `/__origens/*` | sim | as específicas já existentes (mais específicas que a exclusão) |
+
+A exclusão **não** entra no `wrangler.production.toml` (o deploy só declara rotas com script; o TOML tem as 9 com Worker, e um teste trava isso). Ela é criada e mantida na zona por `scripts/zone-routes.mjs`, que só toca em rotas do host `www.usesul.com.br` (nunca DNS, KV, WAF, regras ou outras lojas), e `apply` só cria, nunca apaga. Autenticação: OAuth do `wrangler login` do proprietário (escopos `workers_routes` write e `zone` read) ou `CLOUDFLARE_API_TOKEN`; o token nunca é impresso.
+
+**Fatos medidos na Cloudflare real (ensaio em `/usesul-rt`, rotas temporárias removidas ao final):**
+1. **Padrão de rota com query é recusado** (erro 10022: `Route pattern should not have query parameters`). Logo `/usesul/?*` é impossível.
+2. **A especificidade funciona como o desenho precisa**: com `X*` (Worker), `X/*` (sem Worker) e as específicas, o Worker foi invocado em `X`, `X?utm`, `X/`, produtos, listagem, coleção, sobre e pedidos, e **não** foi invocado em carrinho, checkout, login e `store_sessions`, com e sem query.
+3. **Propagação**: rotas novas levaram **mais de 8 s** para valer; 45 s bastaram. O release espera 50 s (`ROUTES_PROPAGATION_WAIT`) antes de sondar.
+4. **Lacuna conhecida e aceita (fail-open):** `/usesul/?utm=…` (barra final **e** query) cai na exclusão e mostra o cabeçalho nativo da INK. A INK linka sempre para `/usesul` (sem barra) e o canonical também, então só links externos com esse formato são afetados. Fechá-la exige um **redirecionamento de zona** `/usesul/` → `/usesul` preservando a query; o token OAuth atual não tem permissão de regras da zona (a API responde `Authentication error`), então isso ficou para decisão do proprietário. Não há redirecionamento aplicado.
+
+**Prova de execução, não de HTTP 200.** `zone-routes.mjs probe` abre `wrangler tail use-sul-widget`, envia cada URL com um `User-Agent` único e confere se o Worker **foi invocado** (evento no tail) ou **não**. `verify --stage=baseline|staged|final` compara a configuração real das rotas (padrão + Worker de cada uma) com o estado esperado e roda a segurança estática (nenhuma rota com Worker fora da lista; `/usesul*` nunca sem a exclusão).
+
+**Ordem do release (`release-navbar.sh --deploy`).** A2: snapshot completo (ids, padrões, Workers) em `.release/routes-snapshot-<ts>.json` → confere estado base → ensaio em `/usesul-rt` → sondas do estado base. A3: cria `/usesul/*` (sem Worker) e `/usesul/` → sonda de execução **antes** de ativar `/usesul*`. B: deploy (o TOML cria `/usesul*`). C: `verify --stage=final` + sondas de execução finais + smoke (home com e sem UTM, `/usesul/`, específicas, e 0 loader em login/carrinho/checkout com query, mais a linha INFO da lacuna) + QA no navegador.
+
+**Rollback = versão E rotas, juntos.** Rota não é versionada: `wrangler rollback` sozinho **não** restaura rotas. Em qualquer falha o release restaura primeiro as rotas do snapshot (`zone-routes.mjs restore`, que apaga as novas, recria as que sumiram e confere o resultado), depois faz o rollback da versão, espera a propagação, refaz as sondas do estado base e só então confirma health/smoke. Manual:
+
+```
+node scripts/zone-routes.mjs restore .release/routes-snapshot-<ts>.json
+npx wrangler rollback <versão-capturada> --name use-sul-widget --yes
+node scripts/zone-routes.mjs verify --stage=baseline
+```
+
+`restore` **recusa** snapshot ilegível, vazio ou sem nenhuma rota nossa com Worker (ver incidente abaixo).
+
+**Incidente durante o desenvolvimento (2026-09-26).** Ao testar o `restore` num drill, apontei um arquivo de snapshot no formato antigo (a resposta bruta da API, sem o campo `routes`); o script tratou o snapshot como vazio e **apagou as 7 rotas do Worker** na zona. Recriei as 7 a partir do mesmo arquivo em poucos minutos, `verify --stage=baseline` e as 17 sondas de execução voltaram OK. Efeito na loja: durante essa janela as páginas de produto ficaram **sem o Worker** (sem navbar/descoberta/ponte do carrinho; compra nativa intacta). A correção foi a trava acima (`planRestore` lança em vez de apagar) e um teste.

@@ -28,7 +28,7 @@ for (const slug of FIVE_SLUGS) { const r = await get('/usesul/product/' + slug);
 for (const slug of outside) { const r = await get('/usesul/product/' + slug); const n = countLoaders(r.body); check(`amostra ${expect === 'catalog' ? 'COM' : 'SEM'} loader: ${slug.slice(0, 28)}`, r.status === 200 && n === (expect === 'catalog' ? 1 : 0), `status ${r.status}, loaders ${n}`); }
 // Sempre sem loader, em qualquer modo: não-produto, transacional, 404 de produto, subcaminho e Turbo-Frame.
 const SHELL_PATHS = ['/usesul', '/usesul/products'];
-for (const path of ['/usesul/cart', '/usesul/checkout/contact_and_shipping_details', '/usesul/product/produto-que-nao-existe-zzz-123', '/usesul/product/a/b']) { const r = await get(path); check('sem loader: ' + path, r.status < 500 && countLoaders(r.body) === 0, `status ${r.status}`); }
+for (const path of ['/usesul/cart', '/usesul/cart?x=1', '/usesul/checkout/contact_and_shipping_details', '/usesul/checkout/contact_and_shipping_details?x=1', '/usesul/store_sessions/new?next=%2Fusesul%2Forders', '/usesul/login?x=1', '/usesul/product/produto-que-nao-existe-zzz-123', '/usesul/product/a/b']) { const r = await get(path); check('sem loader: ' + path, r.status < 500 && countLoaders(r.body) === 0, `status ${r.status}`); }
 // Home e listagem: sem loader no estado de seis features; COM exatamente um (páginas de casca) no estado da navbar.
 for (const path of SHELL_PATHS) { const r = await get(path); const want = shellExpected ? 1 : 0; check(`${want ? 'casca COM 1 loader' : 'sem loader'}: ${path}`, r.status < 500 && countLoaders(r.body) === want, `status ${r.status}, loaders ${countLoaders(r.body)}`); }
 const tf = await get('/usesul/product/' + FIVE_SLUGS[0], { headers: { 'Turbo-Frame': 'cart' } }); check('Turbo-Frame sem loader', tf.status === 200 && countLoaders(tf.body) === 0);
@@ -39,11 +39,13 @@ if (featureSet === 'seven') {
   if (shellExpected) {
     // Páginas de casca: exatamente UM loader, com e sem query string (a rota da Cloudflare precisa casar as duas formas).
     const collection = ((await (await fetch('https://useorigens.com.br/api/navbar/sul')).json().catch(() => ({}))).top || [])[0];
-    const shellOk = ['/usesul?utm_source=smoke', '/usesul/products?product_type=1', '/usesul/about', '/usesul/orders/trackings', ...(collection ? ['/usesul/collections/' + collection.slug] : [])];
+    const shellOk = ['/usesul', '/usesul?utm_source=smoke', '/usesul/', '/usesul/products?product_type=1', '/usesul/about', '/usesul/orders/trackings', ...(collection ? ['/usesul/collections/' + collection.slug] : [])];
     for (const path of shellOk) { const r = await get(path); check('casca COM 1 loader: ' + path, r.status === 200 && countLoaders(r.body) === 1, `status ${r.status}, loaders ${countLoaders(r.body)}`); }
+    // Lacuna conhecida (não reprova): a Cloudflare não aceita query em padrão de rota, então home COM barra E query cai na exclusão /usesul/* e fica com o cabeçalho nativo.
+    const gap = await get('/usesul/?utm_source=smoke'); console.log(`INFO home com barra e query: status ${gap.status}, loaders ${countLoaders(gap.body)} (0 = cabeçalho nativo, esperado)`);
     // Conta: sem sessão a INK redireciona ao login (o Worker repassa o redirect sem tocar); login nunca recebe o loader.
     const orders = await get('/usesul/orders'); check('conta sem sessão: redirect da INK repassado, sem loader: /usesul/orders', [301, 302, 303].includes(orders.status) && countLoaders(orders.body) === 0 && /store_sessions/.test(orders.headers.get('location') || ''), `status ${orders.status}`);
-    for (const path of ['/usesul/store_sessions/new', '/usesul/orders/1/2', '/usesul/collections']) { const r = await get(path); check('nunca casca: ' + path, r.status < 500 && countLoaders(r.body) === 0, `status ${r.status}`); }
+    for (const path of ['/usesul/store_sessions/new', '/usesul/orders/1/2', '/usesul/orders/1/2?x=1', '/usesul/collections']) { const r = await get(path); check('nunca casca: ' + path, r.status < 500 && countLoaders(r.body) === 0, `status ${r.status}`); }
   }
   const nav = await get('/__origens/navbar'); let cfg = null; try { cfg = JSON.parse(nav.body); } catch (_) { /* fica null */ }
   const entryOk = (e) => Object.keys(e).sort().join() === 'id,order,slug,title';

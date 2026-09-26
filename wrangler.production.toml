@@ -4,7 +4,7 @@ compatibility_date = "2026-08-01"
 workers_dev = false
 
 # NÃO PUBLICAR até: zona Active, www Proxied, e uma compra nativa validada SEM Worker.
-# Duas rotas, ambas restritas a www. Não há colisão: o loader vive em /__origens/ (fora de /usesul/).
+# Rotas restritas a www. Não há colisão: o loader vive em /__origens/ (fora de /usesul/).
 [[routes]]
 pattern = "www.usesul.com.br/usesul/product/*"
 zone_name = "usesul.com.br"
@@ -15,10 +15,24 @@ zone_name = "usesul.com.br"
 
 # Páginas "de casca" (não transacionais) que também recebem a navbar quando o escopo é de catálogo e a feature da navbar está ligada (src/scope.js shellPageKind):
 # home, listagem, coleções, sobre e conta/pedidos. A rota só CHAMA o Worker; quem decide é o código (fail-closed: sem a feature da navbar ou fora do catálogo ele só repassa).
-# Login (store_sessions), carrinho, checkout e o resto de /usesul/* NÃO têm rota: o Worker nunca fica no caminho da compra. Rotas não são versionadas: um rollback de
-# versão não as remove, mas o código anterior simplesmente repassa essas páginas.
+#
+# ROTEAMENTO EM DUAS CAMADAS (docs/navbar-ink-busca.md, "Rotas da zona"):
+#   1. Cloudflare: `/usesul*` chama o Worker e `/usesul/*` é uma EXCLUSÃO (rota SEM Worker) que tira do Worker, por padrão, tudo sob /usesul/ — login (store_sessions),
+#      carrinho, checkout e o resto. A exclusão NÃO está neste arquivo de propósito: o `wrangler deploy` só declara rotas COM script; ela é criada e mantida no nível da
+#      zona por scripts/zone-routes.mjs (release-navbar.sh) e fica de fora do rollback de versão. As rotas abaixo, mais específicas que a exclusão, reabrem só as páginas autorizadas.
+#   2. Código: o Worker só age em caminhos EXATOS de shellPageKind/allowlist (pathname), mesmo que uma rota o chame por engano.
+# A Cloudflare NÃO aceita query string em padrão de rota: `/usesul` e `/usesul/` só casam SEM query; com query quem casa é `/usesul*` (home sem barra) e a exclusão (home com barra).
+# Rotas não são versionadas: um rollback de versão não as remove; o rollback do release restaura também as rotas (zone-routes.mjs restore).
+[[routes]]
+pattern = "www.usesul.com.br/usesul*"
+zone_name = "usesul.com.br"
+
 [[routes]]
 pattern = "www.usesul.com.br/usesul"
+zone_name = "usesul.com.br"
+
+[[routes]]
+pattern = "www.usesul.com.br/usesul/"
 zone_name = "usesul.com.br"
 
 [[routes]]

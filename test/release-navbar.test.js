@@ -150,3 +150,29 @@ test('deploy_worker_navbar compiles the real bundle with the seven features and 
   assert.match(res.stdout, /WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav/);
   assert.match(res.stdout, /WIDGET_SCOPE_MODE=product-catalog \(preservado da produção\)/); assert.match(res.stdout, /--dry-run|Total Upload/);
 });
+
+// ── rotas da zona: ordem do release e alcance do script ───────────────────────────────────────────────────────────────────────────────
+test('release-navbar.sh: snapshot -> rehearsal -> exclusion BEFORE the deploy that activates /usesul*; final routes and execution probes right after; rollback restores routes AND version', () => {
+  const src = readFileSync(new URL('../scripts/release-navbar.sh', import.meta.url), 'utf8');
+  const at = (needle) => { const i = src.indexOf(needle); assert.ok(i > 0, 'missing: ' + needle); return i; };
+  const deploy = at('deploy_worker_navbar "$NAV_ALLOW" "$NAV_SCOPE" || fail');
+  assert.ok(at('$ROUTES_CMD snapshot') < at('$ROUTES_CMD rehearse') && at('$ROUTES_CMD rehearse') < at('$ROUTES_CMD apply --stage=staged') && at('$ROUTES_CMD apply --stage=staged') < deploy, 'snapshot, rehearsal and exclusion come before the deploy');
+  assert.ok(at('$ROUTES_CMD probe --stage=staged') < deploy, 'the exclusion is proven by execution evidence before /usesul* is activated');
+  assert.ok(deploy < at('$ROUTES_CMD verify --stage=final') && at('$ROUTES_CMD verify --stage=final') < at('$ROUTES_CMD probe --stage=final') && at('$ROUTES_CMD probe --stage=final') < at('smoke_navbar ||'), 'final routes and probes come right after the deploy, before the smoke/QA');
+  const rb = src.slice(at('rollback() {'), at('fail() {'));
+  assert.ok(rb.indexOf('$ROUTES_CMD restore "$SNAP"') > 0 && rb.indexOf('$ROUTES_CMD restore "$SNAP"') < rb.indexOf('npx wrangler rollback'), 'routes are restored before the version rollback');
+  assert.match(rb, /probe --stage=baseline/, 'the rollback is confirmed with real execution evidence, not just a config read');
+  const check = src.slice(at('if [ "$MODE" = check ]'), at('# ── --deploy'));
+  assert.doesNotMatch(check, /(zone-routes\.mjs|ROUTES_CMD) (apply|restore|rehearse|snapshot)/, '--check only READS routes (verify), never writes');
+  assert.match(src, /ROUTES_TOUCHED=1\n\(cd "\$ROOT" && \$ROUTES_CMD apply/, 'the rollback only touches routes once the release has started changing them');
+});
+
+test('zone-routes.mjs scope: only Workers Routes of the www host; never DNS, WAF, rules, KV or scripts; `apply` never deletes; the exclusion is created without a script', () => {
+  const src = readFileSync(new URL('../scripts/zone-routes.mjs', import.meta.url), 'utf8').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  assert.doesNotMatch(src, /dns_records|firewall|rulesets|waf|kv\/namespaces|\/workers\/scripts|purge_cache/i);
+  const apply = src.slice(src.indexOf("cmd === 'apply'"), src.indexOf("cmd === 'restore'"));
+  assert.doesNotMatch(apply, /DELETE|PUT/, 'apply only creates');
+  assert.match(src, /const body = \(\{ pattern, worker, script \}\) => \(\(worker \?\? !!script\) \? \{ pattern, script: WORKER \} : \{ pattern \}\)/, 'no Worker => no script field');
+  const lib = readFileSync(new URL('../scripts/lib/routes-lib.mjs', import.meta.url), 'utf8');
+  assert.match(lib, /isOurs = \(pattern\) => typeof pattern === 'string' && pattern\.startsWith\(HOST \+ '\/'\)/);
+});
