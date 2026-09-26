@@ -92,6 +92,10 @@ test('mounts once: our logo, the CMS collections, Cidades, one search lupa per b
   const css = t.q('style[data-origens-nav]').textContent;
   assert.match(css, /header:has\(\[data-origens-nav\]\) nav\.navbar:not\(\[data-controller\]\) > ul\.navbar-list/);
   assert.ok(!/menu-icons|menu-user|shopping-cart|checkout/.test(css), 'the stylesheet never targets account or cart');
+  assert.match(css, /@media \(max-width:1023px\)\{\.o-nav-word\{position:absolute/, 'mobile shows the logo only; the wordmark stays for screen readers');
+  assert.match(css, /\.navbar__top \.o-nav-logo\{position:absolute;left:50%;top:50%;transform:translate\(-50%,-50%\)/, 'the mobile logo is centered in the strip (not pushed by the different widths of the side groups)');
+  assert.match(css, /\.navbar__top \.o-nav-logo img\{height:48px\}/);
+  assert.equal(t.q('.navbar__top .o-nav-logo').getAttribute('aria-label'), 'Use Sul, página inicial');
 });
 
 test('a config with more than five collections keeps five inline and puts the rest in "Mais"', async () => {

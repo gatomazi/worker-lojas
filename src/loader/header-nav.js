@@ -95,6 +95,9 @@ export const HEADER_NAV = String.raw`
     '.o-nav-logo{display:flex;align-items:center;gap:8px;min-height:44px;color:inherit;text-decoration:none;flex:0 0 auto}',
     '.o-nav-logo img{display:block;height:36px;width:auto;max-width:none;object-fit:contain}',
     '.o-nav-word{font:800 24px/1 "Big Shoulders Display","Arial Narrow",Impact,sans-serif;letter-spacing:.02em;text-transform:uppercase}',
+    // Mobile: só o logo, MAIOR e CENTRALIZADO na faixa (absoluto no meio: hambúrguer à esquerda e busca+carrinho à direita têm larguras diferentes, então
+    // um flex com space-between o deslocaria). O texto fica para leitores de tela.
+    '@media (max-width:1023px){.o-nav-word{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}.navbar__top{position:relative}.navbar__top .o-nav-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;min-height:48px}.navbar__top .o-nav-logo img{height:48px}}',
     '.o-nav-links{display:flex;align-items:center;justify-content:center;gap:22px;flex:1 1 auto;min-width:0}',
     '.o-nav-links a,.o-nav-more>summary{display:inline-flex;align-items:center;min-height:44px;color:inherit;font-size:15px;font-weight:500;line-height:1.2;text-decoration:none;white-space:nowrap;cursor:pointer;list-style:none}',
     '.o-nav-more>summary::-webkit-details-marker{display:none}',
