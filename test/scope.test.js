@@ -46,3 +46,28 @@ test('an unexpected error inside the cart-ref endpoints answers 503 JSON (never 
   assert.equal(res.status, 503); assert.deepEqual(await res.json(), { error: 'unavailable' });
   assert.equal(typeof createDefault.fetch, 'function');
 });
+
+// ── páginas de casca (shell): navbar em home, listagem, coleções, sobre e conta/pedidos; nunca login, carrinho ou checkout ─────────────────────────
+import { shellPageKind, shellEnabled } from '../src/scope.js';
+test('shellPageKind: exactly the non-transactional pages of the store; login, cart, checkout and everything else are never shell pages', () => {
+  const kind = (p) => shellPageKind(p, '/usesul');
+  assert.equal(kind('/usesul'), 'home'); assert.equal(kind('/usesul/'), 'home');
+  assert.equal(kind('/usesul/products'), 'products'); assert.equal(kind('/usesul/products/'), 'products');
+  assert.equal(kind('/usesul/collections/novidades'), 'collection'); assert.equal(kind('/usesul/collections/fala-daqui/'), 'collection');
+  assert.equal(kind('/usesul/about'), 'about');
+  assert.equal(kind('/usesul/orders'), 'orders');
+  assert.equal(kind('/usesul/orders/123456'), 'order'); assert.equal(kind('/usesul/orders/trackings'), 'order'); assert.equal(kind('/usesul/orders/A1b2_c3-d4'), 'order');
+  for (const bad of ['/usesul/store_sessions/new', '/usesul/store_sessions', '/usesul/cart', '/usesul/cart/checkout_cart_items', '/usesul/checkout', '/usesul/checkout/contact_and_shipping_details',
+    '/usesul/product/serra-catarinense', '/usesul/orders/guest_reviews/new', '/usesul/orders/1/2', '/usesul/orders//', '/usesul/collections', '/usesul/collections/', '/usesul/collections/A', '/usesul/collections/a/b',
+    '/usesul/collections/-x', '/usesul/aboutx', '/usesul/products/1', '/usesul//', '/usesulx', '/outra', '/', '', '/usesul/api/v1/orders', '/usesul/orders/%2e%2e', '/usesul/orders/a b', '/usesul/orders/' + 'x'.repeat(65),
+    '/usesul/collections/' + 'x'.repeat(129), '/USESUL', '/usesul/about/extra', '/usesul/users/sign_in', '/usesul/account']) assert.equal(kind(bad), null, bad);
+  assert.equal(shellPageKind('/usesul', ''), null); assert.equal(shellPageKind(null, '/usesul'), null); assert.equal(shellPageKind('/usesul', undefined), null);
+  assert.equal(shellPageKind('/loja/about', '/loja'), 'about', 'the store prefix comes from the per-store config');
+});
+
+test('shellEnabled: only with the catalog scope AND header-nav (never in the five-product allowlist scope, never without the feature)', () => {
+  assert.equal(shellEnabled('product-catalog', ['cart-mirror', 'header-nav']), true);
+  assert.equal(shellEnabled('allowlist', ['header-nav']), false);
+  assert.equal(shellEnabled('product-catalog', ['cart-mirror']), false);
+  assert.equal(shellEnabled('product-catalog', []), false); assert.equal(shellEnabled('product-catalog', undefined), false);
+});

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // QA da navbar da INK (header-nav + FAB de WhatsApp) em NAVEGADOR REAL contra a página REAL da INK. Só os cenários críticos (sem stress).
 //   PW_PATH=/caminho/com/playwright-core node scripts/qa-navbar-live.mjs             -> AO VIVO (depois do deploy): Worker PUBLICADO, POST de cart-ref e leitura do KV VERDADEIROS
+//   PW_PATH=... node scripts/qa-navbar-live.mjs --local-worker                        -> ENSAIO FIEL: Worker local (Miniflare, KV local) na frente da INK REAL; o HTML de produto passa pelo Worker
+//                                                                                       (mesma tag de loader, mesmo Turbo do ambiente real); config real do storefront de produção
 //   PW_PATH=... node scripts/qa-navbar-live.mjs --rehearse                           -> ENSAIO (antes do deploy): loader LOCAL injetado; /__origens/navbar e cart-ref respondidos por
 //                                                                                       page.route com uma configuração de teste (nenhum KV real é escrito)
 // Chamado por scripts/release-navbar.sh. Sessão ANÔNIMA descartável (o estado logado NÃO é coberto aqui: ver docs). NÃO faz compra: só adiciona UM item ao
@@ -8,9 +10,12 @@
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildLoaderSource, LOADER_VERSION } from '../src/loader-source.js';
+import { shellPageKind } from '../src/scope.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
-const REHEARSE = process.argv.includes('--rehearse');
+const LOCALW = process.argv.includes('--local-worker');   // Worker LOCAL (Miniflare) na frente da INK REAL: a mesma injeção de produção (tag do loader no HTML), sem stub de loader
+const REHEARSE = process.argv.includes('--rehearse') || LOCALW;
+const INJECT = REHEARSE && !LOCALW;                         // só o ensaio simples injeta o loader à mão
 const HOST = 'https://www.usesul.com.br';
 const SF = 'https://useorigens.com.br';
 const PRODUCT = '/usesul/product/paranaense-essencia';
@@ -27,6 +32,19 @@ const STATES = [{ uf: 'PR', name: 'Paraná', path: '/sul/pr' }, { uf: 'SC', name
 const MORE = entries(['Personalizados', 'Pré-treino Raiz', 'Rio Grande do Sul', 'Santa Catarina', 'Paraná', 'Carnaval', 'Ruas de Origem', 'Fé de Origem', 'Cidades mais pedidas', 'Outra 1', 'Outra 2', 'Outra 3'], 100);
 const REHEARSAL = { v: 2, states: STATES, top: entries(['Novidades', 'Seu Lugar', 'Do Nosso Jeito', 'Feito Para Você']), more: MORE };
 const REHEARSAL_LARGE = { v: 2, states: STATES, top: entries(['Novidades', 'Seu Lugar', 'Do Nosso Jeito', 'Da Nossa Terra', 'Feito Para Você', 'Fala Daqui', 'Kits', 'Parceiros']), more: MORE };
+const upstreamInk = { html: '', status: 200 };
+let mf = null;
+if (LOCALW) {
+  const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
+  const { workerModules } = await import('../test/helpers.js');
+  const allow = '/usesul/product/serra-catarinense';
+  mf = new Miniflare({
+    ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'],
+    bindings: { ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: allow, WIDGET_FEATURES: 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav' },
+    // A INK é a página real (buscada pelo navegador); o storefront de PRODUÇÃO responde a configuração da navbar (o gateway lê o mesmo endpoint que em produção).
+    outboundService: async (req) => (new URL(req.url).host === 'useorigens.com.br' ? fetch(req.url, { headers: { accept: 'application/json' } }) : new Response(upstreamInk.html, { status: upstreamInk.status, headers: { 'content-type': 'text/html; charset=utf-8' } }))
+  });
+}
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: process.env.QA_HEADED !== '1' });
 const wait = (page, ms) => page.waitForTimeout(ms);
 let expected = null; // a configuração que a página DEVE mostrar (ensaio: a de teste; ao vivo: a do Worker)
@@ -41,20 +59,62 @@ async function session(viewport, cfg = REHEARSAL) {
     if (u.host === 'www.usesul.com.br' && u.pathname.startsWith('/__origens/')) { s.ours.push(req.method() + ' ' + u.pathname); if (req.method() === 'POST' && u.pathname === '/__origens/cart-ref') s.posts.push(Date.now()); }
     if (u.host === 'useorigens.com.br' && req.resourceType() === 'document') s.sfDocs.push(req.url());
   });
-  if (REHEARSE) {
+  if (process.env.QA_DEBUG) { page.on('requestfailed', (r) => console.log('DBG FAILED', r.url().slice(0, 90), r.failure() && r.failure().errorText)); page.on('request', (r) => { if (/usesul\.com\.br/.test(r.url())) console.log('DBG REQ', r.method(), r.url().slice(0, 100)); }); }
+  if (LOCALW) {
+    await page.route('**/__origens/**', async (route) => {
+      const req = route.request(); const url = new URL(req.url()); const h = req.headers();
+      const res = await mf.dispatchFetch(url.href, { method: req.method(), headers: { 'content-type': h['content-type'] || '', origin: h['origin'] || '', referer: h['referer'] || '', 'sec-fetch-site': h['sec-fetch-site'] || '' }, body: req.method() === 'POST' ? req.postData() : undefined });
+      await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
+    });
+    // O HTML de produto passa pelo Worker de verdade (mesma reescrita do HTMLRewriter de produção).
+    await page.route((u) => u.host === 'www.usesul.com.br' && (/^\/usesul\/product\/[^/]+$/.test(u.pathname) || shellPageKind(u.pathname, '/usesul') !== null), async (route) => {
+      if (route.request().resourceType() !== 'document') return route.continue();
+      const res = await route.fetch({ maxRedirects: 0 }); // redirects da INK (ex.: /orders sem sessão -> login) passam direto, como o Worker real os repassa
+      if (res.status() >= 300 && res.status() < 400) return route.fulfill({ response: res });
+      upstreamInk.html = await res.text(); upstreamInk.status = res.status();
+      const out = await mf.dispatchFetch(route.request().url()); await route.fulfill({ response: res, body: await out.text() });
+    });
+    await page.route(SF + '/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><h1>Buscar estampas (stub do ensaio)</h1></body></html>' }));
+  } else if (REHEARSE) {
     await page.route('**/__origens/navbar', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cfg) }));
     await page.route('**/__origens/cart-ref', (r) => r.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ ref: 'AbCdEfGhIjKlMnOpQrStUv', ttl: 1800 }) }));
     await page.route(SF + '/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><h1>Buscar estampas (stub do ensaio)</h1></body></html>' }));
   }
   return s;
 }
-async function openProduct(s, path = PRODUCT) {
-  await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await s.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 });
-  if (REHEARSE) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
+// Navegação estável: o sinal de "produto carregado" é o documento 2xx + domcontentloaded + o formulário nativo de compra (não o evento load). Um timeout/erro de
+// rede do navegador recebe UMA nova tentativa, registrada; falha persistente reprova (o gate não é relaxado). A INK às vezes segura o documento por dezenas de segundos.
+async function openProduct(s, path = PRODUCT, { attempts = 2 } = {}) {
+  for (let n = 1; n <= attempts; n++) {
+    try {
+      await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await s.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 });
+      break;
+    } catch (e) {
+      if (n === attempts) throw e;
+      info(`navegação para ${path} falhou (${String(e.message).split('\n')[0]}); nova tentativa ${n + 1}/${attempts}`);
+      await wait(s.page, 2000);
+    }
+  }
+  if (INJECT) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
   await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {});
   await wait(s.page, 800);
 }
+
+// Página de casca (home, listagem, coleções, sobre, conta/pedidos): mesma navegação estável (uma nova tentativa registrada); no ensaio simples injeta o loader à mão.
+async function openShell(s, path) {
+  for (let n = 1; n <= 2; n++) {
+    try { await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }); break; }
+    catch (e) { if (n === 2) throw e; info(`navegação para ${path} falhou (${String(e.message).split('\n')[0]}); nova tentativa`); await wait(s.page, 2000); }
+  }
+  await ensureInjected(s);
+}
+async function ensureInjected(s) {
+  if (INJECT) { await s.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await s.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); }
+  await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {});
+  await wait(s.page, 800);
+}
+const shellState = (page) => page.evaluate(() => ({ path: location.pathname, desktop: document.querySelectorAll('[data-origens-nav="desktop"]').length, forms: document.querySelectorAll('#o-nav-search').length, menu: document.querySelectorAll('[data-origens-nav="menu"]').length, fabs: document.querySelectorAll('#o-wa-fab').length, returnLink: !!document.getElementById('use-origens-return-link'), discovery: document.querySelectorAll('[data-origens-discovery]').length, features: (window.__useOrigens || {}).features || [], overlap: (() => { const items = [...document.querySelectorAll('[data-origens-nav="desktop"] .o-nav-logo, [data-origens-nav="desktop"] .o-nav-full > *, [data-origens-nav="desktop"] .o-nav-compact .o-dd-btn, [data-origens-nav="desktop"] .o-nav-links > a, [data-origens-nav="desktop"] .o-nav-lupa, .menu-icons')].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect()); return items.some((a, i) => items.some((c, j) => j > i && a.x < c.right - 1 && c.x < a.right - 1 && a.y < c.bottom - 1 && c.y < a.bottom - 1)); })(), sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth }));
 const acceptNotice = async (page) => { const n = page.locator('.cookie-acceptance button'); if (await n.count() && await n.first().isVisible()) { await n.first().click(); await wait(page, 400); } };
 const geometry = (page) => page.evaluate(() => {
   const vis = (e) => e && e.getClientRects().length > 0;
@@ -107,7 +167,7 @@ try {
   // ── Desktop 1280 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   const d = await session({ width: 1280, height: 800 });
   await openProduct(d);
-  expected = REHEARSE ? REHEARSAL : await (await fetch(HOST + '/__origens/navbar')).json();
+  expected = LOCALW ? await (await fetch(SF + '/api/navbar/sul')).json() : REHEARSE ? REHEARSAL : await (await fetch(HOST + '/__origens/navbar')).json();
   const g0 = await geometry(d.page);
   check('[1280] navbar montada' + (REHEARSE ? ' (ENSAIO: loader local)' : ' pelo Worker PUBLICADO') + `: loader ${g0.loader}, header-nav ativa, 1 formulário de busca`, g0.loader === LOADER_VERSION && g0.features.includes('header-nav') && await d.page.locator('#o-nav-search').count() === 1, JSON.stringify({ loader: g0.loader, features: g0.features }));
   check('[1280] sem sobreposição, pesquisa nativa escondida, conta e carrinho nativos visíveis', !g0.overlap && g0.nativeSearchHidden && g0.cartVisible && await d.page.locator('.menu-icons #menu-user-link, .menu-icons .menu-user').count() > 0, JSON.stringify(g0));
@@ -181,13 +241,23 @@ try {
   await d.page.setViewportSize({ width: 1280, height: 800 }); await wait(d.page, 500);
 
   // Turbo: produto → produto → página que não é produto → produto (um só cabeçalho e um só FAB)
-  const turbo = async (path) => { const ok = await d.page.evaluate((p) => { if (!window.Turbo) return false; window.Turbo.visit(p); return true; }, path); await wait(d.page, 3500); return ok; };
+  // Espera o DESTINO (rota + documento pronto), não um tempo fixo: a INK pode demorar mais que 3,5 s.
+  const turbo = async (path) => {
+    const ok = await d.page.evaluate((p) => { if (!window.Turbo) return false; window.Turbo.visit(p); return true; }, path);
+    if (!ok) return false;
+    await d.page.waitForFunction((p) => location.pathname === p && document.readyState !== 'loading', path, { timeout: 45000 }).catch(() => {});
+    if (/^\/usesul\/product\//.test(path)) await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }).catch(() => {});
+    await wait(d.page, 2500);
+    return true;
+  };
   const nav = () => d.page.evaluate(() => ({ desktop: document.querySelectorAll('[data-origens-nav="desktop"]').length, forms: document.querySelectorAll('#o-nav-search').length, any: document.querySelectorAll('[data-origens-nav]').length, fabs: document.querySelectorAll('#o-wa-fab').length, path: location.pathname }));
   if (await turbo('/usesul/product/serra-catarinense')) {
     const a = await nav(); check('[1280] Turbo produto → produto: um cabeçalho nosso e no máximo um FAB (sem duplicar)', a.path.endsWith('serra-catarinense') && a.desktop === 1 && a.forms === 1 && a.fabs <= 1, JSON.stringify(a));
-    await turbo('/usesul/about'); const b = await nav(); check('[1280] Turbo para página que não é produto: nada nosso fica e o cabeçalho nativo é o da INK', b.any === 0 && b.fabs === 0 && await d.page.locator('nav.navbar:not([data-controller]) > ul.navbar-list').first().isVisible(), JSON.stringify(b));
+    await turbo('/usesul/about'); const shell1 = await nav(); check('[1280] Turbo produto → página de casca (sobre): a navbar continua, uma só, e o FAB também', shell1.desktop === 1 && shell1.forms === 1 && shell1.fabs <= 1 && shell1.path === '/usesul/about', JSON.stringify(shell1));
+    await turbo('/usesul/store_sessions/new'); const b = await nav(); check('[1280] Turbo para o LOGIN: nada nosso fica e o cabeçalho é o da INK', b.any === 0 && b.fabs === 0 && b.path === '/usesul/store_sessions/new', JSON.stringify(b));
     await turbo(PRODUCT);
-    if (REHEARSE && !(await d.page.evaluate(() => !!(window.__useOrigens && window.__useOrigens.features.includes('header-nav'))))) { await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }); await d.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await d.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); await wait(d.page, 2500); }
+    if (INJECT && !(await d.page.evaluate(() => !!(window.__useOrigens && window.__useOrigens.features.includes('header-nav'))))) { await d.page.waitForSelector('form[id^="form-product-"]', { timeout: 30000 }); await d.page.evaluate(() => { delete window.__useOrigensLoader; delete window.__useOrigens; }); await d.page.addScriptTag({ content: buildLoaderSource([], ['header-nav', 'cart-mirror'], 'product-catalog') }); await wait(d.page, 2500); }
+    await d.page.waitForSelector('header [data-origens-nav]', { timeout: 20000 }).catch(() => {}); await wait(d.page, 500);
     const c = await nav(); check('[1280] Turbo de volta ao produto: monta de novo, uma vez', c.desktop === 1 && c.forms === 1 && c.fabs <= 1, JSON.stringify(c));
   } else check('[1280] Turbo disponível na página da INK', false);
 
@@ -223,8 +293,39 @@ try {
   await d.page.screenshot({ path: OUT + 'desktop-drawer-fab-1280.png' });
   await d.ctx.close();
 
+
+  // ── Páginas de casca: a navbar acompanha o cliente (home, listagem, coleções, sobre, conta/pedidos); login/carrinho/checkout nunca ──────────
+  {
+    const sh = await session({ width: 1280, height: 800 });
+    const collection = (expected.top[0] || expected.more[0] || { slug: 'novidades' }).slug;
+    for (const path of ['/usesul', '/usesul/products', '/usesul/collections/' + collection, '/usesul/about', '/usesul/orders/trackings']) {
+      await openShell(sh, path); const st = await shellState(sh.page);
+      check(`[casca ${path}] navbar montada uma vez (cabeçalho, formulário, menu lateral) e FAB de WhatsApp, sem módulo de produto, sem overlap/overflow`, st.path === path && st.desktop === 1 && st.forms === 1 && st.menu === 1 && st.fabs === 1 && st.features.includes('header-nav') && !st.returnLink && st.discovery === 0 && !st.overlap && st.sw <= st.vw + 1, JSON.stringify(st));
+      if (path === '/usesul') await sh.page.screenshot({ path: OUT + 'casca-home-1280.png', clip: { x: 0, y: 0, width: 1280, height: 220 } });
+    }
+    // O caso do dono: clicar numa coleção DA PRÓPRIA navbar não pode fazer a navbar sumir.
+    await openProduct(sh);
+    const link = sh.page.locator(`[data-origens-nav="desktop"] a[href="/usesul/collections/${collection}"]`).first();
+    if (await link.count() && await link.isVisible()) {
+      await link.click({ noWaitAfter: true });
+      await sh.page.waitForURL((u) => u.pathname === '/usesul/collections/' + collection, { timeout: 45000 }).catch(() => {});
+      await ensureInjected(sh); const st = await shellState(sh.page);
+      check('[casca] clicar numa coleção da própria navbar leva à página da coleção COM a navbar (não some)', st.path === '/usesul/collections/' + collection && st.desktop === 1 && st.forms === 1 && !st.returnLink && st.discovery === 0, JSON.stringify(st));
+      await sh.page.screenshot({ path: OUT + 'casca-colecao-1280.png', clip: { x: 0, y: 0, width: 1280, height: 220 } });
+    } else info('a coleção escolhida está em Demais categorias ou no Menu compacto: o clique direto na barra foi pulado (a página da coleção já foi coberta acima)');
+    // Excluídas: login e carrinho; /usesul/orders sem sessão redireciona ao login (o Worker repassa) e o login não recebe nada nosso.
+    for (const path of ['/usesul/store_sessions/new', '/usesul/cart']) {
+      await sh.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {}); await wait(sh.page, 1500);
+      const st = await shellState(sh.page); check(`[casca] ${path} NÃO recebe nada nosso`, st.desktop === 0 && st.forms === 0 && st.fabs === 0 && st.menu === 0, JSON.stringify(st));
+    }
+    await sh.page.goto(HOST + '/usesul/orders', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {}); await wait(sh.page, 1500);
+    const orders = await shellState(sh.page); check('[casca] /usesul/orders sem sessão: a INK leva ao login e o login não recebe nada nosso', /store_sessions/.test(orders.path) && orders.desktop === 0 && orders.fabs === 0, JSON.stringify(orders));
+    info('conta LOGADA (/usesul/orders, /usesul/orders/<pedido> depois do login) não é exercida ao vivo (sem sessão de teste autorizada): classificação, montagem, saudação/Meus pedidos/Sair e Dashboard têm cobertura DOM e workerd.');
+    await sh.ctx.close();
+  }
+
   // ── Muitas coleções no Topo em 1280 (ensaio): a apresentação vira Menu ▾ compacto, sem overflow nem sobreposição ─────────────────────────
-  if (REHEARSE) {
+  if (REHEARSE && !LOCALW) {
     const c = await session({ width: 1280, height: 800 }, REHEARSAL_LARGE); await openProduct(c);
     const gc = await geometry(c.page);
     check('[1280] muitas coleções no Topo (8): só a APRESENTAÇÃO vira Menu ▾ compacto, sem overflow nem sobreposição', gc.compact && !gc.overlap && gc.sw <= gc.vw + 1 && gc.cartVisible, JSON.stringify(gc));
@@ -288,6 +389,7 @@ try {
   check('roteiro concluído sem exceção', false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e);
 }
 await browser.close();
-writeFileSync(OUT + 'resultado.json', JSON.stringify({ mode: REHEARSE ? 'rehearse' : 'live', at: new Date().toISOString(), checks: results.length, passed: results.filter(Boolean).length, failures }, null, 1));
-console.log(`\n${results.filter(Boolean).length}/${results.length} checks (${REHEARSE ? 'ENSAIO' : 'AO VIVO'})`);
+if (mf) await mf.dispose();
+writeFileSync(OUT + 'resultado.json', JSON.stringify({ mode: LOCALW ? 'local-worker' : REHEARSE ? 'rehearse' : 'live', at: new Date().toISOString(), checks: results.length, passed: results.filter(Boolean).length, failures }, null, 1));
+console.log(`\n${results.filter(Boolean).length}/${results.length} checks (${LOCALW ? 'WORKER LOCAL' : REHEARSE ? 'ENSAIO' : 'AO VIVO'})`);
 process.exit(results.length > 0 && failures.length === 0 ? 0 : 1);

@@ -90,11 +90,11 @@ capture_navbar_plan() {
   local version="$1" health="$2" out toml
   out=$(cd "$ROOT" && $WRANGLER_CMD versions view "$version" --name "$WORKER_NAME" --json 2>/dev/null) || { log "não consegui ler a versão ativa ($version) com o Wrangler"; return 1; }
   toml=$(grep -o 'binding = "[A-Za-z0-9_]*"' "$ROOT/$CFG" | sed -E 's/binding = "(.*)"/\1/' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.split("\n").filter(Boolean))))')
-  NAV_VIEW="$out" NAV_HEALTH="$health" NAV_TOML="$toml" node --input-type=module -e '
+  NAV_VIEW="$out" NAV_HEALTH="$health" NAV_TOML="$toml" NAV_NEW_VERSION="${NAV_NEW_VERSION:-}" node --input-type=module -e '
     import(process.argv[1] + "/scripts/lib/release-lib.mjs").then((m) => {
       const captured = m.parseVersionBindings(process.env.NAV_VIEW);
       let health = null; try { health = JSON.parse(process.env.NAV_HEALTH); } catch (_) {}
-      const plan = m.planNavbarRelease({ health, captured, tomlBindings: JSON.parse(process.env.NAV_TOML) });
+      const plan = m.planNavbarRelease({ health, captured, tomlBindings: JSON.parse(process.env.NAV_TOML), newVersion: process.env.NAV_NEW_VERSION || null });
       if (!plan.ok) { console.error(plan.problems.join("\n")); process.exit(1); }
       console.log(JSON.stringify(plan.deploy));
     });' "$ROOT"
