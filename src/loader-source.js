@@ -15,7 +15,7 @@ import { clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 
-export const LOADER_VERSION = '4.4';
+export const LOADER_VERSION = '4.5';
 export { buildDiscoverySource };
 
 // Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano

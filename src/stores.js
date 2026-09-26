@@ -2,7 +2,7 @@
 // o loader e o gateway da navbar leem tudo daqui. Nesta rodada só a Use Sul está implementada; outra loja = nova entrada (e nova rota/host).
 //   inkBase        prefixo dos caminhos da loja na INK (coleções: <inkBase>/collections/<slug>)
 //   storefront     origem canônica do storefront (logo, cidades e busca textual)
-//   navbarApi      configuração pública enxuta do CMS (coleções da navbar), lida SOMENTE pelo Worker no servidor
+//   navbarApi      configuração pública enxuta do CMS (grupos `top` e `more` de coleções + estados fixos), lida SOMENTE pelo Worker no servidor
 export const STORES = Object.freeze({
   sul: Object.freeze({
     region: 'sul',
@@ -20,6 +20,8 @@ export const ACTIVE_STORE = STORES.sul;
 export const clientStore = (store = ACTIVE_STORE) => ({
   name: store.name,
   inkBase: store.inkBase,
+  origin: store.storefront,
+  base: store.storefrontBase,
   home: store.storefront + store.storefrontBase,
   cities: store.storefront + store.storefrontBase + '#estados',
   search: store.storefront + store.storefrontBase + '/busca'

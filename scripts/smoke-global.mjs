@@ -31,10 +31,12 @@ const loaderJs = await get('/__origens/loader.js'); check('loader.js servido com
 const search = await get('/__origens/search?q=floria'); check('gateway de busca responde com cidades', search.status === 200 && /Florian/.test(search.body));
 if (featureSet === 'seven') {
   const nav = await get('/__origens/navbar'); let cfg = null; try { cfg = JSON.parse(nav.body); } catch (_) { /* fica null */ }
-  check('navbar: /__origens/navbar 200 JSON v1 com a lista de coleções (só nome/slug)', nav.status === 200 && cfg && cfg.v === 1 && Array.isArray(cfg.collections) && cfg.collections.every((c) => Object.keys(c).sort().join() === 'name,slug'), `status ${nav.status}`);
-  check('navbar: o loader publicado carrega o módulo header-nav', /id: 'header-nav'/.test(loaderJs.body));
+  const entryOk = (e) => Object.keys(e).sort().join() === 'id,order,slug,title';
+  check('navbar: /__origens/navbar 200 JSON v2 com os grupos top/more (só id/título/slug/ordem) e os estados de Regiões', nav.status === 200 && cfg && cfg.v === 2 && Array.isArray(cfg.top) && Array.isArray(cfg.more) && Array.isArray(cfg.states) && [...cfg.top, ...cfg.more].every(entryOk), `status ${nav.status}`);
+  check('navbar: o loader publicado carrega o módulo header-nav e o FAB de WhatsApp', /id: 'header-nav'/.test(loaderJs.body) && /id: 'whatsapp-fab'/.test(loaderJs.body));
   const sf = await (await fetch('https://useorigens.com.br/api/navbar/sul')).json().catch(() => null);
-  check('navbar: a lista do Worker é a MESMA do storefront (mesma fonte, sem cópia)', cfg && sf && JSON.stringify(cfg.collections) === JSON.stringify(sf.collections), 'divergem');
+  const pick = (g) => JSON.stringify((g || []).map((e) => [e.title, e.slug]));
+  check('navbar: os dois grupos do Worker são os do storefront (mesma fonte, mesma ordem, sem cópia)', cfg && sf && pick(cfg.top) === pick(sf.top) && pick(cfg.more) === pick(sf.more) && JSON.stringify(cfg.states) === JSON.stringify(sf.states), 'divergem');
 }
 const ref = await get('/__origens/cart-ref/AAAAAAAAAAAAAAAAAAAAAA'); check('cart-ref: token inexistente = 404 (rota viva; nada gravado)', ref.status === 404);
 
