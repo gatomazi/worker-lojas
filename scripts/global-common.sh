@@ -10,6 +10,9 @@ HEALTH_URL=$SITE_URL/__origens/health
 WRANGLER_CMD="npx wrangler"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery"
+# Release da navbar (scripts/release-navbar.sh): as seis acima + header-nav, e SÓ ali. deploy_worker (release global) continua exigindo EXATAMENTE as seis;
+# o TOML é fail-closed (WIDGET_FEATURES="return-link"), então um `wrangler deploy` genérico nunca liga header-nav.
+NAVBAR_FEATURES="$FEATURES,header-nav"
 ALLOW="/usesul/product/serra-catarinense,/usesul/product/made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241,/usesul/product/made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829,/usesul/product/paranaense-essencia,/usesul/product/made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a"
 STOREFRONT_URL=https://useorigens.com.br
 # Testes HERMÉTICOS (sem rede, sem Wrangler autenticado): só com UO_TEST_MODE=1 as sondas e o comando de listagem podem ser trocados por
@@ -48,6 +51,58 @@ deploy_worker() {
   else
     (cd "$ROOT" && npx wrangler deploy -c "$CFG" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$ALLOW" --var "WIDGET_FEATURES:$FEATURES" --var "WIDGET_SCOPE_MODE:$scope")
   fi
+}
+
+# ── release da navbar: sete features, configuração REAL capturada ───────────────────────────────────────────────────────────────────────────
+# Confere os argumentos ANTES de qualquer publicação. Uso: assert_navbar_deploy_vars <allowlist-capturada> <escopo-capturado>
+assert_navbar_deploy_vars() {
+  local allow="$1" scope="$2" n
+  [ "$scope" = "allowlist" ] || [ "$scope" = "product-catalog" ] || { log "ERRO: escopo inválido '$scope'"; return 1; }
+  [ "$NAVBAR_FEATURES" = "$FEATURES,header-nav" ] || { log "ERRO: NAVBAR_FEATURES precisa ser as seis + header-nav (nessa ordem)"; return 1; }
+  n=$(printf '%s' "$FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 6 ] || { log "ERRO: as features-base precisam ser SEIS (tem $n)"; return 1; }
+  n=$(printf '%s' "$NAVBAR_FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 7 ] || { log "ERRO: WIDGET_FEATURES do release da navbar precisa ter SETE features (tem $n)"; return 1; }
+  printf '%s' "$NAVBAR_FEATURES" | tr ',' '\n' | grep -qx 'cart-mirror' || { log "ERRO: cart-mirror ausente de WIDGET_FEATURES"; return 1; }
+  [ -n "$allow" ] && [ "$(printf '%s' "$allow" | tr ',' '\n' | grep -vc '^/usesul/product/[a-z0-9][a-z0-9_-]*$')" = 0 ] || { log "ERRO: WIDGET_ALLOWLIST capturada vazia ou malformada"; return 1; }
+  grep -q 'binding = "CART_REFS"' "$ROOT/$CFG" || { log "ERRO: binding CART_REFS ausente de $CFG"; return 1; }
+}
+
+# Publica a navbar preservando o que ESTÁ em produção (allowlist e escopo capturados; nunca constantes presumidas). Único outro lugar com `wrangler deploy`.
+# Uso: deploy_worker_navbar <allowlist-capturada> <escopo-capturado> [--dry-run]
+deploy_worker_navbar() {
+  local allow="$1" scope="$2" mode="${3:-}"
+  assert_navbar_deploy_vars "$allow" "$scope" || return 1
+  log "── deploy da navbar (${mode:-REAL}) — configuração não secreta ──"
+  log "   ENABLE_WIDGET=true"
+  log "   WIDGET_SCOPE_MODE=$scope (preservado da produção)"
+  log "   WIDGET_FEATURES=$NAVBAR_FEATURES"
+  log "   WIDGET_ALLOWLIST=$(printf '%s' "$allow" | tr ',' '\n' | wc -l | tr -d ' ') caminho(s) (preservados da produção)"
+  log "   binding CART_REFS: $(grep -A2 'binding = "CART_REFS"' "$ROOT/$CFG" | grep '^id' | sed -E 's/id = "(.{8}).*/id = \1…/')"
+  if [ "$mode" = "--dry-run" ]; then
+    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --dry-run --outdir "${TMPDIR:-/tmp}/release-navbar-dry" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$NAVBAR_FEATURES" --var "WIDGET_SCOPE_MODE:$scope")
+  else
+    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$NAVBAR_FEATURES" --var "WIDGET_SCOPE_MODE:$scope")
+  fi
+}
+
+# Lê as variáveis/bindings da versão ativa e decide o plano (JSON em stdout; motivos em stderr, exit 1 se não der para publicar com segurança).
+# Uso: capture_navbar_plan <version-id> <health-json>
+capture_navbar_plan() {
+  local version="$1" health="$2" out toml
+  out=$(cd "$ROOT" && $WRANGLER_CMD versions view "$version" --name "$WORKER_NAME" --json 2>/dev/null) || { log "não consegui ler a versão ativa ($version) com o Wrangler"; return 1; }
+  toml=$(grep -o 'binding = "[A-Za-z0-9_]*"' "$ROOT/$CFG" | sed -E 's/binding = "(.*)"/\1/' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.split("\n").filter(Boolean))))')
+  NAV_VIEW="$out" NAV_HEALTH="$health" NAV_TOML="$toml" node --input-type=module -e '
+    import(process.argv[1] + "/scripts/lib/release-lib.mjs").then((m) => {
+      const captured = m.parseVersionBindings(process.env.NAV_VIEW);
+      let health = null; try { health = JSON.parse(process.env.NAV_HEALTH); } catch (_) {}
+      const plan = m.planNavbarRelease({ health, captured, tomlBindings: JSON.parse(process.env.NAV_TOML) });
+      if (!plan.ok) { console.error(plan.problems.join("\n")); process.exit(1); }
+      console.log(JSON.stringify(plan.deploy));
+    });' "$ROOT"
+}
+
+# Avalia o health público contra o estado da NAVBAR (seis + header-nav). Uso: health_ok_navbar <allowlist|catalog> <tamanho-da-allowlist> [versão]
+health_ok_navbar() {
+  health_json | node -e 'import("'"$ROOT"'/scripts/lib/release-lib.mjs").then((m)=>{let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{let h=null;try{h=JSON.parse(s)}catch(e){}const r=m.evaluateHealth(h,process.argv[1],{features:m.SEVEN_FEATURES,allowlistSize:Number(process.argv[2]),loaderVersion:process.argv[3]||null});if(!r.ok){console.log(r.problems.join("; "));process.exit(1)}})})' "$1" "$2" "${3:-}"
 }
 
 # Versão ativa (100%) do Worker; vazio se não autenticado / não determinável.

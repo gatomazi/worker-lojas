@@ -2,13 +2,17 @@
 // Smoke HTTP PÚBLICO e SOMENTE LEITURA do Worker publicado (sem cookies, sem POST, sem carrinho, sem login).
 //   node scripts/smoke-global.mjs --expect=allowlist   -> estado atual (cinco produtos): amostra fora do escopo SEM loader
 //   node scripts/smoke-global.mjs --expect=catalog     -> catálogo inteiro: amostra COM exatamente 1 loader
+//   --features=seven [--allowlist-size=N]              -> estado do release da navbar: as seis + header-nav (e a rota /__origens/navbar viva)
 // exit 0 = ok; 1 = alguma divergência (lista impressa). O health é conferido contra as seis features e a allowlist de cinco.
 import { readFileSync } from 'node:fs';
-import { evaluateHealth, countLoaders, FIVE_SLUGS } from './lib/release-lib.mjs';
+import { evaluateHealth, countLoaders, FIVE_SLUGS, SIX_FEATURES, SEVEN_FEATURES } from './lib/release-lib.mjs';
 
 const HOST = 'https://www.usesul.com.br';
 const expect = (process.argv.find((a) => a.startsWith('--expect=')) || '--expect=allowlist').split('=')[1];
 const version = (process.argv.find((a) => a.startsWith('--version=')) || '').split('=')[1] || null;
+const featureSet = (process.argv.find((a) => a.startsWith('--features=')) || '--features=six').split('=')[1];
+if (featureSet !== 'six' && featureSet !== 'seven') { console.error('--features precisa ser six ou seven'); process.exit(2); }
+const allowlistSize = Number((process.argv.find((a) => a.startsWith('--allowlist-size=')) || '--allowlist-size=5').split('=')[1]);
 const sample = JSON.parse(readFileSync(new URL('./catalog-sample.json', import.meta.url), 'utf8')).products.map((p) => p.slug);
 const outside = sample.filter((s) => !FIVE_SLUGS.includes(s));
 const failures = []; let checks = 0;
@@ -16,7 +20,7 @@ const check = (name, ok, detail = '') => { checks++; if (!ok) { failures.push(na
 const get = async (path, init = {}) => { const r = await fetch(HOST + path, { redirect: 'manual', ...init }); return { status: r.status, body: await r.text(), headers: r.headers }; };
 
 const health = await (await fetch(HOST + '/__origens/health')).json();
-const h = evaluateHealth(health, expect, { loaderVersion: version });
+const h = evaluateHealth(health, expect, { loaderVersion: version, features: featureSet === 'seven' ? SEVEN_FEATURES : SIX_FEATURES, allowlistSize });
 check('health no estado esperado (' + expect + ')', h.ok, h.problems.join('; '));
 for (const slug of FIVE_SLUGS) { const r = await get('/usesul/product/' + slug); check('cinco produtos: ' + slug.slice(0, 28) + ' 200 com 1 loader', r.status === 200 && countLoaders(r.body) === 1 && /id="cart"/.test(r.body), `status ${r.status}, loaders ${countLoaders(r.body)}`); }
 for (const slug of outside) { const r = await get('/usesul/product/' + slug); const n = countLoaders(r.body); check(`amostra ${expect === 'catalog' ? 'COM' : 'SEM'} loader: ${slug.slice(0, 28)}`, r.status === 200 && n === (expect === 'catalog' ? 1 : 0), `status ${r.status}, loaders ${n}`); }
@@ -25,7 +29,14 @@ for (const path of ['/usesul', '/usesul/products', '/usesul/cart', '/usesul/chec
 const tf = await get('/usesul/product/' + FIVE_SLUGS[0], { headers: { 'Turbo-Frame': 'cart' } }); check('Turbo-Frame sem loader', tf.status === 200 && countLoaders(tf.body) === 0);
 const loaderJs = await get('/__origens/loader.js'); check('loader.js servido com o modo de escopo correto', loaderJs.status === 200 && new RegExp('SCOPE_MODE = "' + (expect === 'catalog' ? 'product-catalog' : 'allowlist') + '"').test(loaderJs.body) || (expect === 'allowlist' && !/SCOPE_MODE/.test(loaderJs.body)), `status ${loaderJs.status}`);
 const search = await get('/__origens/search?q=floria'); check('gateway de busca responde com cidades', search.status === 200 && /Florian/.test(search.body));
+if (featureSet === 'seven') {
+  const nav = await get('/__origens/navbar'); let cfg = null; try { cfg = JSON.parse(nav.body); } catch (_) { /* fica null */ }
+  check('navbar: /__origens/navbar 200 JSON v1 com a lista de coleções (só nome/slug)', nav.status === 200 && cfg && cfg.v === 1 && Array.isArray(cfg.collections) && cfg.collections.every((c) => Object.keys(c).sort().join() === 'name,slug'), `status ${nav.status}`);
+  check('navbar: o loader publicado carrega o módulo header-nav', /id: 'header-nav'/.test(loaderJs.body));
+  const sf = await (await fetch('https://useorigens.com.br/api/navbar/sul')).json().catch(() => null);
+  check('navbar: a lista do Worker é a MESMA do storefront (mesma fonte, sem cópia)', cfg && sf && JSON.stringify(cfg.collections) === JSON.stringify(sf.collections), 'divergem');
+}
 const ref = await get('/__origens/cart-ref/AAAAAAAAAAAAAAAAAAAAAA'); check('cart-ref: token inexistente = 404 (rota viva; nada gravado)', ref.status === 404);
 
-console.log(JSON.stringify({ expect, checks, failures: failures.length, health: { version: health.version, scope_mode: health.scope_mode, allowlist_size: health.allowlist_size, features: (health.widget_features || []).length } }));
+console.log(JSON.stringify({ expect, checks, failures: failures.length, featureSet, health: { version: health.version, scope_mode: health.scope_mode, allowlist_size: health.allowlist_size, features: (health.widget_features || []).length } }));
 process.exit(failures.length ? 1 : 0);

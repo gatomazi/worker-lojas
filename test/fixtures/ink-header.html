@@ -1,0 +1,304 @@
+<!-- Cabeçalho REAL da INK (www.usesul.com.br, 2026-09-25), SVGs decorativos abreviados. -->
+<header class='header brand-color z-50'>
+  <div class="header-benefits">
+    <span>
+      <i data-feather='credit-card'></i>
+      Parcele em até 5x sem juros 
+    </span>
+
+        <span>
+          <i data-feather='truck'></i>
+            Frete grátis para PR, RS, SC
+              a partir de 2 itens
+        </span>
+
+    <span>
+      <i data-feather='package'></i>
+      Primeira troca sem custo
+    </span>
+  </div>
+  <!-- Mobile menu -->
+  <nav class='navbar lg:!hidden pt-4' data-controller="ink-store--input-search ink-store--toggle-menu-section">
+    <section class="flex flex-col w-full">
+      <div class="navbar__top">
+        <div data-ink-store--toggle-menu-section-target="menuHamburger" class='menu-hamburger' aria-label="Menu" id='menu-hamburger' role='button' aria-expanded='false'>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+          <a href="/usesul" class='brand'>
+            <img src="https://gcp-images.majestic.ink.rsvcloud.com/images/store/logo_image/d5fa114503f915c5a531f00d4fe3a641.webp" alt="store logo" class="object-contain max-w-[104px]">
+          </a>
+        <div class="inline-flex items-center gap-3">
+          <button type="button" aria-label="Pesquisar" data-action="click->ink-store--input-search#toggleInputFocus" class="relative w-6 h-6 cursor-pointer text-store-font">
+            <span class=""><svg width="18" height="18"></svg>
+</span>
+          </button>
+          <button type="button" aria-label="Carrinho" data-turbo-permanent id="shopping-cart-menu-mob" class='cart-shopping' data-controller='ink-store--drawer' data-action='click->ink-store--drawer#openDrawer'>
+            <i data-feather="shopping-cart"></i>
+          </button>
+        </div>
+      </div>
+      <div>
+        <form id="mobile_search" class="relative w-full px-5 h-full flex justify-center overflow-hidden" action="/usesul/products" accept-charset="UTF-8" method="get">
+  <input type="search" id="search_filter_mobile" placeholder="Pesquisar..." class="!m-0 !px-4 !py-3 !border !border-solid !border-gray-300 !bg-gray-50 !rounded-full placeholder:text-gray-500 text-gray-900 placeholder:font-medium !opacity-0 !h-0 !w-full pointer-events-none focus:pointer-events-auto focus:!opacity-100 focus:!h-14 focus:!my-3 peer" data-ink-store--input-search-target="input" name="search_filter" />
+    
+            <label for="search_filter_mobile" data-action="click->ink-store--input-search#search" class="absolute opacity-0 peer-focus:flex peer-focus:opacity-100 w-10 h-10 top-5 right-4 text-gray-500  items-center justify-center">
+              <span class=""><svg width="18" height="18"></svg>
+</span>
+            </label>
+
+</form>
+        <ul class='navbar-list brand-color !top-auto !hidden !overflow-y-auto !max-h-[calc(100vh-80px)] !h-screen flex flex-col !gap-4 !px-4 !pb-8' id='navbar-list-mobile'>
+          <section class="flex flex-col !gap-[8px]">
+            <li class="">
+              <a href="/usesul" class=''>
+                <p class="text-[16px] font-medium leading-[150%]">Loja</p>
+              </a>
+            </li>
+              <li data-drawer-target="product-sidebar" data-drawer-toggle="product-sidebar" aria-controls="product-sidebar" class='navbar-list__item flex justify-between'>
+                <p class="text-[16px] font-medium leading-[150%]"> Produtos </p>
+                <i data-feather='chevron-right'></i>
+              </li>
+              <li data-drawer-target="collection-sidebar" data-drawer-toggle="collection-sidebar" aria-controls="collection-sidebar" class='navbar-list__item flex justify-between'>
+                <p class="text-[16px] font-medium leading-[150%]"> Categorias </p>
+                <i data-feather='chevron-right'></i>
+              </li>
+            <li class="">
+              <a href="/usesul/about" class=''>
+                <p class="text-[16px] font-medium leading-[150%]">Sobre</p>
+              </a>
+            </li>
+          </section>
+          <section class="flex flex-col !gap-[8px] absolute bottom-[150px]">
+              <li class="flex items-center gap-3">
+                <svg width="18" height="18"></svg>
+
+                <a class='truncate' href="/usesul/store_sessions/new">Entrar </a>
+              </li>
+              <li class="flex items-center gap-3">
+                <svg width="18" height="18"></svg>
+
+                <a href="/usesul/orders/trackings">Rastreio</a>
+              </li>
+              <li class="flex items-center gap-3">
+                <svg width="18" height="18"></svg>
+
+                <a href="/usesul/orders">Trocar pedido</a>
+              </li>
+              <li class="flex items-center gap-3">
+                <svg width="18" height="18"></svg>
+
+                <a href="/usesul/orders/guest_reviews/new">Avaliar meu pedido</a>
+              </li>
+                <li class="flex items-center gap-3">
+                  <svg width="18" height="18"></svg>
+
+                  <a class="wpp-floater" href="https://api.whatsapp.com/send?phone=5548988082581" rel="noreferrer noopener" target="_blank" aria-label='contato whatsapp'>
+                    Fale pelo Whatsapp
+                  </a>
+                </li>
+          </section>
+        </ul>
+      </div>
+    </section>
+      <ul id="product-sidebar" class="fixed top-0 left-0 z-40 w-full h-screen overflow-y-auto transition-transform -translate-x-full brand-color" aria-label="Sidebar">
+        <div class="flex items-center justify-between mb-[24px] px-[8px] h-[70px] !sticky !top-0 brand-color">
+          <button class="[&>svg]:w-[20px] [&>svg]:h-[20px]" data-drawer-toggle="product-sidebar"> <i data-feather='chevron-left'></i> </button>
+          <p class="text-[16px] font-medium leading-[150%]"> Produtos </p>
+          <button data-action="click->ink-store--toggle-menu-section#toggleMenu" data-drawer-toggle="product-sidebar"> <i data-feather='x'></i> </button>
+        </div>
+        <ul class="px-[12px] flex flex-col gap-[8px]">
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/products?product_type=1" class="text-[16px] font-medium leading-[150%] !m-0">
+                Camiseta
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/products?product_type=178" class="text-[16px] font-medium leading-[150%] !m-0">
+                Camiseta Oversized
+              </a>
+            </li>
+        </ul>
+      </ul>
+      <ul id="collection-sidebar" class="fixed top-0 left-0 z-40 w-full h-screen overflow-y-auto transition-transform -translate-x-full brand-color" tabindex="-1" aria-label="Sidebar">
+        <div class="flex items-center justify-between mb-[24px] px-[8px] h-[70px] !sticky !top-0 brand-color">
+          <button class="[&>svg]:w-[20px] [&>svg]:h-[20px]" data-drawer-toggle="collection-sidebar"> <i data-feather='chevron-left'></i> </button>
+          <p class="text-[16px] font-medium leading-[150%]"> Categorias </p>
+          <button data-action="click->ink-store--toggle-menu-section#toggleMenu" data-drawer-toggle="collection-sidebar"> <i data-feather='x'></i> </button>
+        </div>
+        <ul class="px-[12px] flex flex-col gap-[8px] mb-[30px]">
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/seu-lugar" class="text-[16px] font-medium leading-[150%] !m-0">
+                Seu Lugar
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/do-nosso-jeito" class="text-[16px] font-medium leading-[150%] !m-0">
+                Do Nosso Jeito
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/da-nossa-terra" class="text-[16px] font-medium leading-[150%] !m-0">
+                Da Nossa Terra
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/feito-para-voce" class="text-[16px] font-medium leading-[150%] !m-0">
+                Feito Para Você
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/fala-daqui" class="text-[16px] font-medium leading-[150%] !m-0">
+                Fala Daqui
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/pre-treino-raiz" class="text-[16px] font-medium leading-[150%] !m-0">
+                Pré-treino Raiz
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/personalizados" class="text-[16px] font-medium leading-[150%] !m-0">
+                Personalizados
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/kits" class="text-[16px] font-medium leading-[150%] !m-0">
+                Kits
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/parceiros" class="text-[16px] font-medium leading-[150%] !m-0">
+                Parceiros
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/novidades" class="text-[16px] font-medium leading-[150%] !m-0">
+                Novidades
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/rio-grande-do-sul" class="text-[16px] font-medium leading-[150%] !m-0">
+                Rio Grande do Sul
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/santa-catarina" class="text-[16px] font-medium leading-[150%] !m-0">
+                Santa Catarina
+              </a>
+            </li>
+            <li class='!px-[8px] !py-[6px] navbar-list__item !leading-none '>
+              <a href="/usesul/collections/parana" class="text-[16px] font-medium leading-[150%] !m-0">
+                Paraná
+              </a>
+            </li>
+        </ul>
+      </ul>
+  </nav>
+  <!-- Desktop menu -->
+  <nav class="navbar lg:!flex !hidden">
+    <ul class='navbar-list'>
+      <li class='navbar-list__item'>
+        <a href="/usesul" class=''>Loja</a>
+      </li>
+        <li class='navbar-list__item'>
+          <div aria-haspopup='true' aria-expanded='false' id='filters-link' tabindex='-1'>
+            <span>Produtos</span>
+            <i data-feather='chevron-down'></i>
+            <div class='menu-filters'>
+              <ul>
+                  <a class="truncate" href="/usesul/products?product_type=1">
+                    <span>Camiseta</span>
+</a>                  <a class="truncate" href="/usesul/products?product_type=178">
+                    <span>Camiseta Oversized</span>
+</a>              </ul>
+            </div>
+          </div>
+        </li>
+        <li class='navbar-list__item'>
+          <div aria-haspopup='true' aria-expanded='false' id='filters-link' tabindex='-1'>
+            <span>Categorias</span>
+            <i data-feather='chevron-down'></i>
+            <div class='menu-filters'>
+              <ul>
+                  <a class="truncate" href="/usesul/collections/seu-lugar">
+                    <span>Seu Lugar</span>
+</a>                  <a class="truncate" href="/usesul/collections/do-nosso-jeito">
+                    <span>Do Nosso Jeito</span>
+</a>                  <a class="truncate" href="/usesul/collections/da-nossa-terra">
+                    <span>Da Nossa Terra</span>
+</a>                  <a class="truncate" href="/usesul/collections/feito-para-voce">
+                    <span>Feito Para Você</span>
+</a>                  <a class="truncate" href="/usesul/collections/fala-daqui">
+                    <span>Fala Daqui</span>
+</a>                  <a class="truncate" href="/usesul/collections/pre-treino-raiz">
+                    <span>Pré-treino Raiz</span>
+</a>                  <a class="truncate" href="/usesul/collections/personalizados">
+                    <span>Personalizados</span>
+</a>                  <a class="truncate" href="/usesul/collections/kits">
+                    <span>Kits</span>
+</a>                  <a class="truncate" href="/usesul/collections/parceiros">
+                    <span>Parceiros</span>
+</a>                  <a class="truncate" href="/usesul/collections/novidades">
+                    <span>Novidades</span>
+</a>                  <a class="truncate" href="/usesul/collections/rio-grande-do-sul">
+                    <span>Rio Grande do Sul</span>
+</a>                  <a class="truncate" href="/usesul/collections/santa-catarina">
+                    <span>Santa Catarina</span>
+</a>                  <a class="truncate" href="/usesul/collections/parana">
+                    <span>Paraná</span>
+</a>              </ul>
+            </div>
+          </div>
+        </li>
+      <li class='navbar-list__item'>
+        <a href="/usesul/about" class=''>Sobre</a>
+      </li>
+    </ul>
+      <a href="/usesul" class='brand'>
+        <img src="https://gcp-images.majestic.ink.rsvcloud.com/images/store/logo_image/d5fa114503f915c5a531f00d4fe3a641.webp" alt="store logo" class="object-contain max-w-[104px]">
+      </a>
+    <div class="inline-flex">
+      <form class="relative max-w-md h-full" data-controller="ink-store--input-search" action="/usesul/products" accept-charset="UTF-8" method="get">
+  <input type="search" id="search_filter" placeholder="Pesquisar..." class="!m-0 !px-4 !py-3 !border !border-solid !border-gray-300 !bg-gray-50 !rounded-full h-[2.8rem] placeholder:text-gray-500 text-gray-900 placeholder:font-medium !opacity-0 !w-full pointer-events-none focus:pointer-events-auto focus:!opacity-100 peer/input" data-ink-store--input-search-target="input" name="search_filter" />
+    
+          <label for="search_filter" data-action="click->ink-store--input-search#search" class="transition-all absolute top-4 right-4 peer-focus/input:text-gray-500 cursor-pointer text-store-font">
+            <span class=""><svg width="18" height="18"></svg>
+</span>
+          </label>
+
+</form>      <ul class='menu-icons inline-flex'>
+        <li class='menu-icons__item'>
+            <span aria-haspopup='true' aria-expanded='false' id='menu-user-link' tabindex='-1'>
+              <i data-feather='user'></i>
+              <i data-feather='chevron-down'></i>
+              <div class="menu-user">
+                <ul class='menu-user__list'>
+                  <li>
+                    <a href="/usesul/orders/trackings">Rastrear meu pedido</a>
+                  </li>
+                  <li>
+                    <a href="/usesul/orders">Trocar meu pedido</a>
+                  </li>
+                  <li>
+                    <a href="/usesul/orders/guest_reviews/new">Avaliar meu pedido</a>
+                  </li>
+                  <li>
+                    <a href="/usesul/store_sessions/new">
+                      <i data-feather='log-in'></i>
+                      <span class='truncate variant-truncate'>Entrar | Cadastrar</span>
+</a>                  </li>
+                </ul>
+              </div>
+            </span>
+        </li>
+        <li class='menu-icons__item' data-controller='ink-store--drawer'>
+          <button type="button" aria-label="Carrinho" id="shopping-cart-menu-desk" class='cart-shopping cursor-pointer' data-action='click->ink-store--drawer#openDrawer'>
+            <i data-feather="shopping-cart"></i>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </nav>
+</header>
