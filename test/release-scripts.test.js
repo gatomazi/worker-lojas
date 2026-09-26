@@ -69,7 +69,7 @@ test('every real deploy goes through deploy_worker with the FULL variable set; n
   const release = readFileSync(new URL('../scripts/release-global.sh', import.meta.url), 'utf8');
   assert.equal((release.match(/wrangler deploy/g) || []).length, 0, 'release-global.sh calls deploy_worker only');
   const real = common.split('\n').filter((l) => /npx wrangler deploy -c/.test(l) && !/--dry-run/.test(l));
-  assert.equal(real.length, 1);
+  assert.equal(real.length, 2, 'deploy_worker (release global, six features) and deploy_worker_navbar (release da navbar, test/release-navbar.test.js)');
   for (const needle of ['--var ENABLE_WIDGET:true', '--var "WIDGET_ALLOWLIST:$ALLOW"', '--var "WIDGET_FEATURES:$FEATURES"', '--var "WIDGET_SCOPE_MODE:$scope"']) assert.ok(real[0].includes(needle), needle);
   assert.match(common, /FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery"/);
   assert.match(common, /assert_deploy_vars "\$scope" \|\| return 1/);
@@ -126,7 +126,7 @@ test('the test-mode overrides are ignored WITHOUT UO_TEST_MODE: an exported URL/
   const res = bash('source scripts/global-common.sh; echo "$HEALTH_URL|$SITE_URL|$STOREFRONT_URL|$WRANGLER_CMD"', { UO_TEST_HEALTH_URL: 'http://evil/h', UO_TEST_SITE_URL: 'http://evil', UO_TEST_STOREFRONT_URL: 'http://evil', UO_TEST_WRANGLER_CMD: 'echo hacked', UO_TEST_MODE: '' });
   assert.equal(res.stdout.trim(), 'https://www.usesul.com.br/__origens/health|https://www.usesul.com.br|https://useorigens.com.br|npx wrangler');
   const deploy = read('scripts/global-common.sh').split('\n').filter((l) => /npx wrangler deploy -c/.test(l));
-  assert.equal(deploy.length, 2, 'real deploy and dry-run keep the literal command (not overridable)');
+  assert.equal(deploy.length, 4, 'real deploy and dry-run of BOTH release kinds keep the literal command (not overridable)');
 });
 
 test('qa-global: product navigation does not depend on the load event; one bounded retry with an HTTP probe; failures are classified and leave evidence; snapshots are read patiently', () => {
