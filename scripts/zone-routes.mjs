@@ -60,16 +60,22 @@ async function probe(probes) {
   let out = ''; let exited = null;
   const feed = (d) => { out += d.toString(); };
   tail.stdout.on('data', feed); tail.stderr.on('data', feed); tail.on('exit', (c) => { exited = c; });
-  // Em --format json o wrangler não imprime aviso de conexão: espera-se um tempo fixo (medido: ~5 s) e confere que o processo continua vivo.
-  await new Promise((r) => setTimeout(r, 11000));
-  if (exited !== null) throw new Error('wrangler tail encerrou (código ' + exited + '): ' + out.replace(/\s+/g, ' ').slice(0, 200));
+  // Em --format json o wrangler não avisa quando conecta, e a conexão leva de ~5 a 30 s: envia-se um CANÁRIO (/__origens/health, sempre executa) a cada 3 s
+  // até o tail mostrá-lo. Só então as sondas saem (um tail tardio já fez as primeiras sondas parecerem "sem invocação").
+  const canary = `route-probe/${nonce}-canary`; const t0 = Date.now(); let live = false;
+  while (Date.now() - t0 < 90000 && exited === null) {
+    await fetch('https://' + HOST + '/__origens/health', { headers: { 'user-agent': canary } }).then((r) => r.text()).catch(() => {});
+    await new Promise((r) => setTimeout(r, 3000));
+    if (out.includes(canary)) { live = true; break; }
+  }
+  if (!live) { tail.kill(); throw new Error('wrangler tail não confirmou conexão (canário não visto): ' + (exited !== null ? 'encerrou ' + exited + ' ' : '') + out.replace(/\s+/g, ' ').slice(0, 200)); }
   const sent = [];
   for (const [i, p] of probes.entries()) {
     const ua = `route-probe/${nonce}-${i}`;
     const res = await fetch('https://' + HOST + p.url, { redirect: 'manual', headers: { 'user-agent': ua } }).then((r) => r.status).catch(() => 'erro');
     sent.push({ ...p, ua, status: res });
   }
-  await new Promise((r) => setTimeout(r, 9000));
+  await new Promise((r) => setTimeout(r, 10000));
   tail.kill();
   const seen = new Set();
   for (const m of out.matchAll(/route-probe\/[0-9a-f]{8}-\d+/g)) seen.add(m[0]);
