@@ -83,7 +83,18 @@ profundidade). Sem produto seguinte: `{"next": null, "position": total, "total":
 - Ao confirmar a adição (o mesmo sinal de `post-add-discovery`), marca o produto ATUAL como feito
   (`sessionStorage`, `origens:ls:done`, um Set — repetir o mesmo id não muda nada) e busca o próximo.
 - Card "Sua próxima camiseta": foto, nome, contador (`N de total`) e "Ver próxima →", inserido no mesmo ponto de
-  `post-add-discovery` (entre os botões nativos e "As mais vendidas"), nunca dentro do formulário nativo.
+  `post-add-discovery` (entre os botões nativos e "As mais vendidas"), nunca dentro do formulário nativo. O link
+  para a próxima página leva `data-turbo="false"` — é o único link MESMA ORIGEM (INK → INK) que este código
+  injeta; sem isso o Turbo Drive da INK intercepta o clique como uma visita e a navegação real nunca acontece
+  (achado em produção durante o aceite real).
+- **Pré-busca (latência)**: `mount()` já dispara a mesma pergunta ao gateway assim que a página carrega, apostando
+  que o produto DESTA página será o confirmado (`done` especulativo = done atual + produto atual, nunca gravado
+  de verdade). Na maioria dos casos reais (escolher variante/tamanho leva bem mais que a ida-e-volta ao Worker,
+  ~300ms medidos em produção) a resposta já está pronta quando o add é confirmado, e o card aparece junto dos
+  botões nativos em vez de com um atraso perceptível depois deles. Se a aposta errar (ex.: troca de variante muda
+  o produto da página antes do add), `check()` detecta a chave errada e busca de novo — nunca mostra um palpite
+  errado. A pré-busca é lida por chave estável (sessão + conjunto `done` ordenado), então nunca duplica a mesma
+  pergunta entre montagens seguidas da mesma página.
 - Sem sessão válida, sessão esgotada ou qualquer falha: nada é mostrado — a área "Encontre a próxima camiseta" e
   os controles nativos (Ver carrinho / Continuar comprando) seguem exatamente como estão.
 - Independente de `post-add-discovery`: pode estar ligada mesmo com o bloco genérico de descoberta desligado.
