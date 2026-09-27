@@ -1,6 +1,8 @@
 // Funções puras do release global (testadas em test/release-scripts.test.js; sem rede, sem Wrangler, sem Cloudflare).
-export const SIX_FEATURES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery'];
-// A sétima feature entra SÓ no release da navbar (scripts/release-navbar.sh): as seis acima continuam obrigatórias em qualquer estado.
+// list-session foi ao ar (fora destes scripts) junto do resto: mantém o NOME "SIX_FEATURES" por compatibilidade com quem já importa por esse
+// nome (scripts/smoke-global.mjs, os testes), mas o array em si já reflete a produção real — sete features sempre obrigatórias.
+export const SIX_FEATURES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'list-session'];
+// A oitava feature entra SÓ no release da navbar (scripts/release-navbar.sh): as sete acima continuam obrigatórias em qualquer estado.
 export const NAVBAR_FEATURE = 'header-nav';
 export const SEVEN_FEATURES = [...SIX_FEATURES, NAVBAR_FEATURE];
 export const FIVE_SLUGS = ['serra-catarinense', 'made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241', 'made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829', 'paranaense-essencia', 'made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a'];
@@ -24,7 +26,7 @@ export function parseActiveVersion(output) {
 }
 
 // O health está no estado esperado? expect: "allowlist" (cinco produtos) | "catalog". Retorna { ok, problems[] }.
-// `features`: o conjunto EXATO esperado (padrão: as seis; o release da navbar passa as sete). `allowlistSize`: o tamanho capturado (padrão 5).
+// `features`: o conjunto EXATO esperado (padrão: as sete; o release da navbar passa as oito). `allowlistSize`: o tamanho capturado (padrão 5).
 export function evaluateHealth(health, expect, { loaderVersion = null, features: expected = SIX_FEATURES, allowlistSize = 5 } = {}) {
   const problems = [];
   if (!health || typeof health !== 'object') return { ok: false, problems: ['health ilegível'] };
@@ -79,7 +81,7 @@ const sortedEq = (a, b) => a.length === b.length && [...a].sort().every((x, i) =
 
 // Decide, SEM adivinhar, o que o release da navbar pode publicar. Entradas: o health público ATUAL, as variáveis/bindings da versão ativa e os
 // nomes de binding do TOML. Saída: { ok, problems, deploy } — `deploy` preserva exatamente ENABLE_WIDGET, WIDGET_ALLOWLIST e WIDGET_SCOPE_MODE
-// capturados e só acrescenta `header-nav` à lista de features (que TEM de ser exatamente as seis). Qualquer divergência entre o que a versão
+// capturados e só acrescenta `header-nav` à lista de features (que TEM de ser exatamente as sete). Qualquer divergência entre o que a versão
 // diz e o que o health público mostra é problema (a captura não é confiável).
 export function planNavbarRelease({ health, captured, tomlBindings, newVersion = null }) {
   const problems = [];
@@ -90,14 +92,14 @@ export function planNavbarRelease({ health, captured, tomlBindings, newVersion =
   const scope = vars.WIDGET_SCOPE_MODE === undefined ? 'allowlist' : vars.WIDGET_SCOPE_MODE;
   if (scope !== 'allowlist' && scope !== 'product-catalog') problems.push(`WIDGET_SCOPE_MODE capturado inválido: ${scope}`);
   const featureList = (vars.WIDGET_FEATURES || '').split(',').map((f) => f.trim()).filter(Boolean);
-  // Dois modos: "enable" (as seis exatas -> as seis + header-nav) e "update" (a navbar JÁ está ativa: as sete exatas, com um loader mais NOVO que o publicado).
+  // Dois modos: "enable" (as sete exatas -> as sete + header-nav) e "update" (a navbar JÁ está ativa: as oito exatas, com um loader mais NOVO que o publicado).
   const active = featureList.includes(NAVBAR_FEATURE);
   let mode = 'enable';
   if (active) {
     mode = 'update';
-    if (!sortedEq(featureList, SEVEN_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as sete: ${SEVEN_FEATURES.join(',')})`);
+    if (!sortedEq(featureList, SEVEN_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as oito: ${SEVEN_FEATURES.join(',')})`);
     if (newVersion && health.version === newVersion) problems.push(`a navbar já está publicada nesta versão do loader (${newVersion}): nada a publicar`);
-  } else if (!sortedEq(featureList, SIX_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as seis: ${SIX_FEATURES.join(',')})`);
+  } else if (!sortedEq(featureList, SIX_FEATURES)) problems.push(`WIDGET_FEATURES capturado = "${featureList.join(',')}" (esperado exatamente as sete: ${SIX_FEATURES.join(',')})`);
   const allow = (vars.WIDGET_ALLOWLIST || '').split(',').map((p) => p.trim()).filter(Boolean);
   if (allow.length === 0 || allow.some((p) => !SLUG_PATH.test(p)) || new Set(allow).size !== allow.length) problems.push('WIDGET_ALLOWLIST capturada vazia, duplicada ou malformada');
   // O health público tem de descrever a MESMA configuração (a captura não pode estar velha nem ser de outra versão).

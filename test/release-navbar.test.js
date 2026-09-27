@@ -49,10 +49,10 @@ test('planNavbarRelease refuses (and publishes nothing) whenever production is n
   const refuse = (over, re) => { const p = plan(over); assert.equal(p.ok, false); assert.equal(p.deploy, null); assert.match(p.problems.join(' | '), re); };
   // navbar already active: publishing the SAME loader version is refused; a newer loader is an UPDATE (seven features exactly), never a silent re-enable
   refuse({ captured: captured(vars({ WIDGET_FEATURES: SEVEN_FEATURES.join(',') })), health: health({ widget_features: SEVEN_FEATURES, version: '4.6' }), newVersion: '4.6' }, /já está publicada nesta versão/);
-  refuse({ captured: captured(vars({ WIDGET_FEATURES: [...SEVEN_FEATURES, 'evil'].join(',') })), health: health({ widget_features: SEVEN_FEATURES }), newVersion: '4.6' }, /exatamente as sete/);
+  refuse({ captured: captured(vars({ WIDGET_FEATURES: [...SEVEN_FEATURES, 'evil'].join(',') })), health: health({ widget_features: SEVEN_FEATURES }), newVersion: '4.6' }, /exatamente as oito/);
   refuse({ captured: captured(vars({ WIDGET_FEATURES: SEVEN_FEATURES.join(',') })), health: health() , newVersion: '4.6' }, /health x captura/);
-  refuse({ captured: captured(vars({ WIDGET_FEATURES: SIX_FEATURES.slice(0, 5).join(',') })) }, /exatamente as seis/);
-  refuse({ captured: captured(vars({ WIDGET_FEATURES: [...SIX_FEATURES, 'evil'].join(',') })) }, /exatamente as seis/);
+  refuse({ captured: captured(vars({ WIDGET_FEATURES: SIX_FEATURES.slice(0, 5).join(',') })) }, /exatamente as sete/);
+  refuse({ captured: captured(vars({ WIDGET_FEATURES: [...SIX_FEATURES, 'evil'].join(',') })) }, /exatamente as sete/);
   refuse({ captured: captured(vars({ ENABLE_WIDGET: 'dry-run' })) }, /ENABLE_WIDGET/);
   refuse({ captured: captured(vars({ WIDGET_SCOPE_MODE: 'everything' })) }, /WIDGET_SCOPE_MODE/);
   refuse({ captured: captured(vars({ WIDGET_ALLOWLIST: '' })) }, /ALLOWLIST/);
@@ -147,7 +147,7 @@ test('capture_navbar_plan reads the ACTIVE version through wrangler (stubbed) an
 test('deploy_worker_navbar compiles the real bundle with the seven features and the preserved configuration (dry-run: no login, nothing published)', () => {
   const res = bash('source scripts/global-common.sh; deploy_worker_navbar "/usesul/product/serra-catarinense" product-catalog --dry-run', { TMPDIR: '/tmp' });
   assert.equal(res.status, 0, res.stdout.slice(-400) + res.stderr.slice(-400));
-  assert.match(res.stdout, /WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav/);
+  assert.match(res.stdout, /WIDGET_FEATURES=return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,list-session,header-nav/);
   assert.match(res.stdout, /WIDGET_SCOPE_MODE=product-catalog \(preservado da produção\)/); assert.match(res.stdout, /--dry-run|Total Upload/);
 });
 

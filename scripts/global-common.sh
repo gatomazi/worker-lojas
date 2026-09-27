@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Funções e constantes COMPARTILHADAS por preflight-global.sh e release-global.sh. Este é o ÚNICO lugar com `wrangler deploy`:
-# todo deploy passa por deploy_worker, que imprime a configuração NÃO secreta, valida os argumentos completos (seis features, cinco
+# todo deploy passa por deploy_worker, que imprime a configuração NÃO secreta, valida os argumentos completos (sete features, cinco
 # caminhos, escopo explícito) e nunca roda sem `--var` (o TOML é fail-closed: um deploy puro desligaria a integração inteira).
 # Não faz nada sozinho; só é lido com `source`.
 WORKER_NAME=use-sul-widget
@@ -9,8 +9,8 @@ SITE_URL=https://www.usesul.com.br
 HEALTH_URL=$SITE_URL/__origens/health
 WRANGLER_CMD="npx wrangler"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery"
-# Release da navbar (scripts/release-navbar.sh): as seis acima + header-nav, e SÓ ali. deploy_worker (release global) continua exigindo EXATAMENTE as seis;
+FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,list-session"
+# Release da navbar (scripts/release-navbar.sh): as sete acima + header-nav, e SÓ ali. deploy_worker (release global) continua exigindo EXATAMENTE as sete;
 # o TOML é fail-closed (WIDGET_FEATURES="return-link"), então um `wrangler deploy` genérico nunca liga header-nav.
 NAVBAR_FEATURES="$FEATURES,header-nav"
 ALLOW="/usesul/product/serra-catarinense,/usesul/product/made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241,/usesul/product/made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829,/usesul/product/paranaense-essencia,/usesul/product/made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a"
@@ -30,8 +30,9 @@ health_json() { curl -sS --max-time 15 "$HEALTH_URL"; }
 assert_deploy_vars() {
   local scope="$1" n
   [ "$scope" = "allowlist" ] || [ "$scope" = "product-catalog" ] || { log "ERRO: escopo inválido '$scope'"; return 1; }
-  n=$(printf '%s' "$FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 6 ] || { log "ERRO: WIDGET_FEATURES precisa ter as SEIS features (tem $n)"; return 1; }
+  n=$(printf '%s' "$FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 7 ] || { log "ERRO: WIDGET_FEATURES precisa ter as SETE features (tem $n)"; return 1; }
   printf '%s' "$FEATURES" | tr ',' '\n' | grep -qx 'cart-mirror' || { log "ERRO: cart-mirror ausente de WIDGET_FEATURES"; return 1; }
+  printf '%s' "$FEATURES" | tr ',' '\n' | grep -qx 'list-session' || { log "ERRO: list-session ausente de WIDGET_FEATURES"; return 1; }
   n=$(printf '%s' "$ALLOW" | tr ',' '\n' | grep -c '^/usesul/product/[a-z0-9][a-z0-9_-]*$'); [ "$n" = 5 ] || { log "ERRO: WIDGET_ALLOWLIST precisa ter EXATAMENTE 5 caminhos válidos (tem $n)"; return 1; }
   grep -q 'binding = "CART_REFS"' "$ROOT/$CFG" || { log "ERRO: binding CART_REFS ausente de $CFG"; return 1; }
 }
@@ -53,14 +54,14 @@ deploy_worker() {
   fi
 }
 
-# ── release da navbar: sete features, configuração REAL capturada ───────────────────────────────────────────────────────────────────────────
+# ── release da navbar: oito features, configuração REAL capturada ───────────────────────────────────────────────────────────────────────────
 # Confere os argumentos ANTES de qualquer publicação. Uso: assert_navbar_deploy_vars <allowlist-capturada> <escopo-capturado>
 assert_navbar_deploy_vars() {
   local allow="$1" scope="$2" n
   [ "$scope" = "allowlist" ] || [ "$scope" = "product-catalog" ] || { log "ERRO: escopo inválido '$scope'"; return 1; }
-  [ "$NAVBAR_FEATURES" = "$FEATURES,header-nav" ] || { log "ERRO: NAVBAR_FEATURES precisa ser as seis + header-nav (nessa ordem)"; return 1; }
-  n=$(printf '%s' "$FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 6 ] || { log "ERRO: as features-base precisam ser SEIS (tem $n)"; return 1; }
-  n=$(printf '%s' "$NAVBAR_FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 7 ] || { log "ERRO: WIDGET_FEATURES do release da navbar precisa ter SETE features (tem $n)"; return 1; }
+  [ "$NAVBAR_FEATURES" = "$FEATURES,header-nav" ] || { log "ERRO: NAVBAR_FEATURES precisa ser as sete + header-nav (nessa ordem)"; return 1; }
+  n=$(printf '%s' "$FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 7 ] || { log "ERRO: as features-base precisam ser SETE (tem $n)"; return 1; }
+  n=$(printf '%s' "$NAVBAR_FEATURES" | tr ',' '\n' | grep -c .); [ "$n" = 8 ] || { log "ERRO: WIDGET_FEATURES do release da navbar precisa ter OITO features (tem $n)"; return 1; }
   printf '%s' "$NAVBAR_FEATURES" | tr ',' '\n' | grep -qx 'cart-mirror' || { log "ERRO: cart-mirror ausente de WIDGET_FEATURES"; return 1; }
   [ -n "$allow" ] && [ "$(printf '%s' "$allow" | tr ',' '\n' | grep -vc '^/usesul/product/[a-z0-9][a-z0-9_-]*$')" = 0 ] || { log "ERRO: WIDGET_ALLOWLIST capturada vazia ou malformada"; return 1; }
   grep -q 'binding = "CART_REFS"' "$ROOT/$CFG" || { log "ERRO: binding CART_REFS ausente de $CFG"; return 1; }
