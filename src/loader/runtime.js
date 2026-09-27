@@ -12,6 +12,11 @@ export const RUNTIME_HEAD = String.raw`(() => {
   // "allowlist" (padrão): só ALLOWED_PATHS. "product-catalog": qualquer página verdadeira de produto (slug canônico + formulário nativo).
   const SCOPE_MODE = __SCOPE_MODE__;
   const CATALOG_PRODUCT_PATH = /^\/usesul\/product\/[a-z0-9][a-z0-9_-]{0,127}$/;
+  // Páginas "de casca" (home, listagem, coleções, sobre, conta/pedidos): só widgets marcados com shell:true (header-nav, FAB, ponte do carrinho) rodam ali.
+  // Ligado só com o escopo de catálogo + header-nav. A função vem do Worker (src/scope.js), uma única definição.
+  const SHELL_ENABLED = __SHELL_ENABLED__;
+  const INK_BASE = __INK_BASE__;
+  __SHELL_FN__
   const PRODUCT_PATH = /^\/usesul\/product\/[^/]+$/;
   // Rota canônica verificada do storefront. www.usesul.com.br/sul NÃO serve: responde 302 para /usesul.
   const STOREFRONT_ORIGIN = 'https://useorigens.com.br';
@@ -32,6 +37,11 @@ export const RUNTIME_HEAD = String.raw`(() => {
     if (!pathAllowed(window.location.pathname)) return false;
     return SCOPE_MODE !== 'product-catalog' || !!document.querySelector('form[id^="form-product-"]');
   }
+  // Página de casca (não transacional) desta loja? Nunca login, carrinho nem checkout.
+  function shellPath(pathname) { return SHELL_ENABLED && window.location.hostname === 'www.usesul.com.br' && shellPageKind(pathname, INK_BASE) !== null; }
+  // 'product' | 'shell' | null: o que a página ATUAL permite montar. pageNow() = qualquer um dos dois (usada pelos widgets shell:true).
+  function currentKind() { return allowedNow() ? 'product' : (shellPath(window.location.pathname) ? 'shell' : null); }
+  function pageNow() { return currentKind() !== null; }
 
   // Desmonta TUDO nosso: UI, estilos, observers, timers e requisições. Idempotente.
   function teardown() {
@@ -42,15 +52,19 @@ export const RUNTIME_HEAD = String.raw`(() => {
   }
   function sync() {
     timer = null;
-    if (!allowedNow()) { if (active) teardown(); return; }
+    const kind = currentKind();
+    if (!kind) { if (active) teardown(); return; }
     active = true;
     for (const widget of widgets) {
-      try { widget.mount(); } catch (err) { console.warn('[Use Origens] widget ' + widget.id + ' failed (non-critical):', err); }
+      try {
+        // Na página de casca só os widgets shell:true; os de produto (descoberta, retorno, drawer) saem se ainda estiverem montados (Turbo produto -> coleção).
+        if (kind === 'product' || widget.shell) widget.mount(); else widget.unmount();
+      } catch (err) { console.warn('[Use Origens] widget ' + widget.id + ' failed (non-critical):', err); }
     }
   }
   // setTimeout, não rAF: rAF não dispara em aba oculta.
   function schedule() {
-    if (!allowedNow()) { if (active) teardown(); return; }
+    if (!pageNow()) { if (active) teardown(); return; }
     if (timer) return;
     timer = setTimeout(sync, 50);
   }
@@ -99,7 +113,7 @@ export const RUNTIME_TAIL = String.raw`
     document.addEventListener('turbo:visit', (event) => {
       try {
         const url = event.detail && event.detail.url;
-        if (url && !pathAllowed(new URL(url, window.location.href).pathname)) teardown();
+        if (url) { const target = new URL(url, window.location.href).pathname; if (!pathAllowed(target) && !shellPath(target)) teardown(); }
       } catch (_) { /* ignora */ }
     });
     document.addEventListener('turbo:before-cache', () => { if (active) teardown(); });

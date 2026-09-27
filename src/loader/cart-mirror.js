@@ -114,6 +114,7 @@ export const CART_MIRROR = String.raw`
 
   register({
     id: 'cart-mirror',
+    shell: true, // a saída pelos links da navbar (logo, Cidades, Regiões, Buscar) também existe nas páginas de casca
     session: null,      // { fp, ref, at }: último estado transferido nesta aba
     inflight: null,     // { fp, promise }
     coolFp: '',
@@ -121,7 +122,7 @@ export const CART_MIRROR = String.raw`
     ac: null,
 
     mount() {
-      if (!allowedNow()) return this.unmount();
+      if (!pageNow()) return this.unmount();
       if (this.ac) return;
       this.session = loadSession();
       this.ac = new AbortController();
@@ -200,7 +201,7 @@ export const CART_MIRROR = String.raw`
     },
 
     onPress(event) {
-      if (!allowedNow() || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      if (!pageNow() || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       if (!this.ourLink(event)) return;
       const cart = readCart();
       if (!cart || this.reusable(fingerprintOf(cart))) return; // token ainda válido para este estado: nada a adiantar
@@ -208,7 +209,7 @@ export const CART_MIRROR = String.raw`
     },
 
     onExit(event) {
-      if (!allowedNow()) return;
+      if (!pageNow()) return;
       const link = this.ourLink(event);
       if (!link) return;
       const cart = readCart(); // estado NO INSTANTE do clique (nunca um estado ainda em debounce)

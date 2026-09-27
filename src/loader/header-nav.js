@@ -169,13 +169,14 @@ export const HEADER_NAV = String.raw`
 
   register({
     id: 'header-nav',
+    shell: true, // também nas páginas de casca (home, coleções, conta/pedidos...)
     loading: false,
     ac: null,
     headerFix: null,
     fitTimer: null,
 
     mount() {
-      if (!allowedNow()) return this.unmount();
+      if (!pageNow()) return this.unmount();
       // Idempotente pela existência do nosso conteúdo no <header> atual (o Turbo troca o <body> e o cabeçalho vem novo).
       if (document.querySelector('header [data-origens-nav]')) return;
       if (this.loading || navFailed) return;
@@ -183,7 +184,7 @@ export const HEADER_NAV = String.raw`
       this.loading = true;
       loadNav().then((config) => {
         this.loading = false;
-        if (!config || !allowedNow() || document.querySelector('header [data-origens-nav]')) return;
+        if (!config || !pageNow() || document.querySelector('header [data-origens-nav]')) return;
         const parts = this.parts();
         if (!parts) return;
         try { this.build(parts, config); } catch (err) { console.warn('[Use Origens] header-nav failed (non-critical):', err); navFailed = true; this.unmount(); }
@@ -430,11 +431,12 @@ export const HEADER_NAV = String.raw`
 
   register({
     id: 'whatsapp-fab',
+    shell: true,
     ac: null,
     timer: null,
 
     mount() {
-      if (!allowedNow()) return this.unmount();
+      if (!pageNow()) return this.unmount();
       const help = document.querySelector('[data-controller~="ink-store--help-button"]');
       const href = help ? waHref() : null;
       let fab = document.getElementById('o-wa-fab');

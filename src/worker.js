@@ -4,7 +4,8 @@ import { parseFeatures } from './features.js';
 import { createSearchGateway } from './search-gateway.js';
 import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
-import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE } from './scope.js';
+import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
+import { ACTIVE_STORE } from './stores.js';
 
 const HOST = 'www.usesul.com.br';
 // Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
@@ -27,9 +28,12 @@ function widgetMode(env) {
   return value === 'true' || value === 'dry-run' ? value : 'false';
 }
 
-// Só GET, HTML de página de produto. Turbo-Frame devolve fragmento sem <head>: fora do escopo.
-function isEligibleRequest(request, url) {
-  return request.method === 'GET' && PRODUCT_PAGE.test(url.pathname) && !request.headers.has('Turbo-Frame');
+// Só GET, HTML de página de produto OU (com header-nav + catálogo) de página "de casca" não transacional: home, listagem, coleções, sobre, conta/pedidos.
+// Login, carrinho, checkout e qualquer outro caminho nunca. Turbo-Frame devolve fragmento sem <head>: fora do escopo.
+const shellKindOf = (url) => shellPageKind(url.pathname, ACTIVE_STORE.inkBase);
+function isEligibleRequest(request, url, shellOn) {
+  if (request.method !== 'GET' || request.headers.has('Turbo-Frame')) return false;
+  return PRODUCT_PAGE.test(url.pathname) || (shellOn && shellKindOf(url) !== null);
 }
 
 // Redirects e erros da origem chegam ao cliente sem serem seguidos nem alterados.
@@ -67,6 +71,11 @@ class BodyLoaderInjector {
       if (this.state.product && !this.state.alreadyPresent) end.before(this.state.tag, { html: true });
     });
   }
+}
+// Página de casca: só injeta se o HTML tem o cabeçalho nativo da INK (nav.navbar), visto no MESMO passe; sem ele o HTML segue intacto.
+class ShellHeaderDetector {
+  constructor(state) { this.state = state; }
+  element() { this.state.product = true; }
 }
 class ExistingLoaderMarker {
   constructor(state) { this.state = state; }
@@ -113,9 +122,10 @@ function serveDiscovery(request, url, mode, features) {
 }
 
 async function injectLoader(request, url, mode, allowlist, features, scope, upstream) {
-  const allowlisted = inScope(scope, allowlist, url.pathname);
+  const shell = !PRODUCT_PAGE.test(url.pathname); // só chega aqui uma página de produto ou de casca (isEligibleRequest)
+  const allowlisted = shell ? shellEnabled(scope.mode, features.features) : inScope(scope, allowlist, url.pathname);
 
-  // Fail-closed: fora da allowlist nada é reescrito, e nem sequer se olha a resposta.
+  // Fail-closed: fora do escopo nada é reescrito, e nem sequer se olha a resposta.
   if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
 
   const response = await passThrough(request, upstream);
@@ -146,7 +156,7 @@ async function injectLoader(request, url, mode, allowlist, features, scope, upst
     const state = { product: false, alreadyPresent: false, tag: loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode)) };
     transformed = new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderMarker(state))
-      .on('form[id^="form-product-"]', new ProductFormDetector(state))
+      .on(shell ? 'nav.navbar' : 'form[id^="form-product-"]', shell ? new ShellHeaderDetector(state) : new ProductFormDetector(state))
       .on('body', new BodyLoaderInjector(state))
       .transform(response);
   } else {
@@ -185,6 +195,7 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
           allowlist_size: allowlist.paths.length,
           scope_mode: scope.mode,
           scope_status: scope.status,
+          shell_pages: shellEnabled(scope.mode, features.features),
           features_status: features.status,
           widget_features: features.features,
           cart_ref_stats: cartRefs.stats()
@@ -220,7 +231,7 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
       }
 
       // Sem nenhum módulo liberado não há o que injetar (fail-closed).
-      if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url)) return passThrough(request, upstream);
+      if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url, shellEnabled(scope.mode, features.features))) return passThrough(request, upstream);
       // Falha ABERTA: qualquer erro nosso ao reescrever devolve a página original da INK (a compra nunca depende do widget).
       try {
         return await injectLoader(request, url, mode, allowlist, features, scope, upstream);

@@ -6,16 +6,21 @@
 #
 # Trava dupla (nunca publica por padrão): o argumento --deploy E a confirmação do proprietário — digite a frase pedida no prompt, ou exporte
 # RELEASE_CONFIRM=PUBLICAR-NAVBAR-INK. Exige `npx wrangler login` FEITO PELO PROPRIETÁRIO (OAuth) na conta esperada. Não cria recursos,
-# não altera DNS/WAF/rotas, não apaga KV e nunca faz push/merge. Não faz compra: o QA ao vivo só adiciona um item ao carrinho ANÔNIMO.
+# altera SOMENTE as Workers Routes do host www.usesul.com.br (nunca DNS, WAF, KV, regras ou outras lojas) e nunca faz push/merge. Não faz compra: o QA ao vivo só adiciona um item ao carrinho ANÔNIMO.
 #
 # Ordem (o storefront e o CMS vêm ANTES; este script confere que já estão no ar e NÃO publica o storefront):
 #   0. pré-condições em produção: /api/navbar/sul (contrato v2: grupos top/more e estados), /sul/busca (resultados, sem resultado, cabeçalho de cache, coleção >48 completa)
 #   A. captura: versão ativa + health + variáveis/bindings REAIS da versão (escopo, allowlist, features); as features TÊM de ser exatamente as seis
 #      (header-nav já ativa, feature a mais/menos ou health divergente da versão => para, sem publicar)
+#   A2. rotas da zona: snapshot completo (ids, padrões, Workers) -> verificação do estado base -> ENSAIO da regra de especificidade num prefixo inofensivo (/usesul-rt) -> sondas
+#      de execução (wrangler tail) do estado base -> cria a EXCLUSÃO `/usesul/*` (sem Worker) e a home com barra `/usesul/` -> verifica e sonda de novo. A rota abrangente
+#      `/usesul*` só entra no passo B (pelo TOML), com a exclusão já ativa e provada.
 #   B. publica o mesmo código com as MESMAS variáveis (escopo/allowlist/ENABLE_WIDGET preservados) e WIDGET_FEATURES = as seis + header-nav
-#   C. health (sete features, mesmo escopo/allowlist, loader novo) + smoke público + rota /__origens/navbar igual à do storefront
+#   C. health (sete features, mesmo escopo/allowlist, loader novo, shell_pages) + smoke público (produto, páginas de casca com 1 loader, conta/login/carrinho sem) + /__origens/navbar igual à do storefront
 #   D. QA em navegador REAL ao vivo (1280/390/320, Enter na lupa, cart_ref verdadeiro, drawer/CTA nativos)
-#   E. falha crítica: evidência ANTES, depois `wrangler rollback` para a versão CAPTURADA em A (KV e checkout intactos) + health/smoke conferidos
+#      C2. rotas finais: verify --stage=final + sondas de EXECUÇÃO (Worker invocado nas páginas autorizadas; NÃO invocado em login/carrinho/checkout, com e sem query)
+#   E. falha crítica: evidência ANTES, depois RESTAURA as rotas do snapshot e `wrangler rollback` para a versão CAPTURADA em A (KV e checkout intactos) + health/smoke/rotas conferidos.
+#      Rollback de versão SOZINHO não restaura rotas (não são versionadas): as duas coisas andam juntas.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/global-common.sh"
 PHRASE="PUBLICAR-NAVBAR-INK"
@@ -26,7 +31,11 @@ MODE=""
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
 [ -n "$MODE" ] || { usage; log ""; log "Nada foi feito (falta --check ou --deploy)."; exit 2; }
 cd "$ROOT" || exit 1
-NEW_VERSION=$(node -e 'import("./src/loader-source.js").then((m)=>console.log(m.LOADER_VERSION))')
+NEW_VERSION=$(node -e 'import("./src/loader-source.js").then((m)=>console.log(m.LOADER_VERSION))'); export NAV_NEW_VERSION="$NEW_VERSION"
+ROUTES_CMD="node scripts/zone-routes.mjs"; [ "${UO_TEST_MODE:-}" = "1" ] && ROUTES_CMD="${UO_TEST_ROUTES_CMD:-$ROUTES_CMD}"
+PROPAGATION_WAIT="${ROUTES_PROPAGATION_WAIT:-50}"   # medido: as rotas novas levaram mais de 8 s para valer; 45 s bastaram no ensaio
+# Estágio das rotas da zona (baseline|staged|final|desconhecido), SOMENTE LEITURA.
+routes_stage() { local st; for st in baseline staged final; do (cd "$ROOT" && $ROUTES_CMD verify --stage=$st >/dev/null 2>&1) && { echo $st; return 0; }; done; echo desconhecido; }
 FAILS=(); WARNS=()
 ok()   { log "  OK    $*"; }
 warn() { WARNS+=("$*"); log "  WARN  $*"; }
@@ -62,6 +71,8 @@ HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 [ -n "$HEALTH_NOW" ] && ok "health lido: versão $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log(h.version+", escopo "+(h.scope_mode||"allowlist")+", "+(h.widget_features||[]).length+" features, allowlist "+h.allowlist_size)})')" || bad "health ilegível"
 if [ "$MODE" = check ]; then
   git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
+  ROUTES=$(grep -c '^pattern = ' "$CFG"); grep -Eq '^pattern = "[^"]*(cart|checkout|store_sessions)' "$CFG" && bad "rota do TOML no caminho de compra/login" || ok "rotas do TOML: $ROUTES, todas COM Worker (produto, __origens, /usesul*, /usesul, /usesul/ e as de casca); nenhuma de carrinho/checkout/login. A exclusão /usesul/* (sem Worker) NÃO está no TOML: é criada na zona pelo release (zone-routes.mjs) e desfeita no rollback junto com a versão"
+  RS=$(routes_stage); case "$RS" in baseline) ok "rotas da zona: estado base (as 7 de antes); o release cria a exclusão /usesul/* (sem Worker) e /usesul/ antes de ativar /usesul*" ;; final) ok "rotas da zona: JÁ no estado final (exclusão + abrangente)" ;; staged) warn "rotas da zona: exclusão e home com barra já criadas, /usesul* ainda não" ;; *) warn "rotas da zona não conferidas (sem credencial da Cloudflare ou estado inesperado): rode node scripts/zone-routes.mjs list" ;; esac
   git rev-parse --verify -q origin/main >/dev/null && { git diff --quiet origin/main -- "$CFG" && ok "$CFG idêntico ao da main (rotas e bindings iguais aos do último release)" || warn "$CFG difere de origin/main: conferir rotas/bindings"; }
   if WHO=$(npx wrangler whoami 2>&1) && echo "$WHO" | grep -qi 'logged in' && echo "$WHO" | grep -q "$EXPECTED_ACCOUNT_EMAIL"; then
     ok "wrangler autenticado como $EXPECTED_ACCOUNT_EMAIL"
@@ -90,36 +101,65 @@ PREV_VERSION=$(active_version) || die "não consegui capturar a versão ativa do
 PREV_HEALTH=$(health_json) || die "health ilegível"
 PLAN=$(capture_navbar_plan "$PREV_VERSION" "$PREV_HEALTH" 2>&1) || die "a produção atual não permite o release com segurança: $PLAN"
 PLAN_FIELD() { printf '%s' "$PLAN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[process.argv[1]]))' "$1"; }
-NAV_ALLOW=$(PLAN_FIELD WIDGET_ALLOWLIST); NAV_SCOPE=$(PLAN_FIELD WIDGET_SCOPE_MODE); NAV_EXPECT=$(PLAN_FIELD expect); NAV_SIZE=$(PLAN_FIELD allowlistSize)
+NAV_ALLOW=$(PLAN_FIELD WIDGET_ALLOWLIST); NAV_SCOPE=$(PLAN_FIELD WIDGET_SCOPE_MODE); NAV_EXPECT=$(PLAN_FIELD expect); NAV_SIZE=$(PLAN_FIELD allowlistSize); NAV_MODE=$(PLAN_FIELD mode)
+# "enable": as seis -> seis + header-nav. "update": a navbar JÁ está ativa (sete features, loader mais antigo): o estado ANTERIOR e o restaurado por um rollback também têm as sete, sem páginas de casca ainda.
+[ "$NAV_MODE" = update ] && PRE_FLAGS="--features=seven --shell=off" || PRE_FLAGS=""
 PREV_LOADER=$(printf '%s' "$PREV_HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')
 mkdir -p .release; TS=$(date +%Y%m%d-%H%M%S); CAP=".release/navbar-capture-$TS.json"; EVID="$ROOT/.release/evidence/navbar-$TS"; mkdir -p "$EVID"; chmod 700 "$EVID"
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1],JSON.stringify({captured_at:new Date().toISOString(),previous_version:process.argv[2],health:JSON.parse(process.argv[3]),plan:{scope:process.argv[4],allowlist_paths:Number(process.argv[5])}},null,1),{mode:0o600})' "$CAP" "$PREV_VERSION" "$PREV_HEALTH" "$NAV_SCOPE" "$NAV_SIZE"
-log "   versão de rollback: $PREV_VERSION (loader $PREV_LOADER), escopo $NAV_SCOPE, $NAV_SIZE caminho(s) — capturados em $CAP"
-smoke_six() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$1" --allowlist-size="$NAV_SIZE" ${2:+--version="$2"}); }
+log "   modo: $NAV_MODE — versão de rollback: $PREV_VERSION (loader $PREV_LOADER), escopo $NAV_SCOPE, $NAV_SIZE caminho(s) — capturados em $CAP"
+smoke_six() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$1" --allowlist-size="$NAV_SIZE" $PRE_FLAGS ${2:+--version="$2"}); }
 smoke_six "$NAV_EXPECT" >/dev/null || die "smoke no estado atual falhou (nada foi publicado)"
 storefront_ok || die "storefront INACESSÍVEL ($(storefront_probe)). Nada foi publicado."
 
+ROUTES_TOUCHED=0; SNAP=""
+# Rotas primeiro (tira o Worker de qualquer caminho novo), depois a versão. As duas conferidas: rota não é versionada, o rollback de versão sozinho NÃO a restaura.
 rollback() {
-  log ""; log "!!! ROLLBACK ($1) → versão capturada $PREV_VERSION"
+  log ""; log "!!! ROLLBACK ($1) → versão capturada $PREV_VERSION + rotas do snapshot ${SNAP:-(não alteradas)}"
+  local routes_ok=1
+  if [ "$ROUTES_TOUCHED" = 1 ] && [ -n "$SNAP" ]; then
+    if (cd "$ROOT" && $ROUTES_CMD restore "$SNAP") 2>&1 | grep -v '^npm warn'; [ "${PIPESTATUS[0]}" = 0 ]; then log "!!! rotas restauradas e conferidas contra o snapshot"; else routes_ok=0; log "!!! CRÍTICO: as rotas NÃO foram restauradas: node scripts/zone-routes.mjs restore $SNAP"; fi
+  fi
   if (cd "$ROOT" && npx wrangler rollback "$PREV_VERSION" --name "$WORKER_NAME" --message "release-navbar rollback: $1" --yes); then
     sleep 8
-    if printf '%s' "$PREV_HEALTH" | node -e 'import("./scripts/lib/release-lib.mjs").then((m)=>{let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const now=await (await fetch(process.argv[1])).json();process.exit(m.sameConfig(JSON.parse(s),now)?0:1)})})' "$HEALTH_URL" && smoke_six "$NAV_EXPECT" "$PREV_LOADER" >/dev/null; then
-      log "!!! rollback CONFIRMADO: versão capturada, mesmo escopo/allowlist/features (sem header-nav), KV intacto."; return 0; fi
-    log "!!! rollback aplicado, mas o health/smoke não conferem com o capturado."
+    if [ "$ROUTES_TOUCHED" = 1 ] && [ "$routes_ok" = 1 ]; then
+      sleep "$PROPAGATION_WAIT"; (cd "$ROOT" && $ROUTES_CMD probe --stage=baseline) 2>&1 | grep -v '^npm warn' | tee -a "$EVID/routes-probe-rollback.log"; [ "${PIPESTATUS[0]}" = 0 ] || { routes_ok=0; log "!!! as sondas de execução pós-rollback não conferem com o estado base"; }
+    fi
+    if [ "$routes_ok" = 1 ] && printf '%s' "$PREV_HEALTH" | node -e 'import("./scripts/lib/release-lib.mjs").then((m)=>{let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const now=await (await fetch(process.argv[1])).json();process.exit(m.sameConfig(JSON.parse(s),now)?0:1)})})' "$HEALTH_URL" && smoke_six "$NAV_EXPECT" "$PREV_LOADER" >/dev/null; then
+      log "!!! rollback CONFIRMADO: versão capturada, mesmo escopo/allowlist/features, KV intacto e rotas da zona idênticas ao snapshot (com evidência de execução)."; return 0; fi
+    log "!!! rollback aplicado, mas rotas/health/smoke não conferem com o capturado."
   fi
   log "!!! CRÍTICO: o rollback automático NÃO se confirmou. Ação manual imediata:"
+  [ -n "$SNAP" ] && log "    node scripts/zone-routes.mjs restore $SNAP"
   log "    npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --yes     (NUNCA publique sem as --var: o TOML é fail-closed e desliga a integração)"; return 1
 }
 fail() { capture_evidence "$EVID/falha-$(date +%H%M%S)" "$1" || true; rollback "$1"; log ""; log "RELEASE ABORTADO: $1"; log "   evidências: .release/evidence/navbar-$TS/ (fora do Git)"; exit 1; }
 smoke_navbar() { (cd "$ROOT" && node scripts/smoke-global.mjs --expect="$NAV_EXPECT" --features=seven --allowlist-size="$NAV_SIZE" --version="$NEW_VERSION") 2>&1 | tee -a "$EVID/smoke-navbar.log"; return "${PIPESTATUS[0]}"; }
 
-log "== B. publicação: mesmo escopo/allowlist, features = as seis + header-nav =="
+log "== A2. rotas da zona (só o host www; snapshot ANTES de qualquer alteração) =="
+SNAP=".release/routes-snapshot-$TS.json"
+(cd "$ROOT" && $ROUTES_CMD snapshot "$SNAP") || die "não consegui capturar o snapshot das rotas da zona (necessário para o rollback)"
+[ "$(routes_stage)" = baseline ] || die "as rotas da zona não estão no estado base esperado (7 rotas com Worker): $(cd "$ROOT" && $ROUTES_CMD list | tr '\n' ';'). Nada foi alterado; confira com: node scripts/zone-routes.mjs verify --stage=baseline"
+log "   ensaio da regra de especificidade num prefixo inofensivo (rotas temporárias em /usesul-rt, removidas ao final)…"
+(cd "$ROOT" && $ROUTES_CMD rehearse --wait="$PROPAGATION_WAIT") 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-rehearsal.log"; RH_RC="${PIPESTATUS[0]}"; [ "$RH_RC" = 0 ] || { (cd "$ROOT" && $ROUTES_CMD restore "$SNAP") >/dev/null 2>&1; die "o ensaio de rotas reprovou (a zona voltou ao estado anterior; nada da loja foi alterado): $(grep -h '^FAIL' "$EVID/routes-rehearsal.log" | head -2 | tr '\n' ' ')"; }
+(cd "$ROOT" && $ROUTES_CMD probe --stage=baseline) 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-probe-baseline.log"; [ "${PIPESTATUS[0]}" = 0 ] || die "as sondas de execução do estado base reprovaram (nada foi alterado)"
+
+log "== A3. exclusão /usesul/* (sem Worker) + /usesul/ — antes de ativar /usesul* =="
+ROUTES_TOUCHED=1
+(cd "$ROOT" && $ROUTES_CMD apply --stage=staged) 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-apply.log"; [ "${PIPESTATUS[0]}" = 0 ] || fail "criação da exclusão/home com barra falhou"
+sleep "$PROPAGATION_WAIT"
+(cd "$ROOT" && $ROUTES_CMD probe --stage=staged) 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-probe-staged.log"; [ "${PIPESTATUS[0]}" = 0 ] || fail "sondas de execução do estado com exclusão reprovaram: $(grep -h '^FAIL' "$EVID/routes-probe-staged.log" | head -2 | tr '\n' ' ')"
+
+log "== B. publicação ($NAV_MODE): mesmo escopo/allowlist, features = as seis + header-nav =="
 deploy_worker_navbar "$NAV_ALLOW" "$NAV_SCOPE" || fail "deploy da navbar falhou"
 sleep 8
 MSG=$(health_ok_navbar "$NAV_EXPECT" "$NAV_SIZE" "$NEW_VERSION" 2>&1) || fail "health após o deploy: $MSG"
 NOW_HEALTH=$(health_json) && node -e 'import("./scripts/lib/release-lib.mjs").then((m)=>process.exit(m.sameNavbarConfig(JSON.parse(process.argv[1]),JSON.parse(process.argv[2]),{withNavbar:true})?0:1))' "$PREV_HEALTH" "$NOW_HEALTH" || fail "o health pós-deploy mudou algo além de header-nav (escopo/allowlist/widget_mode)"
 
-log "== C. smoke público =="
+log "== C. rotas finais + smoke público =="
+(cd "$ROOT" && $ROUTES_CMD verify --stage=final) 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-final.log"; [ "${PIPESTATUS[0]}" = 0 ] || fail "as rotas da zona após o deploy não estão no estado final: $(grep -h '^FAIL' "$EVID/routes-final.log" | head -3 | tr '\n' ' ')"
+sleep "$PROPAGATION_WAIT"
+(cd "$ROOT" && $ROUTES_CMD probe --stage=final) 2>&1 | grep -v '^npm warn' | tee "$EVID/routes-probe-final.log"; [ "${PIPESTATUS[0]}" = 0 ] || fail "sondas de execução do estado final reprovaram: $(grep -h '^FAIL' "$EVID/routes-probe-final.log" | head -3 | tr '\n' ' ')"
 smoke_navbar || fail "smoke da navbar: $(grep -h '^FAIL' "$EVID"/smoke-navbar.log | head -3 | tr '\n' ' ')"
 
 log "== D. QA em navegador real (ao vivo) =="
@@ -131,7 +171,7 @@ fi
 MSG=$(health_ok_navbar "$NAV_EXPECT" "$NAV_SIZE" "$NEW_VERSION" 2>&1) || fail "health final: $MSG"
 
 log ""; log "RELEASE CONCLUÍDO: navbar da INK em produção (Worker $NEW_VERSION, escopo $NAV_SCOPE preservado)."
-log "   rollback disponível: npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --message \"rollback navbar\" --yes"
+log "   rollback disponível (versão E rotas, juntos): node scripts/zone-routes.mjs restore $SNAP && npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --message \"rollback navbar\" --yes"
 log "   só a navbar (mantendo o resto): republicar com as seis features (o mesmo escopo e allowlist) — ver docs/navbar-ink-busca.md"
 log "   Depois: npx wrangler logout"
 exit 0
