@@ -551,6 +551,22 @@ test('Ajuda tab: while the native menu is open, aria-expanded follows it and the
   assert.equal(btn.getAttribute('aria-expanded'), 'false'); assert.equal(btn.style.width, '44px', 'compact tab restored once closed');
 });
 
+test('Ajuda tab: opens the panel to the LEFT of the tab, base aligned with the toggle — not the native floating-ui math (tuned for the old wide pill, it would float away from a tall narrow tab)', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton'); const list = t.q('[data-ink-store--help-button-target="linksList"]');
+  btn.getBoundingClientRect = () => ({ top: 700, left: 1200, right: 1244, bottom: 748, width: 44, height: 48 });
+  // A INK normalmente escreveria isto sozinha ao abrir (sem !important) — simulamos, para provar que o NOSSO valor vence de qualquer forma.
+  list.style.setProperty('transform', 'translate(-13px, -68px)');
+  list.classList.remove('hidden'); click(t, t.doc.body); await tick(150);
+  assert.equal(list.style.position, 'fixed'); assert.equal(list.style.getPropertyPriority('position'), 'important');
+  assert.equal(list.style.right, '88px', 'innerWidth(1280) - btn.left(1200) + gap(8): abre à esquerda da aba'); assert.equal(list.style.getPropertyPriority('right'), 'important');
+  assert.equal(list.style.bottom, '52px', 'innerHeight(800) - btn.bottom(748): base alinhada com a base do botão'); assert.equal(list.style.getPropertyPriority('bottom'), 'important');
+  assert.equal(list.style.transform, 'none', 'nosso !important vence o transform que a INK escreveu sem !important'); assert.equal(list.style.getPropertyPriority('transform'), 'important');
+  list.classList.add('hidden'); click(t, t.doc.body); await tick(150);
+  assert.equal(list.style.position, '', 'limpo ao fechar: a próxima abertura nativa (se algum dia recuperarmos o controle) não herda lixo');
+  assert.equal(list.style.right, ''); assert.equal(list.style.bottom, '');
+});
+
 test('Ajuda tab: Escape closes the native menu and returns focus to the toggle (the INK does not handle Escape on its own)', async () => {
   const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
   const btn = t.q('#dropdownLinksListButton'); const list = t.q('[data-ink-store--help-button-target="linksList"]');

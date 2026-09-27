@@ -474,6 +474,9 @@ export const HEADER_NAV = String.raw`
       const fab = document.getElementById('o-wa-fab');
       const help = document.querySelector('[data-controller~="ink-store--help-button"]');
       if (!fab || !help) return;
+      // Garante que o Ajuda já esteja no tamanho FECHADO (44px) antes de medir: os dois widgets são independentes e, sem isto, na primeira
+      // montagem esta aba mediria o botão nativo ainda largo (128px) e ficaria desalinhada da aba de Ajuda por um instante (ou até o próximo evento).
+      ajudaSync();
       const rect = help.getBoundingClientRect();
       const panelOpen = waShown('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]');
       const burger = document.getElementById('menu-hamburger');
@@ -509,6 +512,7 @@ export const HEADER_NAV = String.raw`
   // botão fechado (ícone em cima, "Ajuda?" na vertical, mesma largura da aba de WhatsApp) e acrescentamos o que falta nela: Escape fecha e
   // devolve o foco, e os rótulos de acessibilidade. Estrutura desconhecida (sem botão, sem painel ou sem o texto/ícone esperado) => nada muda.
   const AJUDA_CLOSED_HEIGHT = 108;
+  const AJUDA_PANEL_GAP = 8;
   function ajudaParts() {
     const help = document.querySelector('[data-controller~="ink-store--help-button"]');
     const btn = help ? help.querySelector('button') : null;
@@ -518,6 +522,53 @@ export const HEADER_NAV = String.raw`
     return { help: help, btn: btn, list: list, wrap: wrap };
   }
   const ajudaIsOpen = (list) => !list.classList.contains('hidden');
+  // Painel: a INK o posiciona sozinha (floating-ui) medindo o BOTÃO na hora de abrir — calibrado para o pill largo original (128×48). Com o
+  // botão fechado agora bem mais alto (para caber o texto vertical), aquela conta jogava o painel longe da pilha de abas. Assumimos a posição
+  // nós mesmos (com !important: sempre vence o inset/transform que a INK escreve sem !important, seja qual for a ordem), abrindo à ESQUERDA da
+  // aba e com a base alinhada à base do botão (perto do "×" de fechar) — a apresentação pedida, sem tocar nos links/handlers de dentro.
+  function ajudaPlacePanel(parts) {
+    const rect = parts.btn.getBoundingClientRect();
+    const right = window.innerWidth - rect.left + AJUDA_PANEL_GAP;
+    const bottom = Math.max(8, window.innerHeight - rect.bottom);
+    const style = parts.list.style;
+    style.setProperty('position', 'fixed', 'important');
+    style.setProperty('inset', 'auto', 'important');
+    style.setProperty('transform', 'none', 'important');
+    style.setProperty('margin', '0', 'important');
+    style.setProperty('top', 'auto', 'important');
+    style.setProperty('left', 'auto', 'important');
+    style.setProperty('right', right + 'px', 'important');
+    style.setProperty('bottom', bottom + 'px', 'important');
+    style.setProperty('max-height', 'min(70vh, 400px)', 'important');
+    style.setProperty('overflow-y', 'auto', 'important');
+  }
+  function ajudaClearPanel(list) {
+    for (const prop of ['position', 'inset', 'transform', 'margin', 'top', 'left', 'right', 'bottom', 'max-height', 'overflow-y']) list.style.removeProperty(prop);
+  }
+  // Fechado: aba estreita e alta (ícone em cima, "Ajuda?" na vertical embaixo). Aberto: a própria INK já encolhe o botão a um quadrado com "×"
+  // (e esconde este wrap sozinha) — nossos estilos saem do caminho para não brigar com a classe "hidden" dela; só o painel continua nosso.
+  // Função solta (não só método do widget): a aba de WhatsApp chama isto antes de medir o Ajuda, para nunca ler o tamanho largo por engano.
+  function ajudaSync() {
+    const parts = ajudaParts();
+    if (!parts) return;
+    const open = ajudaIsOpen(parts.list);
+    parts.btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
+    if (open) {
+      parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = '';
+      parts.wrap.style.cssText = '';
+      if (label) label.style.cssText = '';
+      ajudaPlacePanel(parts);
+    } else {
+      parts.btn.style.width = TAB_SIZE + 'px';
+      parts.btn.style.height = AJUDA_CLOSED_HEIGHT + 'px';
+      parts.btn.style.padding = '8px 4px';
+      parts.btn.style.borderRadius = '10px';
+      parts.wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px';
+      if (label) label.style.cssText = 'writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap';
+      ajudaClearPanel(parts.list);
+    }
+  }
 
   register({
     id: 'ajuda-tab',
@@ -539,9 +590,10 @@ export const HEADER_NAV = String.raw`
       if (!this.ac) {
         this.ac = new AbortController();
         const signal = this.ac.signal;
-        const later = () => { clearTimeout(this.timer); this.timer = setTimeout(() => this.sync(), 60); };
+        const later = () => { clearTimeout(this.timer); this.timer = setTimeout(ajudaSync, 60); };
         // Sem observers: reagimos aos mesmos eventos da aba de WhatsApp (clique abre/fecha o menu; teclado só precisa do Escape).
         window.addEventListener('resize', later, { signal: signal });
+        window.addEventListener('scroll', later, { passive: true, signal: signal });
         document.addEventListener('click', later, { capture: true, signal: signal });
         document.addEventListener('keydown', (event) => {
           const p = ajudaParts();
@@ -550,29 +602,7 @@ export const HEADER_NAV = String.raw`
         }, { signal: signal });
         if (window.visualViewport) window.visualViewport.addEventListener('resize', later, { signal: signal });
       }
-      this.sync();
-    },
-
-    // Fechado: aba estreita e alta (ícone em cima, "Ajuda?" na vertical embaixo). Aberto: a própria INK já encolhe o botão a um quadrado com "×"
-    // (e esconde este wrap sozinha) — nossos estilos saem do caminho para não brigar com a classe "hidden" dela.
-    sync() {
-      const parts = ajudaParts();
-      if (!parts) return;
-      const open = ajudaIsOpen(parts.list);
-      parts.btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
-      if (open) {
-        parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = '';
-        parts.wrap.style.cssText = '';
-        if (label) label.style.cssText = '';
-      } else {
-        parts.btn.style.width = TAB_SIZE + 'px';
-        parts.btn.style.height = AJUDA_CLOSED_HEIGHT + 'px';
-        parts.btn.style.padding = '8px 4px';
-        parts.btn.style.borderRadius = '10px';
-        parts.wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px';
-        if (label) label.style.cssText = 'writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap';
-      }
+      ajudaSync();
     },
 
     unmount() {
@@ -586,6 +616,7 @@ export const HEADER_NAV = String.raw`
       parts.wrap.style.cssText = '';
       const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
       if (label) label.style.cssText = '';
+      ajudaClearPanel(parts.list);
     }
   });
 `;
