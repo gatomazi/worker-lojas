@@ -49,6 +49,9 @@ function setup({ features = NAV_ONLY, config = CONFIG, cart = '', header = HEADE
   // A largura "não cabe" é simulada por página (o jsdom não tem layout).
   Object.defineProperty(w.HTMLElement.prototype, 'scrollWidth', { configurable: true, get() { return this.classList && this.classList.contains('o-nav-links') ? (w.__overflow ? 999 : 10) : 0; } });
   Object.defineProperty(w.HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return this.classList && this.classList.contains('o-nav-links') ? 100 : 0; } });
+  // Sem barra de rolagem no jsdom: clientWidth/clientHeight do <html> acompanham innerWidth/innerHeight (a propriedade acima do <html> continua 0).
+  Object.defineProperty(w.document.documentElement, 'clientWidth', { configurable: true, get: () => w.innerWidth });
+  Object.defineProperty(w.document.documentElement, 'clientHeight', { configurable: true, get: () => w.innerHeight });
   w.__overflow = overflow;
   if (viewport) Object.defineProperty(w, 'visualViewport', { configurable: true, value: { height: viewport, addEventListener() {} } });
   if (carry) for (const [k, v] of Object.entries(carry)) w.sessionStorage.setItem(k, v);
@@ -442,6 +445,15 @@ test('WhatsApp tab: a green, icon-only, rounded-square link ABOVE the native Aju
   assert.equal(new t.w.URL(fab.href).hostname, 'api.whatsapp.com');
 });
 
+test('WhatsApp tab: converts to "right"/"bottom" with clientWidth/clientHeight, never innerWidth/innerHeight — a real (non-overlay) scrollbar must not push it out of alignment with the Ajuda tab', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); // innerWidth 1280, help right 1260/width 128
+  // Simula uma barra de rolagem vertical de 15 px: o <html> tem 15 px a menos de área útil do que window.innerWidth.
+  Object.defineProperty(t.w.document.documentElement, 'clientWidth', { configurable: true, value: 1265 });
+  await settle(t);
+  const fab = t.q('#o-wa-fab');
+  assert.equal(fab.style.right, '47px', 'clientWidth(1265) - help.right(1260) + (128-44)/2: usar innerWidth (1280) daria 62px, desalinhado do Ajuda');
+});
+
 test('WhatsApp FAB: the Ajuda still works (its click is not intercepted) and our FAB steps aside while the Ajuda list is open', async () => {
   const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
   const button = t.q('#dropdownLinksListButton'); let helpClicks = 0; let prevented = null;
@@ -559,12 +571,22 @@ test('Ajuda tab: opens the panel to the LEFT of the tab, base aligned with the t
   list.style.setProperty('transform', 'translate(-13px, -68px)');
   list.classList.remove('hidden'); click(t, t.doc.body); await tick(150);
   assert.equal(list.style.position, 'fixed'); assert.equal(list.style.getPropertyPriority('position'), 'important');
-  assert.equal(list.style.right, '88px', 'innerWidth(1280) - btn.left(1200) + gap(8): abre à esquerda da aba'); assert.equal(list.style.getPropertyPriority('right'), 'important');
-  assert.equal(list.style.bottom, '52px', 'innerHeight(800) - btn.bottom(748): base alinhada com a base do botão'); assert.equal(list.style.getPropertyPriority('bottom'), 'important');
+  assert.equal(list.style.right, '88px', 'clientWidth(1280) - btn.left(1200) + gap(8): abre à esquerda da aba'); assert.equal(list.style.getPropertyPriority('right'), 'important');
+  assert.equal(list.style.bottom, '52px', 'clientHeight(800) - btn.bottom(748): base alinhada com a base do botão'); assert.equal(list.style.getPropertyPriority('bottom'), 'important');
   assert.equal(list.style.transform, 'none', 'nosso !important vence o transform que a INK escreveu sem !important'); assert.equal(list.style.getPropertyPriority('transform'), 'important');
   list.classList.add('hidden'); click(t, t.doc.body); await tick(150);
   assert.equal(list.style.position, '', 'limpo ao fechar: a próxima abertura nativa (se algum dia recuperarmos o controle) não herda lixo');
   assert.equal(list.style.right, ''); assert.equal(list.style.bottom, '');
+});
+
+test('Ajuda tab: the panel also converts with clientWidth (not innerWidth) — a visible scrollbar must not push it away from the tab either', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t);
+  Object.defineProperty(t.w.document.documentElement, 'clientWidth', { configurable: true, value: 1265 });
+  await settle(t);
+  const btn = t.q('#dropdownLinksListButton'); const list = t.q('[data-ink-store--help-button-target="linksList"]');
+  btn.getBoundingClientRect = () => ({ top: 700, left: 1200, right: 1244, bottom: 748, width: 44, height: 48 });
+  list.classList.remove('hidden'); click(t, t.doc.body); await tick(150);
+  assert.equal(list.style.right, '73px', 'clientWidth(1265) - btn.left(1200) + gap(8): usar innerWidth (1280) daria 88px');
 });
 
 test('Ajuda tab: Escape closes the native menu and returns focus to the toggle (the INK does not handle Escape on its own)', async () => {

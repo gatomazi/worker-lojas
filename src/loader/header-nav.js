@@ -478,6 +478,10 @@ export const HEADER_NAV = String.raw`
       // montagem esta aba mediria o botão nativo ainda largo (128px) e ficaria desalinhada da aba de Ajuda por um instante (ou até o próximo evento).
       ajudaSync();
       const rect = help.getBoundingClientRect();
+      // clientWidth/clientHeight (NUNCA innerWidth/innerHeight) para converter em "right"/"bottom": innerWidth inclui a barra de rolagem, mas o
+      // "right:0" de um elemento fixed é medido sem ela — a diferença (a largura da barra) desalinhava esta aba do Ajuda em telas com barra visível.
+      const vw = document.documentElement.clientWidth;
+      const vh = document.documentElement.clientHeight;
       const panelOpen = waShown('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]');
       const burger = document.getElementById('menu-hamburger');
       const menuOpen = !!burger && burger.getAttribute('aria-expanded') === 'true';
@@ -486,11 +490,11 @@ export const HEADER_NAV = String.raw`
       let anchor = rect.top;
       const banner = document.querySelector('.cookie-acceptance');
       if (banner && banner.getClientRects().length > 0) { const b = banner.getBoundingClientRect(); if (b.left < rect.right && b.right > rect.left && b.top < rect.bottom) anchor = Math.min(anchor, b.top); }
-      const bottom = window.innerHeight - anchor + TAB_GAP;
-      const right = Math.max(0, window.innerWidth - rect.right + (rect.width - TAB_SIZE) / 2);
+      const bottom = vh - anchor + TAB_GAP;
+      const right = Math.max(0, vw - rect.right + (rect.width - TAB_SIZE) / 2);
       fab.style.bottom = bottom + 'px';
       fab.style.right = right + 'px';
-      const ours = { left: window.innerWidth - right - TAB_SIZE, right: window.innerWidth - right, top: window.innerHeight - bottom - TAB_SIZE, bottom: window.innerHeight - bottom };
+      const ours = { left: vw - right - TAB_SIZE, right: vw - right, top: vh - bottom - TAB_SIZE, bottom: vh - bottom };
       const header = document.querySelector('header');
       const noRoom = ours.top < (header ? Math.max(0, header.getBoundingClientRect().bottom) : 0) + 8;
       const covered = ['#add-to-cart-mob'].some((sel) => { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0 && waIntersects(ours, el.getBoundingClientRect()); });
@@ -528,8 +532,9 @@ export const HEADER_NAV = String.raw`
   // aba e com a base alinhada à base do botão (perto do "×" de fechar) — a apresentação pedida, sem tocar nos links/handlers de dentro.
   function ajudaPlacePanel(parts) {
     const rect = parts.btn.getBoundingClientRect();
-    const right = window.innerWidth - rect.left + AJUDA_PANEL_GAP;
-    const bottom = Math.max(8, window.innerHeight - rect.bottom);
+    // clientWidth/clientHeight, não innerWidth/innerHeight (veja o comentário em whatsapp-fab.place): a barra de rolagem não entra na conta.
+    const right = document.documentElement.clientWidth - rect.left + AJUDA_PANEL_GAP;
+    const bottom = Math.max(8, document.documentElement.clientHeight - rect.bottom);
     const style = parts.list.style;
     style.setProperty('position', 'fixed', 'important');
     style.setProperty('inset', 'auto', 'important');
@@ -586,6 +591,9 @@ export const HEADER_NAV = String.raw`
         parts.btn.setAttribute('aria-haspopup', 'true');
         if (!parts.list.id) parts.list.id = 'o-ajuda-list';
         parts.btn.setAttribute('aria-controls', parts.list.id);
+        // O tema anima mudanças de tamanho (transition do CSS dele). Sem isto, a aba de WhatsApp mediria o botão NO MEIO da animação
+        // (largura intermediária, nem 128 nem 44) e ficaria alguns pixels desalinhada até a transição terminar.
+        parts.btn.style.transition = 'none';
       }
       if (!this.ac) {
         this.ac = new AbortController();
@@ -612,7 +620,7 @@ export const HEADER_NAV = String.raw`
       if (!parts || !parts.btn.hasAttribute('data-origens-ajuda')) return;
       parts.btn.removeAttribute('data-origens-ajuda');
       parts.btn.removeAttribute('aria-label'); parts.btn.removeAttribute('aria-haspopup'); parts.btn.removeAttribute('aria-controls'); parts.btn.removeAttribute('aria-expanded');
-      parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = '';
+      parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = ''; parts.btn.style.transition = '';
       parts.wrap.style.cssText = '';
       const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
       if (label) label.style.cssText = '';
