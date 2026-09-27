@@ -2,9 +2,9 @@
 // Smoke HTTP PÚBLICO e SOMENTE LEITURA do Worker publicado (sem cookies, sem POST, sem carrinho, sem login).
 //   node scripts/smoke-global.mjs --expect=allowlist   -> estado atual (cinco produtos): amostra fora do escopo SEM loader
 //   node scripts/smoke-global.mjs --expect=catalog     -> catálogo inteiro: amostra COM exatamente 1 loader
-//   --features=seven [--allowlist-size=N] [--shell=off] -> estado do release da navbar: as seis + header-nav (e a rota /__origens/navbar viva). --shell=off: a navbar
+//   --features=seven [--allowlist-size=N] [--shell=off] -> estado do release da navbar: as sete + header-nav (e a rota /__origens/navbar viva). --shell=off: a navbar
 //                                                        está ativa mas as páginas de casca AINDA não (estado anterior a um update, ou o estado restaurado por um rollback)
-// exit 0 = ok; 1 = alguma divergência (lista impressa). O health é conferido contra as seis features e a allowlist de cinco.
+// exit 0 = ok; 1 = alguma divergência (lista impressa). O health é conferido contra as sete features e a allowlist de cinco.
 import { readFileSync } from 'node:fs';
 import { evaluateHealth, countLoaders, FIVE_SLUGS, SIX_FEATURES, SEVEN_FEATURES } from './lib/release-lib.mjs';
 

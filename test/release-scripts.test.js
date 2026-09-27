@@ -71,7 +71,7 @@ test('every real deploy goes through deploy_worker with the FULL variable set; n
   const real = common.split('\n').filter((l) => /npx wrangler deploy -c/.test(l) && !/--dry-run/.test(l));
   assert.equal(real.length, 2, 'deploy_worker (release global, six features) and deploy_worker_navbar (release da navbar, test/release-navbar.test.js)');
   for (const needle of ['--var ENABLE_WIDGET:true', '--var "WIDGET_ALLOWLIST:$ALLOW"', '--var "WIDGET_FEATURES:$FEATURES"', '--var "WIDGET_SCOPE_MODE:$scope"']) assert.ok(real[0].includes(needle), needle);
-  assert.match(common, /FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery"/);
+  assert.match(common, /FEATURES="return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,list-session"/);
   assert.match(common, /assert_deploy_vars "\$scope" \|\| return 1/);
   // o rollback restaura a versão CAPTURADA (com cart-mirror), nunca "a anterior" às cegas
   assert.match(release, /wrangler rollback "\$PREV_VERSION"/); assert.doesNotMatch(release, /wrangler rollback --name|rollback\s*$/m);
