@@ -4,6 +4,7 @@ import { parseFeatures } from './features.js';
 import { createSearchGateway } from './search-gateway.js';
 import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
+import { createListSession, LIST_SESSION_PATH } from './list-session.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
 import { ACTIVE_STORE } from './stores.js';
 
@@ -176,7 +177,7 @@ async function injectLoader(request, url, mode, allowlist, features, scope, upst
 
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
-export function createWorker(upstream, { gateway = createSearchGateway(), cartRefs = createCartRefs(), navbar = createNavbarGateway() } = {}) {
+export function createWorker(upstream, { gateway = createSearchGateway(), cartRefs = createCartRefs(), navbar = createNavbarGateway(), listSession = createListSession() } = {}) {
   return {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
@@ -225,6 +226,10 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
       // Configuração pública da navbar (coleções do CMS): só com true + header-nav; caso contrário a INK responde (404 dela).
       if (url.pathname === NAVBAR_PATH) {
         return mode === 'true' && features.features.includes('header-nav') ? navbar.handle(request) : passThrough(request, upstream);
+      }
+      // Sessão de compra de "Meus Lugares": só com true + list-session; caso contrário a INK responde (404 dela).
+      if (url.pathname === LIST_SESSION_PATH) {
+        return mode === 'true' && features.features.includes('list-session') ? listSession.handle(request) : passThrough(request, upstream);
       }
       if (url.pathname === SEARCH_PATH) {
         return mode === 'true' && features.features.includes('city-search') ? gateway.handle(request, ctx) : passThrough(request, upstream);
