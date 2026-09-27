@@ -6,7 +6,9 @@
 //             um nome). Regiões (estados) e Cidades são fixos. Sem largura para tudo, a APRESENTAÇÃO vira um único menu compacto; os grupos não mudam.
 //   Busca:    lupa fechada por padrão; abre UM campo de texto (painel compacto ancorado, sem empurrar a página), sem sugestão nem requisição por tecla.
 //             Enter/"Buscar" -> /sul/busca?q=... no storefront. A busca "Buscar cidade ou estado" do bloco de descoberta é outra coisa.
-//   FAB:      botão verde de WhatsApp logo ACIMA do "Ajuda?" nativo (destino = o link de WhatsApp que a própria INK já publica na página; sem link, não aparece).
+//   Abas:     duas abas compactas empilhadas na lateral direita, logo acima do CTA fixo — WhatsApp (verde, só ícone; destino = o link que a própria INK já
+//             publica na página; sem link, não aparece) em cima e Ajuda (texto vertical, botão nativo apenas reestilizado, mesmo menu e handlers da INK)
+//             embaixo. Nada de FAB circular grande nem de menu reconstruído: o controlador da INK segue no comando do Ajuda.
 // Fail-aberto: o cabeçalho NATIVO só é escondido (CSS, enquanto o nosso existir no mesmo <header>) depois de montado. Conta, carrinho e o menu lateral nativo
 // nunca são removidos. Sem configuração, estrutura desconhecida ou qualquer erro => nada muda.
 // Saída para o storefront (logo, Cidades, Regiões, Buscar): links reais com [data-origens-nav]; o cart-mirror os trata como nossos (snapshot UMA vez na
@@ -410,12 +412,17 @@ export const HEADER_NAV = String.raw`
     }
   });
 
-  // ── FAB de WhatsApp, logo acima do "Ajuda?" nativo ─────────────────────────────────────────────────────────────────────────────────────────
+  // ── Aba de WhatsApp, logo acima da aba de Ajuda ────────────────────────────────────────────────────────────────────────────────────────────
   // Destino: o link de WhatsApp que a própria INK já publica na página (telefone e mensagem dela; nada inventado). Sem link ou sem o Ajuda, não aparece.
   // Posição: calculada a partir do retângulo REAL do Ajuda (que a INK já posiciona com margens próprias); recuada (acima do aviso de cookies) ou escondida, nunca os controles nativos.
+  // TAB_SIZE também define a largura da aba de Ajuda (mais abaixo): mesma largura => bordas alinhadas na pilha.
+  // TAB_Z: medido ao vivo na INK — o slide ATIVO do carrossel de imagens do produto usa z-index:30 com transform (cria seu próprio contexto de
+  // empilhamento na raiz do documento); em telas baixas/estreitas a aba de WhatsApp cai na faixa vertical da imagem. 31 garante que a aba
+  // sempre fique por cima da foto, e ainda bem abaixo de qualquer modal real (carrinho, pós-compra), que usam z-index muito mais alto.
   const WA_HOSTS = ['api.whatsapp.com', 'wa.me', 'web.whatsapp.com'];
-  const WA_SIZE = 52;
-  const WA_GAP = 12;
+  const TAB_SIZE = 44;
+  const TAB_GAP = 8;
+  const TAB_Z = 31;
   function waHref() {
     for (const a of document.querySelectorAll('a[href*="whatsapp.com"], a[href^="https://wa.me/"]')) {
       if (a.id === 'o-wa-fab') continue;
@@ -443,7 +450,7 @@ export const HEADER_NAV = String.raw`
       if (!help || !href || help.getClientRects().length === 0) { if (fab) { fab.hidden = true; fab.style.display = 'none'; } return; }
       if (!fab) {
         fab = navEl('a', { id: 'o-wa-fab', href: href, target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Falar pelo WhatsApp', title: 'Falar pelo WhatsApp', 'data-origens-fab': '' });
-        fab.style.cssText = 'position:fixed;z-index:29;display:flex;align-items:center;justify-content:center;width:' + WA_SIZE + 'px;height:' + WA_SIZE + 'px;border-radius:50%;background:#25d366;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25);text-decoration:none;outline-offset:3px';
+        fab.style.cssText = 'position:fixed;z-index:' + TAB_Z + ';display:flex;align-items:center;justify-content:center;width:' + TAB_SIZE + 'px;height:' + TAB_SIZE + 'px;border-radius:10px;background:#25d366;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25);text-decoration:none;outline-offset:3px';
         fab.innerHTML = NAV_SVG.whatsapp;
         document.body.appendChild(fab);
         if (!this.ac) {
@@ -476,11 +483,11 @@ export const HEADER_NAV = String.raw`
       let anchor = rect.top;
       const banner = document.querySelector('.cookie-acceptance');
       if (banner && banner.getClientRects().length > 0) { const b = banner.getBoundingClientRect(); if (b.left < rect.right && b.right > rect.left && b.top < rect.bottom) anchor = Math.min(anchor, b.top); }
-      const bottom = window.innerHeight - anchor + WA_GAP;
-      const right = Math.max(0, window.innerWidth - rect.right + (rect.width - WA_SIZE) / 2);
+      const bottom = window.innerHeight - anchor + TAB_GAP;
+      const right = Math.max(0, window.innerWidth - rect.right + (rect.width - TAB_SIZE) / 2);
       fab.style.bottom = bottom + 'px';
       fab.style.right = right + 'px';
-      const ours = { left: window.innerWidth - right - WA_SIZE, right: window.innerWidth - right, top: window.innerHeight - bottom - WA_SIZE, bottom: window.innerHeight - bottom };
+      const ours = { left: window.innerWidth - right - TAB_SIZE, right: window.innerWidth - right, top: window.innerHeight - bottom - TAB_SIZE, bottom: window.innerHeight - bottom };
       const header = document.querySelector('header');
       const noRoom = ours.top < (header ? Math.max(0, header.getBoundingClientRect().bottom) : 0) + 8;
       const covered = ['#add-to-cart-mob'].some((sel) => { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0 && waIntersects(ours, el.getBoundingClientRect()); });
@@ -494,6 +501,91 @@ export const HEADER_NAV = String.raw`
       if (this.ac) { this.ac.abort(); this.ac = null; }
       const fab = document.getElementById('o-wa-fab');
       if (fab) fab.remove();
+    }
+  });
+
+  // ── Aba de Ajuda: o MESMO botão e menu nativos da INK, só reestilizados ────────────────────────────────────────────────────────────────────
+  // Não recriamos handlers, links nem o painel: a INK continua abrindo/fechando e o clique fora já fecha sozinha. Só reduzimos e alongamos o
+  // botão fechado (ícone em cima, "Ajuda?" na vertical, mesma largura da aba de WhatsApp) e acrescentamos o que falta nela: Escape fecha e
+  // devolve o foco, e os rótulos de acessibilidade. Estrutura desconhecida (sem botão, sem painel ou sem o texto/ícone esperado) => nada muda.
+  const AJUDA_CLOSED_HEIGHT = 108;
+  function ajudaParts() {
+    const help = document.querySelector('[data-controller~="ink-store--help-button"]');
+    const btn = help ? help.querySelector('button') : null;
+    const list = help ? help.querySelector('[data-ink-store--help-button-target="linksList"]') : null;
+    const wrap = btn ? btn.querySelector('[data-ink-store--help-button-target="iconAndTextHelp"]') : null;
+    if (!help || !btn || !list || !wrap || wrap.children.length < 2) return null;
+    return { help: help, btn: btn, list: list, wrap: wrap };
+  }
+  const ajudaIsOpen = (list) => !list.classList.contains('hidden');
+
+  register({
+    id: 'ajuda-tab',
+    shell: true,
+    ac: null,
+    timer: null,
+
+    mount() {
+      if (!pageNow()) return this.unmount();
+      const parts = ajudaParts();
+      if (!parts) return;
+      if (!parts.btn.hasAttribute('data-origens-ajuda')) {
+        parts.btn.setAttribute('data-origens-ajuda', '');
+        parts.btn.setAttribute('aria-label', 'Abrir ajuda');
+        parts.btn.setAttribute('aria-haspopup', 'true');
+        if (!parts.list.id) parts.list.id = 'o-ajuda-list';
+        parts.btn.setAttribute('aria-controls', parts.list.id);
+      }
+      if (!this.ac) {
+        this.ac = new AbortController();
+        const signal = this.ac.signal;
+        const later = () => { clearTimeout(this.timer); this.timer = setTimeout(() => this.sync(), 60); };
+        // Sem observers: reagimos aos mesmos eventos da aba de WhatsApp (clique abre/fecha o menu; teclado só precisa do Escape).
+        window.addEventListener('resize', later, { signal: signal });
+        document.addEventListener('click', later, { capture: true, signal: signal });
+        document.addEventListener('keydown', (event) => {
+          const p = ajudaParts();
+          if (event.key === 'Escape' && p && ajudaIsOpen(p.list)) { event.preventDefault(); p.btn.click(); p.btn.focus(); }
+          later();
+        }, { signal: signal });
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', later, { signal: signal });
+      }
+      this.sync();
+    },
+
+    // Fechado: aba estreita e alta (ícone em cima, "Ajuda?" na vertical embaixo). Aberto: a própria INK já encolhe o botão a um quadrado com "×"
+    // (e esconde este wrap sozinha) — nossos estilos saem do caminho para não brigar com a classe "hidden" dela.
+    sync() {
+      const parts = ajudaParts();
+      if (!parts) return;
+      const open = ajudaIsOpen(parts.list);
+      parts.btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
+      if (open) {
+        parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = '';
+        parts.wrap.style.cssText = '';
+        if (label) label.style.cssText = '';
+      } else {
+        parts.btn.style.width = TAB_SIZE + 'px';
+        parts.btn.style.height = AJUDA_CLOSED_HEIGHT + 'px';
+        parts.btn.style.padding = '8px 4px';
+        parts.btn.style.borderRadius = '10px';
+        parts.wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px';
+        if (label) label.style.cssText = 'writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap';
+      }
+    },
+
+    unmount() {
+      clearTimeout(this.timer);
+      if (this.ac) { this.ac.abort(); this.ac = null; }
+      const parts = ajudaParts();
+      if (!parts || !parts.btn.hasAttribute('data-origens-ajuda')) return;
+      parts.btn.removeAttribute('data-origens-ajuda');
+      parts.btn.removeAttribute('aria-label'); parts.btn.removeAttribute('aria-haspopup'); parts.btn.removeAttribute('aria-controls'); parts.btn.removeAttribute('aria-expanded');
+      parts.btn.style.width = ''; parts.btn.style.height = ''; parts.btn.style.padding = ''; parts.btn.style.borderRadius = '';
+      parts.wrap.style.cssText = '';
+      const label = Array.from(parts.wrap.children).find((el) => !el.querySelector('svg'));
+      if (label) label.style.cssText = '';
     }
   });
 `;

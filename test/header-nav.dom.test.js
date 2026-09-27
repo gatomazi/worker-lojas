@@ -428,14 +428,14 @@ function stubHelpRect(t, rect = { top: 700, right: 1260, bottom: 748, left: 1132
 }
 const settle = async (t) => { t.doc.body.appendChild(t.doc.createElement('i')); await tick(200); };
 
-test('WhatsApp FAB: a green link ABOVE the native Ajuda, to the WhatsApp destination the INK itself publishes (phone and message kept), safe attributes, 52 px target', async () => {
+test('WhatsApp tab: a green, icon-only, rounded-square link ABOVE the native Ajuda, to the WhatsApp destination the INK itself publishes (phone and message kept), safe attributes, 44 px target', async () => {
   const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
   const fab = t.q('#o-wa-fab');
   assert.ok(fab); assert.equal(t.all('#o-wa-fab').length, 1);
   assert.equal(fab.getAttribute('href'), WA); assert.equal(fab.getAttribute('target'), '_blank'); assert.equal(fab.getAttribute('rel'), 'noopener noreferrer'); assert.equal(fab.getAttribute('aria-label'), 'Falar pelo WhatsApp');
-  assert.equal(fab.style.position, 'fixed'); assert.equal(fab.style.width, '52px'); assert.equal(fab.style.height, '52px'); assert.match(fab.style.background, /#25d366|rgb\(37, 211, 102\)/);
-  assert.equal(fab.style.bottom, '112px', 'Ajuda top (700) -> 800 - 700 + a 12 px gap'); assert.equal(fab.style.right, '58px', 'centered over the 128 px Ajuda that ends 20 px from the edge');
-  assert.ok(Number(fab.style.zIndex) < 30, 'never above the native Ajuda (z-30)');
+  assert.equal(fab.style.position, 'fixed'); assert.equal(fab.style.width, '44px'); assert.equal(fab.style.height, '44px'); assert.equal(fab.style.borderRadius, '10px', 'rounded square/tab, not a circle'); assert.match(fab.style.background, /#25d366|rgb\(37, 211, 102\)/);
+  assert.equal(fab.style.bottom, '108px', 'Ajuda top (700) -> 800 - 700 + an 8 px gap'); assert.equal(fab.style.right, '62px', 'centered over the 128 px Ajuda that ends 20 px from the edge');
+  assert.equal(fab.style.zIndex, '31', 'above the product image carousel (its active slide is z-index 30 with a transform, measured live on the INK)');
   assert.ok(fab.querySelector('svg'), 'recognizable icon');
   const help = t.q('[data-controller~="ink-store--help-button"]');
   assert.ok(help.querySelector('#dropdownLinksListButton') && help.querySelector('[data-ink-store--help-button-target="linksList"]').children.length === 3, 'the native Ajuda and its list are untouched');
@@ -464,10 +464,10 @@ test('WhatsApp FAB: hidden (never the native controls) while the cart drawer, th
   const burger = t.q('#menu-hamburger'); burger.setAttribute('aria-expanded', 'true'); click(t, t.doc.body); await tick(150); assert.equal(visible(), false, 'mobile menu open'); burger.setAttribute('aria-expanded', 'false'); click(t, t.doc.body); await tick(150); assert.equal(visible(), true);
   const banner = t.doc.createElement('div'); banner.className = 'cookie-acceptance'; banner.getBoundingClientRect = () => ({ left: 0, right: 1280, top: 640, bottom: 800, width: 1280, height: 160 }); t.doc.body.appendChild(banner);
   click(t, t.doc.body); await tick(150);
-  assert.equal(visible(), true, 'the cookie banner covers the Ajuda column: the FAB stacks ABOVE the banner instead of vanishing'); assert.equal(fab().style.bottom, '172px', 'banner top (640) -> 800 - 640 + 12'); assert.ok(t.q('.cookie-acceptance'), 'the banner is untouched');
+  assert.equal(visible(), true, 'the cookie banner covers the Ajuda column: the FAB stacks ABOVE the banner instead of vanishing'); assert.equal(fab().style.bottom, '168px', 'banner top (640) -> 800 - 640 + 8'); assert.ok(t.q('.cookie-acceptance'), 'the banner is untouched');
   banner.getBoundingClientRect = () => ({ left: 0, right: 600, top: 640, bottom: 800, width: 600, height: 160 }); click(t, t.doc.body); await tick(150);
-  assert.equal(fab().style.bottom, '112px', 'a banner that does not touch the Ajuda column changes nothing');
-  banner.remove(); click(t, t.doc.body); await tick(150); assert.equal(visible(), true); assert.equal(fab().style.bottom, '112px');
+  assert.equal(fab().style.bottom, '108px', 'a banner that does not touch the Ajuda column changes nothing');
+  banner.remove(); click(t, t.doc.body); await tick(150); assert.equal(visible(), true); assert.equal(fab().style.bottom, '108px');
   let bar = t.q('#add-to-cart-mob'); const created = !bar; if (created) { bar = t.doc.createElement('div'); bar.id = 'add-to-cart-mob'; t.doc.body.appendChild(bar); }
   bar.getBoundingClientRect = () => ({ left: 0, right: 1280, top: 660, bottom: 800, width: 1280, height: 140 });
   click(t, t.doc.body); await tick(150); assert.equal(visible(), false, 'a fixed purchase bar in its spot: we recede, it never does');
@@ -513,4 +513,75 @@ test('WhatsApp FAB: no observers of its own and no request of any kind (only eve
   const full = buildLoaderSource([PATH], NAV_ONLY);
   const src = full.slice(full.indexOf("id: 'whatsapp-fab'"), full.indexOf('function start()')); // só o widget do FAB (o runtime tem o seu próprio observer)
   assert.doesNotMatch(src, /new MutationObserver|new ResizeObserver|new IntersectionObserver|setInterval/, 'the FAB adds no observer or polling');
+});
+
+// ── Aba de Ajuda (mesmo botão e menu nativos, só reestilizados) ───────────────────────────────────────────────────────────────────────────────
+test('Ajuda tab: the native button is narrowed and heightened (same width as the WhatsApp tab), icon kept on top and "Ajuda?" written vertically', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton');
+  const wrap = btn.querySelector('[data-ink-store--help-button-target="iconAndTextHelp"]');
+  assert.equal(btn.style.width, '44px', 'same 44 px width as the WhatsApp tab above it: edges align in the stack');
+  assert.equal(t.q('#o-wa-fab').style.width, btn.style.width);
+  assert.equal(btn.style.height, '108px'); assert.equal(btn.style.borderRadius, '10px'); assert.equal(btn.style.padding, '8px 4px');
+  assert.equal(wrap.style.display, 'flex'); assert.equal(wrap.style.flexDirection, 'column');
+  const [icon, label] = [...wrap.children];
+  assert.ok(icon.querySelector('svg'), 'the icon stays where it was, on top');
+  assert.equal(label.textContent.trim(), 'Ajuda?'); assert.equal(label.style.writingMode, 'vertical-rl'); assert.match(label.style.transform, /rotate\(180deg\)/);
+  assert.equal(t.q('[data-ink-store--help-button-target="linksList"]').children.length, 3, 'the native menu and its links are untouched');
+});
+
+test('Ajuda tab: accessibility labels are added without touching the native handlers, links, destinations or their order', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton');
+  assert.equal(btn.getAttribute('aria-label'), 'Abrir ajuda'); assert.equal(btn.getAttribute('aria-haspopup'), 'true'); assert.equal(btn.getAttribute('aria-expanded'), 'false');
+  const list = t.q('[data-ink-store--help-button-target="linksList"]');
+  assert.equal(btn.getAttribute('aria-controls'), list.id); assert.ok(list.id, 'an id was assigned so aria-controls can point at it');
+  assert.deepEqual(t.all('[data-ink-store--help-button-target="linksList"] a').map((a) => a.textContent.trim()), ['Status do pedido', 'Troca', 'WhatsApp'], 'same links, same order');
+  let helpClicks = 0; t.doc.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#dropdownLinksListButton')) helpClicks++; });
+  click(t, btn); assert.equal(helpClicks, 1, 'the click still reaches the native controller, nothing intercepts it');
+});
+
+test('Ajuda tab: while the native menu is open, aria-expanded follows it and the compact sizing steps aside for the native square/× control', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton'); const list = t.q('[data-ink-store--help-button-target="linksList"]');
+  list.classList.remove('hidden'); click(t, t.doc.body); await tick(150); // the INK's Stimulus controller opens it; our sync follows on the next event
+  assert.equal(btn.getAttribute('aria-expanded'), 'true');
+  assert.equal(btn.style.width, '', 'no inline size fighting the native rounded-full 48 px "×" square'); assert.equal(btn.style.height, ''); assert.equal(btn.style.borderRadius, '');
+  list.classList.add('hidden'); click(t, t.doc.body); await tick(150);
+  assert.equal(btn.getAttribute('aria-expanded'), 'false'); assert.equal(btn.style.width, '44px', 'compact tab restored once closed');
+});
+
+test('Ajuda tab: Escape closes the native menu and returns focus to the toggle (the INK does not handle Escape on its own)', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton'); const list = t.q('[data-ink-store--help-button-target="linksList"]');
+  let helpClicks = 0;
+  // Estamos em jsdom (o controlador Stimulus real da INK não roda): simulamos o que ele já faz sozinho, alternar o "hidden" a cada clique no botão.
+  t.doc.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#dropdownLinksListButton')) { helpClicks++; list.classList.toggle('hidden'); } });
+  list.classList.remove('hidden'); // aberto, como se o clique nativo já tivesse acontecido
+  t.doc.dispatchEvent(new t.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await tick(150);
+  assert.equal(helpClicks, 1, 'Escape is turned into a real click on the native toggle, which is what actually closes it');
+  assert.equal(list.classList.contains('hidden'), true, 'the (simulated) native toggle closed it');
+  assert.equal(t.doc.activeElement, btn, 'focus returns to the toggle, not lost to the body');
+  t.doc.dispatchEvent(new t.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await tick(150);
+  assert.equal(helpClicks, 1, 'already closed: Escape is a no-op, never a phantom toggle');
+});
+
+test('Ajuda tab: unknown structure (no icon, only text, or no native button at all) => nothing changes', async () => {
+  const flatHelp = HELP.replace(/<span><svg[^]*?<\/svg><\/span><span>Ajuda\?<\/span>/, '<span>Ajuda?</span>');
+  const t = setup({ help: flatHelp }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton');
+  assert.equal(btn.style.width, '', 'only one child in the icon/text wrap: structure not as expected, left untouched');
+  assert.equal(btn.hasAttribute('aria-label'), false);
+  const noHelp = setup({ help: '<a class="wpp-floater" href="' + WA + '">wa</a>' }); await settle(noHelp);
+  assert.equal(noHelp.q('#dropdownLinksListButton'), null); // nothing to throw on
+});
+
+test('Ajuda tab: leaves cleanly with the loader (Turbo away from the product page) — no leftover inline style or attribute on the native button', async () => {
+  const t = setup({ help: HELP }); stubHelpRect(t); await settle(t);
+  const btn = t.q('#dropdownLinksListButton');
+  assert.equal(btn.style.width, '44px');
+  t.w.history.pushState({}, '', '/usesul'); t.doc.dispatchEvent(new t.w.Event('turbo:load')); await tick(200);
+  assert.equal(btn.style.width, ''); assert.equal(btn.style.height, ''); assert.equal(btn.style.padding, ''); assert.equal(btn.style.borderRadius, '');
+  assert.equal(btn.hasAttribute('aria-label'), false); assert.equal(btn.hasAttribute('aria-haspopup'), false); assert.equal(btn.hasAttribute('aria-controls'), false); assert.equal(btn.hasAttribute('aria-expanded'), false);
+  assert.equal(btn.hasAttribute('data-origens-ajuda'), false);
 });
