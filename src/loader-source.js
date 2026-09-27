@@ -18,7 +18,7 @@ import { DEFAULT_FEATURES } from './features.js';
 import { shellPageKind, shellEnabled } from './scope.js';
 import { ACTIVE_STORE } from './stores.js';
 
-export const LOADER_VERSION = '4.7';
+export const LOADER_VERSION = '4.8';
 export { buildDiscoverySource };
 
 // Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano
