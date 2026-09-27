@@ -11,7 +11,9 @@ export const STORES = Object.freeze({
     inkBase: '/usesul',
     storefront: 'https://useorigens.com.br',
     storefrontBase: '/sul',
-    navbarApi: '/api/navbar/sul'
+    navbarApi: '/api/navbar/sul',
+    // "Meus Lugares" (ver docs/buy-session-contract.md): o Worker só faz GET <buySessionApi>/<id>, nunca minta nem interpreta o id.
+    buySessionApi: '/api/buy-session'
   })
 });
 export const ACTIVE_STORE = STORES.sul;
