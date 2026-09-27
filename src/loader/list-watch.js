@@ -104,6 +104,11 @@ export const LIST_WATCH = String.raw`
     const cta = document.createElement('a');
     cta.className = 'o-ls-cta';
     cta.textContent = 'Ver próxima →';
+    // Único link MESMA ORIGEM (INK -> INK) que este código já injeta — todo outro CTA (return-link,
+    // discovery, product-discovery) sai para o storefront, origem diferente, onde o Turbo Drive da INK nunca
+    // intercepta o clique. Aqui intercepta: sem isto, o clique vira uma visita Turbo que a INK trata como
+    // navegação (fechando/esmaecendo o drawer) sem completar o carregamento real da próxima página.
+    cta.setAttribute('data-turbo', 'false');
     const safeHref = lsSafeUrl(next.url, 'https:');
     if (safeHref) {
       const withToken = new URL(safeHref);

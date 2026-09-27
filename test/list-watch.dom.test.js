@@ -77,6 +77,22 @@ test('with ?ls=<token>, a confirmed add mounts the card between the native butto
   assert.equal(cta.textContent, 'Ver próxima →');
   assert.equal(new URL(cta.href).origin + new URL(cta.href).pathname, NEXT.url);
   assert.equal(new URL(cta.href).searchParams.get('ls'), TOKEN, 'the token rides along to the next product page too');
+  assert.equal(cta.getAttribute('data-turbo'), 'false', 'this is the only SAME-ORIGIN (INK -> INK) link this code injects: without opting out, Turbo Drive intercepts the click as a visit instead of a real navigation (real bug, found in production: the drawer closed/dimmed and nothing loaded)');
+});
+
+test('"Ver próxima" survives a Turbo-Drive-style click interceptor (same-origin links are hijacked unless data-turbo="false")', async () => {
+  const t = setup({ search: '?ls=' + TOKEN }); await tick();
+  // Minimal stand-in for how Turbo Drive actually behaves: a capture-phase document listener that hijacks any
+  // same-origin <a href> click unless it opts out — this is what silently broke the real button in production.
+  t.doc.addEventListener('click', (event) => {
+    const a = event.target.closest && event.target.closest('a[href]');
+    if (a && a.getAttribute('data-turbo') !== 'false' && new t.w.URL(a.href).origin === t.w.location.origin) event.preventDefault();
+  }, true);
+  openDrawer(t.doc); await tick(200);
+  const cta = card(t.doc).querySelector('.o-ls-cta');
+  const clickEvent = new t.w.MouseEvent('click', { bubbles: true, cancelable: true });
+  cta.dispatchEvent(clickEvent);
+  assert.equal(clickEvent.defaultPrevented, false, 'data-turbo="false" must keep Turbo from swallowing the navigation');
 });
 
 test('the current page\'s product id is marked done and sent to the gateway (the drawer opening IS the confirmed-add signal)', async () => {
