@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { evaluateHealth, parseVersionBindings, planNavbarRelease, sameNavbarConfig, SIX_FEATURES, SEVEN_FEATURES, FIVE_SLUGS } from '../scripts/lib/release-lib.mjs';
+import { evaluateHealth, parseVersionBindings, planNavbarRelease, sameNavbarConfig, shellOnBefore, SIX_FEATURES, SEVEN_FEATURES, FIVE_SLUGS } from '../scripts/lib/release-lib.mjs';
 
 // Release da navbar: seis features + header-nav, configuração REAL capturada, sem relaxar nada do release global.
 const ALLOW = FIVE_SLUGS.map((s) => '/usesul/product/' + s);
@@ -165,6 +165,31 @@ test('release-navbar.sh: snapshot -> rehearsal -> exclusion BEFORE the deploy th
   const check = src.slice(at('if [ "$MODE" = check ]'), at('# ── --deploy'));
   assert.doesNotMatch(check, /(zone-routes\.mjs|ROUTES_CMD) (apply|restore|rehearse|snapshot)/, '--check only READS routes (verify), never writes');
   assert.match(src, /ROUTES_TOUCHED=1\n\(cd "\$ROOT" && \$ROUTES_CMD apply/, 'the rollback only touches routes once the release has started changing them');
+});
+
+test('shellOnBefore: the shell pages are expected BEFORE the release (and after a rollback) only when the captured health already shows them on', () => {
+  assert.equal(shellOnBefore(health({ shell_pages: true })), true);
+  assert.equal(shellOnBefore(health({ shell_pages: false })), false);
+  assert.equal(shellOnBefore(health()), false, 'a health from before the shell pages existed has no shell_pages field');
+  assert.equal(shellOnBefore(null), false);
+});
+
+test('release-navbar.sh update with routes ALREADY final (a later release): no route is created, rehearsed, restored or snapshot-applied — the routes are only probed; the pre-state smoke follows the captured health', () => {
+  const src = readFileSync(new URL('../scripts/release-navbar.sh', import.meta.url), 'utf8');
+  const start = src.indexOf('if [ "$ROUTES_STAGE" = baseline ]; then');
+  assert.ok(start > 0, 'the A2 rehearsal + A3 exclusion live behind the baseline stage');
+  const elseAt = src.indexOf('\nelse\n', start); const fiAt = src.indexOf('\nfi\n', elseAt);
+  const baselineBlock = src.slice(start, elseAt); const finalBlock = src.slice(elseAt, fiAt);
+  for (const write of ['rehearse', 'apply --stage=staged', 'ROUTES_TOUCHED=1']) assert.ok(baselineBlock.includes(write), write + ' only runs on the first (baseline) transition');
+  assert.doesNotMatch(finalBlock, /ROUTES_CMD (apply|restore|rehearse|snapshot)|ROUTES_TOUCHED=1/, 'already-final routes are never written');
+  assert.match(finalBlock, /probe --stage="\$ROUTES_STAGE"/, 'but the current state is proven by execution evidence before publishing');
+  assert.match(src, /case "\$ROUTES_STAGE" in[\s\S]*\*\) die /, 'any other stage still stops without changing anything');
+  // the rollback of an untouched-routes release re-proves the final stage instead of waiting for a propagation that never happens
+  const rb = src.slice(src.indexOf('rollback() {'), src.indexOf('fail() {'));
+  assert.match(rb, /"\$ROUTES_TOUCHED" = 0 \] && \[ "\$ROUTES_STAGE" = final \]/);
+  // no hardcoded "no shell pages before": the flag comes from the captured health
+  assert.doesNotMatch(src, /PRE_FLAGS="--features=seven --shell=off"/);
+  assert.match(src, /shellOnBefore\(JSON\.parse\(s\)\)/);
 });
 
 test('zone-routes.mjs scope: only Workers Routes of the www host; never DNS, WAF, rules, KV or scripts; `apply` never deletes; the exclusion is created without a script', () => {
