@@ -148,7 +148,7 @@ const fabInfo = (page) => page.evaluate(() => {
   const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
   if (!fab) return { exists: false };
   const f = fab.getBoundingClientRect(); const h = help ? help.getBoundingClientRect() : null;
-  return { exists: true, shown: vis(fab), href: fab.getAttribute('href'), target: fab.getAttribute('target'), rel: fab.getAttribute('rel'), size: [Math.round(f.width), Math.round(f.height)], aboveHelp: h ? f.bottom <= h.top + 0.5 : null, gap: h ? Math.round(h.top - f.bottom) : null, centerOffset: h ? Math.round(Math.abs(f.left + f.width / 2 - (h.left + h.width / 2))) : null, helpShown: vis(help), inViewport: f.top >= 0 && f.left >= 0 && f.right <= innerWidth && f.bottom <= innerHeight };
+  return { exists: true, shown: vis(fab), href: fab.getAttribute('href'), target: fab.getAttribute('target'), rel: fab.getAttribute('rel'), size: [Math.round(f.width), Math.round(f.height)], aboveHelp: h ? f.bottom <= h.top + 0.5 : null, gap: h ? Math.round(h.top - f.bottom) : null, helpSize: h ? [Math.round(h.width), Math.round(h.height)] : null, helpRightDelta: h ? Math.round(Math.abs(f.right - h.right)) : null, centerOffset: h ? Math.round(Math.abs(f.left + f.width / 2 - (h.left + h.width / 2))) : null, helpShown: vis(help), inViewport: f.top >= 0 && f.left >= 0 && f.right <= innerWidth && f.bottom <= innerHeight };
 });
 const nativeWa = (page) => page.evaluate(() => { const a = document.querySelector('a.wpp-floater'); return a ? a.getAttribute('href') : null; });
 
@@ -224,12 +224,19 @@ try {
 
   // FAB de WhatsApp acima do Ajuda (desktop)
   const wa = await nativeWa(d.page); const fab = await fabInfo(d.page);
-  check('[1280] FAB de WhatsApp: ACIMA do "Ajuda?" nativo (centralizado), 52 px, para o link de WhatsApp que a própria INK publica', fab.exists && fab.shown && fab.aboveHelp === true && fab.centerOffset <= 2 && fab.size[0] === 52 && fab.href === wa && fab.target === '_blank' && /noopener/.test(fab.rel || '') && fab.inViewport, JSON.stringify({ ...fab, nativeWa: wa ? 'presente' : null }));
+  check('[1280] abas laterais: WhatsApp (só ícone, 44 px) ACIMA da aba de Ajuda, mesma largura e mesma borda direita, intervalo curto, para o link de WhatsApp que a própria INK publica', fab.exists && fab.shown && fab.aboveHelp === true && fab.size[0] === 44 && fab.size[1] === 44 && !!fab.helpSize && fab.helpSize[0] === 44 && fab.helpRightDelta <= 1 && fab.gap >= 6 && fab.gap <= 10 && fab.href === wa && fab.target === '_blank' && /noopener/.test(fab.rel || '') && fab.inViewport, JSON.stringify({ ...fab, nativeWa: wa ? 'presente' : null }));
   await d.page.screenshot({ path: OUT + 'desktop-fab-ajuda-1280.png', clip: { x: 1000, y: 560, width: 280, height: 240 } });
   await d.page.locator('[data-controller~="ink-store--help-button"] button').first().click(); await wait(d.page, 400);
   const helpOpen = await fabInfo(d.page);
   check('[1280] o Ajuda nativo continua funcionando (abre a lista) e o FAB recua enquanto ela está aberta', await d.page.evaluate(() => { const l = document.querySelector('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]'); return !!l && l.getClientRects().length > 0; }) && helpOpen.shown === false, JSON.stringify(helpOpen));
+  const helpPanel = await d.page.evaluate(() => { const b = document.querySelector('[data-controller~="ink-store--help-button"] button'); const l = document.querySelector('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]'); const br = b.getBoundingClientRect(); const lr = l.getBoundingClientRect(); return { toLeft: lr.right <= br.left + 0.5, gapPx: Math.round(br.left - lr.right), baseDelta: Math.round(Math.abs(lr.bottom - br.bottom)), inViewport: lr.top >= 0 && lr.left >= 0 && lr.right <= innerWidth && lr.bottom <= innerHeight, links: [...l.querySelectorAll('a')].map((a) => a.textContent.trim()) }; });
+  check('[1280] Ajuda aberta: painel à ESQUERDA do botão, base alinhada com ele (perto do "×"), dentro da tela, com as opções reais da INK', helpPanel.toLeft && helpPanel.gapPx <= 16 && helpPanel.baseDelta <= 4 && helpPanel.inViewport && helpPanel.links.length >= 3, JSON.stringify(helpPanel));
   await d.page.locator('[data-controller~="ink-store--help-button"] button').first().click(); await wait(d.page, 300);
+  // Escape fecha o menu (a INK não trata sozinha) e devolve o foco ao botão
+  await d.page.locator('[data-controller~="ink-store--help-button"] button').first().click(); await wait(d.page, 300);
+  await d.page.keyboard.press('Escape'); await wait(d.page, 300);
+  const escState = await d.page.evaluate(() => { const l = document.querySelector('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]'); return { closed: l.getClientRects().length === 0, focusOnToggle: !!document.activeElement && document.activeElement.id === 'dropdownLinksListButton' }; });
+  check('[1280] Escape fecha o menu de Ajuda e devolve o foco ao botão', escState.closed && escState.focusOnToggle, JSON.stringify(escState));
 
   // Larguras intermediárias: sem overflow nem sobreposição; com lista grande a apresentação vira Menu compacto
   for (const w of [1100, 1024]) {
