@@ -1,22 +1,22 @@
 {
- "when": "2026-09-28T15:26:56.554Z",
+ "when": "2026-09-28T18:54:06.852Z",
  "store": "centro",
  "mode": "live",
- "loader": "4.7",
- "pass": 86,
+ "loader": "4.8",
+ "pass": 116,
  "fail": 0,
  "failures": [],
  "checks": [
   {
    "name": "health: Worker da loja no ar (PRODUÇÃO) com a identidade use-centro-widget",
    "ok": true,
-   "detail": "{\"service\":\"use-centro-widget\",\"store\":\"centro\",\"kv\":true,\"mode\":\"true\",\"scope\":\"product-catalog\",\"v\":\"4.7\"}",
+   "detail": "{\"service\":\"use-centro-widget\",\"store\":\"centro\",\"kv\":true,\"mode\":\"true\",\"scope\":\"product-catalog\",\"shell\":true,\"v\":\"4.8\"}",
    "cls": "Worker"
   },
   {
-   "name": "centro 1280px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada",
+   "name": "centro 1280px: produto real ro/product/goiania-origem-go → 1 loader (v4.8) e a navbar montada",
    "ok": true,
-   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "detail": "{\"tags\":1,\"v\":\"4.8\",\"nav\":true,\"headers\":3}",
    "cls": "Worker"
   },
   {
@@ -40,7 +40,7 @@
   {
    "name": "centro 1280px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)",
    "ok": true,
-   "detail": "GET /__origens/loader.js | GET /__origens/discovery.js | GET /__origens/navbar",
+   "detail": "GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js",
    "cls": "Worker"
   },
   {
@@ -112,7 +112,7 @@
   {
    "name": "centro 1280px: saída \"Explorar todas as estampas\" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈519ms (teto de espera da saída: 1200 ms)",
+   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈454ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {
@@ -158,9 +158,9 @@
    "cls": "Worker"
   },
   {
-   "name": "centro 390px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada",
+   "name": "centro 390px: produto real ro/product/goiania-origem-go → 1 loader (v4.8) e a navbar montada",
    "ok": true,
-   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "detail": "{\"tags\":1,\"v\":\"4.8\",\"nav\":true,\"headers\":3}",
    "cls": "Worker"
   },
   {
@@ -256,7 +256,7 @@
   {
    "name": "centro 390px: saída \"Explorar todas as estampas\" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈483ms (teto de espera da saída: 1200 ms)",
+   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈519ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {
@@ -302,9 +302,9 @@
    "cls": "Worker"
   },
   {
-   "name": "centro 320px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada",
+   "name": "centro 320px: produto real ro/product/goiania-origem-go → 1 loader (v4.8) e a navbar montada",
    "ok": true,
-   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "detail": "{\"tags\":1,\"v\":\"4.8\",\"nav\":true,\"headers\":3}",
    "cls": "Worker"
   },
   {
@@ -352,7 +352,7 @@
   {
    "name": "centro 320px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
    "ok": true,
-   "detail": "{\"posts\":0,\"counterBefore\":1,\"counterAfter\":0}",
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":0}",
    "cls": "Worker"
   },
   {
@@ -400,7 +400,7 @@
   {
    "name": "centro 320px: saída \"Explorar todas as estampas\" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈492ms (teto de espera da saída: 1200 ms)",
+   "detail": "/centro-oeste ref=<22 chars ok> posts=1 POST≈441ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {
@@ -446,6 +446,168 @@
    "cls": "Worker"
   },
   {
+   "name": "centro casca 1280px: inicio (<base>) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: listagem (<base>/products) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: colecao (<base>/collections/df) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: sobre (<base>/about) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: rastreio (<base>/orders/trackings) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: busca a partir do início → /centro-oeste/busca?q=goiania",
+   "ok": true,
+   "detail": "/centro-oeste/busca?q=goiania",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: Turbo produto → início: 1 cabeçalho, 1 estilo, 1 busca",
+   "ok": true,
+   "detail": "{\"path\":\"/usecentro\",\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: Turbo início → login: nada nosso fica na tela",
+   "ok": true,
+   "detail": "{\"nav\":false,\"styles\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 1280px: conta/pedidos sem sessão → redireciona ao login da INK e nada nosso fica (/usecentro/store_sessions/new)",
+   "ok": true,
+   "detail": "/usecentro/store_sessions/new",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: inicio (<base>) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: listagem (<base>/products) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: colecao (<base>/collections/df) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: sobre (<base>/about) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: rastreio (<base>/orders/trackings) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: busca a partir do início → /centro-oeste/busca?q=goiania",
+   "ok": true,
+   "detail": "/centro-oeste/busca?q=goiania",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: Turbo produto → início: 1 cabeçalho, 1 estilo, 1 busca",
+   "ok": true,
+   "detail": "{\"path\":\"/usecentro\",\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: Turbo início → login: nada nosso fica na tela",
+   "ok": true,
+   "detail": "{\"nav\":false,\"styles\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 390px: conta/pedidos sem sessão → redireciona ao login da INK e nada nosso fica (/usecentro/store_sessions/new)",
+   "ok": true,
+   "detail": "/usecentro/store_sessions/new",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: inicio (<base>) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: listagem (<base>/products) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: colecao (<base>/collections/df) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: sobre (<base>/about) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: rastreio (<base>/orders/trackings) → 1 loader, navbar montada, logo → /centro-oeste, sem duplicar, nada nosso além da tela",
+   "ok": true,
+   "detail": "{\"tags\":1,\"nav\":true,\"logo\":\"https://useorigens.com.br/centro-oeste\",\"forms\":1,\"styles\":1,\"overflow\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: busca a partir do início → /centro-oeste/busca?q=goiania",
+   "ok": true,
+   "detail": "/centro-oeste/busca?q=goiania",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: Turbo produto → início: 1 cabeçalho, 1 estilo, 1 busca",
+   "ok": true,
+   "detail": "{\"path\":\"/usecentro\",\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: Turbo início → login: nada nosso fica na tela",
+   "ok": true,
+   "detail": "{\"nav\":false,\"styles\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro casca 320px: conta/pedidos sem sessão → redireciona ao login da INK e nada nosso fica (/usecentro/store_sessions/new)",
+   "ok": true,
+   "detail": "/usecentro/store_sessions/new",
+   "cls": "Worker"
+  },
+  {
    "name": "centro negativos: produto com UTM → 1 loader e navbar",
    "ok": true,
    "detail": "{\"tags\":1}",
@@ -476,19 +638,37 @@
    "cls": "Worker"
   },
   {
-   "name": "centro negativos: <base> → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "name": "centro negativos: <base>/login → nada nosso (loader 0, navbar false) [HTTP 404]",
    "ok": true,
    "detail": "",
    "cls": "Worker"
   },
   {
-   "name": "centro negativos: <base>/products → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "name": "centro negativos: <base>/checkout → nada nosso (loader 0, navbar false) [HTTP 404]",
    "ok": true,
    "detail": "",
    "cls": "Worker"
   },
   {
-   "name": "centro negativos: <base>/orders/trackings → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "name": "centro negativos: <base>/orders → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro negativos: <base> → casca COM a navbar (1 loader) (loader 1, navbar true) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro negativos: <base>/products → casca COM a navbar (1 loader) (loader 1, navbar true) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "centro negativos: <base>/orders/trackings → casca COM a navbar (1 loader) (loader 1, navbar true) [HTTP 200]",
    "ok": true,
    "detail": "",
    "cls": "Worker"
