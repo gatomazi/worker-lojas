@@ -1,14 +1,11 @@
 {
- "when": "2026-09-28T14:20:24.977Z",
+ "when": "2026-09-28T15:15:46.586Z",
  "store": "norte",
  "mode": "live",
  "loader": "4.7",
- "pass": 84,
- "fail": 2,
- "failures": [
-  "[Worker] norte 390px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)",
-  "[Worker] norte 320px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)"
- ],
+ "pass": 86,
+ "fail": 0,
+ "failures": [],
  "checks": [
   {
    "name": "health: Worker da loja no ar (PRODUÇÃO) com a identidade use-norte-widget",
@@ -65,9 +62,9 @@
    "cls": "Storefront"
   },
   {
-   "name": "norte 1280px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)",
+   "name": "norte 1280px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
    "ok": true,
-   "detail": "{\"before\":0,\"after\":0}",
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":0}",
    "cls": "Worker"
   },
   {
@@ -115,7 +112,7 @@
   {
    "name": "norte 1280px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/norte ref=<22 chars ok> posts=1 POST≈487ms (teto de espera da saída: 1200 ms)",
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈499ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {
@@ -209,9 +206,9 @@
    "cls": "Storefront"
   },
   {
-   "name": "norte 390px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)",
-   "ok": false,
-   "detail": "{\"before\":0,\"after\":1}",
+   "name": "norte 390px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
+   "ok": true,
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":0}",
    "cls": "Worker"
   },
   {
@@ -259,7 +256,7 @@
   {
    "name": "norte 390px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/norte ref=<22 chars ok> posts=1 POST≈495ms (teto de espera da saída: 1200 ms)",
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈457ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {
@@ -331,7 +328,7 @@
   {
    "name": "norte 320px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)",
    "ok": true,
-   "detail": "GET /__origens/loader.js | GET /__origens/discovery.js | GET /__origens/navbar",
+   "detail": "GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js",
    "cls": "Worker"
   },
   {
@@ -353,9 +350,9 @@
    "cls": "Storefront"
   },
   {
-   "name": "norte 320px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)",
-   "ok": false,
-   "detail": "{\"before\":1,\"after\":0}",
+   "name": "norte 320px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
+   "ok": true,
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":1}",
    "cls": "Worker"
   },
   {
@@ -403,7 +400,7 @@
   {
    "name": "norte 320px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
    "ok": true,
-   "detail": "/norte ref=<22 chars ok> posts=1 POST≈531ms (teto de espera da saída: 1200 ms)",
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈446ms (teto de espera da saída: 1200 ms)",
    "cls": "Worker"
   },
   {

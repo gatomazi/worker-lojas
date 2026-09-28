@@ -2,7 +2,7 @@
 
 Rodada de 2026-09-28. Objetivo: levar às lojas INK da Norte e da Centro-Oeste a integração já comprovada na Use Sul, com **o mesmo código-base e dois Workers independentes** (`use-norte-widget`, `use-centro-widget`). Vitrines, catálogos, CMS e a Use Sul não foram reconstruídos nem alterados.
 
-**Estado ao fim desta rodada: código, testes, QA em navegador real (Worker local na frente da INK real) e scripts de release prontos e commitados; NADA foi publicado.** As duas lojas estão **BLOCKED** por um item de infraestrutura que só o proprietário resolve (DNS) e por um pré-requisito do storefront (PR regional do espelho do carrinho). Detalhes e comandos exatos na seção 8.
+**Estado atual (2026-09-28, tarde): as duas lojas estão PUBLICADAS e passaram no QA ao vivo em navegador real (86 PASS, 0 FAIL cada), incluindo "Meu carrinho" no storefront regional e a volta ao carrinho nativo da própria loja.** Norte: `use-norte-widget`, versão ativa `013f722c…`; Centro-Oeste: `use-centro-widget`, versão ativa `c0fac294…`; ambas em `product-catalog`, 8 features, KV próprio, só produto + `/__origens/*`. A primeira tentativa do Norte reverteu sozinha para a fase 1 por um falso negativo do QA (contador de KV por isolate); corrigido e retomado na fase 2. Evidências em `docs/evidence/norte-centro/{norte,centro}-live/`. Rollback por loja: `RELEASE_CONFIRM=REVERTER-<LOJA>-INK node scripts/release-store.mjs <loja> --rollback`. As seções 1 a 9 abaixo descrevem o estado ANTES da publicação (bloqueios de DNS e do PR do storefront, já resolvidos).
 
 ## 1. Inventário real (medido em 2026-09-28)
 
