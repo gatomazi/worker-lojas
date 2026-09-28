@@ -28,7 +28,7 @@ test('every store is internally consistent and no field is shared with another s
   }
   assert.equal(STORES.sul.kvBinding, 'CART_REFS', 'the Sul binding name is unchanged');
   assert.equal(STORES.norte.kvBinding, 'NORTE_CART_REFS'); assert.equal(STORES.centro.kvBinding, 'CENTRO_CART_REFS');
-  assert.equal(STORES.sul.shellPages, true); assert.equal(STORES.norte.shellPages, false); assert.equal(STORES.centro.shellPages, false);
+  assert.equal(STORES.sul.shellPages, true); assert.equal(STORES.norte.shellPages, true); assert.equal(STORES.centro.shellPages, true);
   const c = clientStore(STORES.centro);
   assert.equal(c.home, 'https://useorigens.com.br/centro-oeste'); assert.equal(c.search, 'https://useorigens.com.br/centro-oeste/busca'); assert.equal(c.cities, 'https://useorigens.com.br/centro-oeste#estados');
 });
@@ -65,7 +65,9 @@ test('product patterns: canonical slugs only; no transactional path, subpath, tr
     assert.equal(isCatalogProductPath(b + '/product/' + 'a'.repeat(128), store), true); assert.equal(isCatalogProductPath(b + '/product/' + 'a'.repeat(129), store), false);
     const catalog = parseScopeMode('product-catalog'); const allow = parseScopeMode('allowlist');
     assert.equal(inScope(catalog, { paths: [] }, b + '/product/qualquer', store), true); assert.equal(inScope(allow, { paths: [] }, b + '/product/qualquer', store), false);
-    assert.equal(shellEnabled('product-catalog', ['header-nav'], store.shellPages), false, 'shell pages stay off for ' + id);
+    assert.equal(shellEnabled('product-catalog', ['header-nav'], store.shellPages), true, 'shell pages are on for ' + id);
+    assert.equal(shellEnabled('allowlist', ['header-nav'], store.shellPages), false, 'never in the allowlist scope');
+    assert.equal(shellEnabled('product-catalog', ['cart-mirror'], store.shellPages), false, 'never without header-nav');
   }
   assert.equal(shellEnabled('product-catalog', ['header-nav'], STORES.sul.shellPages), true);
   assert.equal(shellEnabled('product-catalog', ['header-nav']), true, 'default keeps the Sul behavior');

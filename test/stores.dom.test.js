@@ -22,7 +22,7 @@ const CART = '<div class="cart-drawer"><turbo-frame id="cart"><div><div class="c
 const forStore = (text, store) => text.replaceAll('www.usesul.com.br', store.inkHost).replaceAll('/usesul', store.inkBase);
 const navbarPayload = (store) => ({ v: 2, states: store.ufs.map((uf) => ({ uf, name: store.stateNames[uf], path: store.storefrontBase + '/' + uf.toLowerCase() })), top: [], more: [] });
 
-function setup(store, { path, features = FEATURES, cart = '', gtag = false, host = store.inkHost, extraBody = '' } = {}) {
+function setup(store, { path, features = FEATURES, cart = '', gtag = false, host = store.inkHost, extraBody = '', scope = 'allowlist' } = {}) {
   const product = SAMPLES[store.id].allowlist[0];
   const pagePath = path || product;
   let html = forStore(read('product-page.html'), store).replace(/(<body[^>]*>)/, '$1' + forStore(read('ink-header.html'), store)).replace('</main>', cart + extraBody + '</main>');
@@ -43,7 +43,7 @@ function setup(store, { path, features = FEATURES, cart = '', gtag = false, host
   };
   w.document.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a'); if (a && a.getAttribute('href')) { t.lastLink = a; if (!e.defaultPrevented) { t.navigations.push(a.href); e.preventDefault(); } } });
   Object.assign(t, { w, doc: w.document, q: (sel) => w.document.querySelector(sel), all: (sel) => [...w.document.querySelectorAll(sel)] });
-  w.eval(buildLoaderSource([product], features, 'allowlist', store));
+  w.eval(buildLoaderSource([product], features, scope, store));
   t.posts = () => t.fetches.filter((f) => f.method === 'POST' && f.url.includes('cart-ref'));
   return t;
 }
@@ -159,5 +159,21 @@ for (const id of ['norte', 'centro']) {
     assert.ok(links.includes(s.href), 'the region result is shown: ' + JSON.stringify(links));
     assert.equal(links.some((h) => h.includes('/sul/') || h.includes('evil.example') || h.includes('?x=1')), false, JSON.stringify(links));
     assert.deepEqual(t.fetches.filter((f) => f.url.includes('/__origens/search')).map((f) => new URL(f.url, 'https://x').pathname), ['/__origens/search']);
+  });
+
+  test(`[${id}] shell pages: with product-catalog + header-nav the navbar mounts on <base>, /products, /collections/<slug>, /about and /orders/trackings of THIS store only; never on login, cart or checkout`, async () => {
+    const b = store.inkBase;
+    for (const path of [b, b + '/', b + '/products', b + '/collections/' + SAMPLES[id].collection, b + '/about', b + '/orders/trackings']) {
+      const t = setup(store, { path, scope: 'product-catalog', features: ['header-nav', 'cart-mirror'] }); await tick(400);
+      assert.ok(t.q('header [data-origens-nav]'), 'mounted on ' + path); assert.equal(t.all('#o-nav-search').length, 1, path);
+      assert.equal(t.q('a.o-nav-logo').href, home, path);
+    }
+    for (const path of [b + '/cart', b + '/store_sessions/new', b + '/login', b + '/checkout', b + '/checkout/contact_and_shipping_details', b + '/orders/a/b', '/usesul', '/usesul/products']) {
+      const t = setup(store, { path, scope: 'product-catalog', features: ['header-nav', 'cart-mirror'] }); await tick(300);
+      assert.equal(t.all('[data-origens-nav]').length, 0, 'nothing on ' + path); assert.equal(t.fetches.length, 0, 'no request on ' + path);
+    }
+    // the allowlist scope never mounts on a shell page; the wrong host neither
+    const off = setup(store, { path: b, scope: 'allowlist', features: ['header-nav'] }); await tick(300); assert.equal(off.all('[data-origens-nav]').length, 0);
+    const wrongHost = setup(store, { path: b, scope: 'product-catalog', features: ['header-nav'], host: 'www.usesul.com.br' }); await tick(300); assert.equal(wrongHost.all('[data-origens-nav]').length, 0);
   });
 }

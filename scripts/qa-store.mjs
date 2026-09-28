@@ -2,6 +2,7 @@
 // QA em NAVEGADOR REAL de UMA loja (norte|centro) contra as páginas REAIS da INK dela. Só os cenários críticos (sem stress).
 //   PW_PATH=/caminho/com/playwright-core node scripts/qa-store.mjs <norte|centro> --local-worker   ENSAIO FIEL: Worker local (Miniflare, KV local) na frente da INK REAL;
 //                                                                                                  o HTML de produto passa pelo Worker (mesma tag, mesmo Turbo do real)
+//   PW_PATH=... node scripts/qa-store.mjs <norte|centro> --live [--shell]   (--shell: as páginas de casca também são cobertas: início, listagem, coleção, sobre, rastreio)
 //   PW_PATH=... node scripts/qa-store.mjs <norte|centro> --live                                     AO VIVO (depois do deploy): Worker PUBLICADO, POST de cart-ref e KV VERDADEIROS
 // Opções: --out <dir> (evidências)  --viewports 1280,390,320  --only <nome>  --no-cart (pula o fluxo de carrinho)
 // Sessão ANÔNIMA descartável por viewport. NÃO faz compra: adiciona UM item ao carrinho anônimo, abre o drawer, confere que "Finalizar compra" está visível e habilitado
@@ -11,6 +12,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildLoaderSource, LOADER_VERSION } from '../src/loader-source.js';
 import { STORES } from '../src/stores.js';
+import { shellPageKind } from '../src/scope.js';
 import { STORE_FEATURES } from './lib/store-lib.mjs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
@@ -18,7 +20,7 @@ const { chromium } = require('playwright-core');
 const argv = process.argv.slice(2);
 const storeId = argv[0];
 if (!['norte', 'centro'].includes(storeId)) { console.error('uso: node scripts/qa-store.mjs <norte|centro> (--local-worker|--live)'); process.exit(2); }
-const LIVE = argv.includes('--live'); const LOCALW = argv.includes('--local-worker');
+const LIVE = argv.includes('--live'); const LOCALW = argv.includes('--local-worker'); const SHELL = argv.includes('--shell');
 if (LIVE === LOCALW) { console.error('escolha exatamente um: --local-worker ou --live'); process.exit(2); }
 const opt = (n, d) => { const i = argv.indexOf(n); return i > 0 ? argv[i + 1] : d; };
 const store = STORES[storeId];
@@ -71,7 +73,7 @@ async function session(width) {
       await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
     });
     // O HTML de produto passa pelo Worker de verdade (mesma reescrita do HTMLRewriter de produção).
-    await page.route((u) => u.host === store.inkHost && new RegExp('^' + store.inkBase + '/product/[^/]+$').test(u.pathname), async (route) => {
+    await page.route((u) => u.host === store.inkHost && (new RegExp('^' + store.inkBase + '/product/[^/]+$').test(u.pathname) || (SHELL && shellPageKind(u.pathname, store.inkBase) !== null)), async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue();
       try {
         const res = await route.fetch({ maxRedirects: 0, timeout: 60000 });
@@ -248,6 +250,35 @@ async function viewportPass(width) {
   }
 }
 
+// ── páginas de casca (só com --shell): início, listagem, coleção, sobre e rastreio recebem a navbar; login/carrinho não ────────────────────────────────────────────
+async function shellPass(width) {
+  const tag = `${storeId} casca ${width}px`; const s = await session(width); const b = store.inkBase;
+  try {
+    const pages = [['inicio', b], ['listagem', b + '/products'], ['colecao', `${b}/collections/${SAMPLES.collection}`], ['sobre', b + '/about'], ['rastreio', b + '/orders/trackings']];
+    for (const [name, path] of pages) {
+      await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {}); await wait(s.page, 1000);
+      const st = await state(s.page);
+      check(`${tag}: ${name} (${path.replace(b, '<base>') || '<base>'}) → 1 loader, navbar montada, logo → ${store.storefrontBase}, sem duplicar, nada nosso além da tela`, st.loaderTags === 1 && st.navMounted && st.logoHref === HOME && st.forms === 1 && st.styleTags === 1 && st.oursOverflow.length === 0 && FOREIGN.every((f) => !st.oursHtml.includes(f)), JSON.stringify({ tags: st.loaderTags, nav: st.navMounted, logo: st.logoHref, forms: st.forms, styles: st.styleTags, overflow: st.oursOverflow }));
+      if (name === 'inicio' || name === 'colecao') await shot(s, 'casca-' + name);
+    }
+    // busca a partir de uma página de casca: Enter → storefront da MESMA região
+    await s.page.goto(HOST + b, { waitUntil: 'domcontentloaded', timeout: 45000 }); await s.page.waitForSelector('header [data-origens-nav]', { timeout: 25000 }).catch(() => {}); await wait(s.page, 800);
+    await s.page.locator('.o-nav-lupa:visible').first().click(); await s.page.locator('#o-nav-q').pressSequentially(SAMPLES.search.query, { delay: 50 });
+    await Promise.all([s.page.waitForURL((u) => u.host === 'useorigens.com.br', { timeout: 30000 }), s.page.locator('#o-nav-q').press('Enter')]);
+    const dest = new URL(s.page.url());
+    check(`${tag}: busca a partir do início → ${store.storefrontBase}/busca?q=${SAMPLES.search.query}`, dest.origin + dest.pathname === HOME + '/busca' && dest.searchParams.get('q') === SAMPLES.search.query, dest.pathname + dest.search);
+    // Turbo: produto → início → produto (sem duplicar) e início → login (nada nosso)
+    await open(s, P0);
+    await s.page.evaluate((p) => window.Turbo && window.Turbo.visit(p), b); await s.page.waitForURL('**' + b, { timeout: 20000 }).catch(() => {}); await wait(s.page, 2500);
+    const t1 = await state(s.page); check(`${tag}: Turbo produto → início: 1 cabeçalho, 1 estilo, 1 busca`, t1.path === b && t1.navHeaders >= 1 && t1.styleTags === 1 && t1.forms === 1, JSON.stringify({ path: t1.path, styles: t1.styleTags, forms: t1.forms }));
+    await s.page.evaluate((p) => window.Turbo && window.Turbo.visit(p), b + '/store_sessions/new'); await s.page.waitForURL('**/store_sessions/new*', { timeout: 20000 }).catch(() => {}); await wait(s.page, 2500);
+    const t2 = await state(s.page); check(`${tag}: Turbo início → login: nada nosso fica na tela`, !t2.navMounted && t2.styleTags === 0, JSON.stringify({ nav: t2.navMounted, styles: t2.styleTags }));
+    await s.page.goto(HOST + b + '/orders', { waitUntil: 'domcontentloaded', timeout: 45000 }); await wait(s.page, 1500);
+    const t3 = await state(s.page); check(`${tag}: conta/pedidos sem sessão → redireciona ao login da INK e nada nosso fica (${t3.path})`, /store_sessions|login/.test(t3.path) && !t3.navMounted && t3.loaderTags === 0, t3.path);
+  } catch (e) { check(`${tag}: execução do QA sem exceção`, false, String(e.message).split('\n')[0], 'QA'); await shot(s, 'erro-casca'); } finally { await s.ctx.close(); }
+}
+
 // ── negativos e rotas (independentes de viewport) ─────────────────────────────────────────────────────────────────────────────────────────────
 async function negatives() {
   const s = await session(1280); const tag = `${storeId} negativos`;
@@ -263,17 +294,22 @@ async function negatives() {
     const ms = await state(s.page);
     check(`${tag}: slug inexistente → resposta da INK (${missing && missing.status()}) sem loader e sem nada nosso`, ms.loaderTags === 0 && !ms.navMounted, 'HTTP ' + (missing && missing.status()));
     // páginas transacionais e de casca: nada nosso
-    for (const path of [store.inkBase + '/cart', store.inkBase + '/store_sessions/new', store.inkBase, store.inkBase + '/products', store.inkBase + '/orders/trackings']) {
-      const r = await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null); await wait(s.page, 1000);
-      const t = await state(s.page);
-      check(`${tag}: ${path.replace(store.inkBase, '<base>') || '<base>'} → nada nosso (loader ${t.loaderTags}, navbar ${t.navMounted}) [HTTP ${r && r.status()}]`, t.loaderTags === 0 && !t.navMounted && (r === null || r.status() < 500));
+    // /orders SEM sessão é redirecionado pela INK ao login (a página que responde é a de login): nada nosso. /orders/trackings é pública e recebe a navbar.
+    const covered = (path) => SHELL && shellPageKind(path, store.inkBase) !== null && path !== store.inkBase + '/orders';
+    for (const path of [store.inkBase + '/cart', store.inkBase + '/store_sessions/new', store.inkBase + '/login', store.inkBase + '/checkout', store.inkBase + '/orders', store.inkBase, store.inkBase + '/products', store.inkBase + '/orders/trackings']) {
+      const r = await s.page.goto(HOST + path, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null);
+      if (covered(path)) await s.page.waitForSelector('header [data-origens-nav]', { timeout: 20000 }).catch(() => {});
+      await wait(s.page, 1200);
+      const t = await state(s.page); const want = covered(path);
+      check(`${tag}: ${path.replace(store.inkBase, '<base>') || '<base>'} → ${want ? 'casca COM a navbar (1 loader)' : 'nada nosso'} (loader ${t.loaderTags}, navbar ${t.navMounted}) [HTTP ${r && r.status()}]`, want ? (t.loaderTags === 1 && t.navMounted && t.forms === 1 && t.styleTags === 1) : (t.loaderTags === 0 && !t.navMounted && (r === null || r.status() < 500)));
     }
     // Turbo: produto → produto → página não coberta → volta; sem duplicar e sem restos
     await open(s, P0);
     await s.page.evaluate((p) => window.Turbo && window.Turbo.visit(p), P1); await s.page.waitForURL('**' + P1, { timeout: 20000 }).catch(() => {}); await wait(s.page, 2500);
     const t1 = await state(s.page);
     check(`${tag}: Turbo produto → produto: 1 cabeçalho, 1 estilo, 1 busca (sem duplicar)`, t1.path === P1 && t1.navHeaders >= 1 && t1.styleTags === 1 && t1.forms === 1, JSON.stringify({ path: t1.path, styles: t1.styleTags, forms: t1.forms }));
-    await s.page.evaluate((p) => window.Turbo && window.Turbo.visit(p), store.inkBase + '/products'); await s.page.waitForURL('**' + store.inkBase + '/products', { timeout: 20000 }).catch(() => {}); await wait(s.page, 2500);
+    const uncovered = SHELL ? store.inkBase + '/store_sessions/new' : store.inkBase + '/products';
+    await s.page.evaluate((p) => window.Turbo && window.Turbo.visit(p), uncovered); await s.page.waitForURL('**' + uncovered, { timeout: 20000 }).catch(() => {}); await wait(s.page, 2500);
     const t2 = await state(s.page);
     check(`${tag}: Turbo para uma página não coberta → nada nosso fica na tela`, !t2.navMounted && t2.discoveryRoots === 0 && t2.styleTags === 0, JSON.stringify({ nav: t2.navMounted, styles: t2.styleTags }));
     await s.page.goBack().catch(() => {}); await wait(s.page, 3000);
@@ -290,9 +326,10 @@ async function negatives() {
 // Aquece o KV local (a primeira escrita do workerd é lenta e passaria do teto de espera da saída, 1,2 s — em produção o KV responde em dezenas de ms).
 if (LOCALW) await mf.dispatchFetch(HOST + '/__origens/cart-ref', { method: 'POST', headers: { 'content-type': 'application/json', origin: HOST, referer: HOST + P0, 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ v: 1, count: 0, items: [], subtotal: null, discount: null }) });
 const h = await health().catch(() => null);
-check(`health: Worker da loja no ar (${LIVE ? 'PRODUÇÃO' : 'local'}) com a identidade ${store.workerName}`, !!h && h.service === store.workerName && h.store === storeId && h.kv_bound === true && h.widget_mode === 'true', h ? JSON.stringify({ service: h.service, store: h.store, kv: h.kv_bound, mode: h.widget_mode, scope: h.scope_mode, v: h.version }) : 'sem resposta (Worker/rotas ainda não publicados? DNS ainda sem proxy?)');
+check(`health: Worker da loja no ar (${LIVE ? 'PRODUÇÃO' : 'local'}) com a identidade ${store.workerName}`, !!h && h.service === store.workerName && h.store === storeId && h.kv_bound === true && h.widget_mode === 'true' && h.shell_pages === SHELL, h ? JSON.stringify({ service: h.service, store: h.store, kv: h.kv_bound, mode: h.widget_mode, scope: h.scope_mode, shell: h.shell_pages, v: h.version }) : 'sem resposta (Worker/rotas ainda não publicados? DNS ainda sem proxy?)');
 if (h && h.service === store.workerName) {
   for (const w of VIEWPORTS) await viewportPass(w);
+  if (SHELL) for (const w of VIEWPORTS) await shellPass(w);
   await negatives();
 }
 await browser.close(); if (mf) await mf.dispose();

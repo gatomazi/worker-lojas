@@ -9,7 +9,7 @@
 //   citiesApi      índice público de cidades (busca "cidade ou estado"), lido SOMENTE pelo Worker no servidor
 //   kvBinding      binding do KV do espelho do carrinho: um namespace por loja, nunca compartilhado
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
-//   shellPages     home/listagem/coleções/sobre/conta recebem a navbar? (só onde as rotas da zona foram validadas para isso)
+//   shellPages     home/listagem/coleções/sobre/conta recebem a navbar? (só onde as rotas da zona foram validadas para isso: Sul, Norte e Centro-Oeste)
 export const STORES = Object.freeze({
   sul: Object.freeze({
     id: 'sul',
@@ -44,7 +44,7 @@ export const STORES = Object.freeze({
     buySessionApi: '/api/buy-session',
     kvBinding: 'NORTE_CART_REFS',
     ga: 'G-BC2SQTM7PL',
-    shellPages: false,
+    shellPages: true,
     ufs: Object.freeze(['AC', 'AM', 'AP', 'PA', 'RO', 'RR', 'TO']),
     stateNames: Object.freeze({ AC: 'Acre', AM: 'Amazonas', AP: 'Amapá', PA: 'Pará', RO: 'Rondônia', RR: 'Roraima', TO: 'Tocantins' })
   }),
@@ -62,7 +62,7 @@ export const STORES = Object.freeze({
     buySessionApi: '/api/buy-session',
     kvBinding: 'CENTRO_CART_REFS',
     ga: 'G-XVDJYYC7YM',
-    shellPages: false,
+    shellPages: true,
     ufs: Object.freeze(['DF', 'GO', 'MS', 'MT']),
     stateNames: Object.freeze({ DF: 'Distrito Federal', GO: 'Goiás', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso' })
   })

@@ -4,6 +4,9 @@
 //   node scripts/release-store.mjs <norte|centro> --check       SOMENTE LEITURA: pré-condições (storefront, INK, Cloudflare, Wrangler), plano, dry-run local. Exit 0 = APTO.
 //   node scripts/release-store.mjs <norte|centro> --deploy      ÚNICA forma de publicar. Trava dupla: --deploy E a frase de confirmação (RELEASE_CONFIRM=PUBLICAR-<LOJA>-INK ou digitada).
 //   node scripts/release-store.mjs <norte|centro> --rollback    desfaz a loja: volta à fase anterior ou, se só houve a 1ª fase, retira as duas rotas (frase REVERTER-<LOJA>-INK).
+//   node scripts/release-store.mjs <norte|centro> --enable-shell   páginas de casca (início, listagens, coleções, sobre, conta/pedidos) como na Use Sul: exclusão de zona + rotas específicas
+//                                                                (frase PUBLICAR-CASCA-<LOJA>-INK); pré-requisito: a loja já publicada (fase 2). Desfaz sozinho em falha.
+//   node scripts/release-store.mjs <norte|centro> --disable-shell  desfaz só a casca (frase REVERTER-CASCA-<LOJA>-INK): retira a exclusão e as 7 rotas e volta a versão anterior do Worker.
 //
 // Exige `npx wrangler login` FEITO PELO PROPRIETÁRIO (OAuth) na conta esperada. Credenciais nunca são pedidas nem impressas.
 // Ordem do --deploy (cada passo é conferido antes do próximo; qualquer falha crítica => evidência ANTES, depois desfazer SÓ esta loja):
@@ -27,8 +30,8 @@ const EXPECTED_ACCOUNT_EMAIL = process.env.EXPECTED_ACCOUNT_EMAIL || 'tomazi.bra
 const PROPAGATION_WAIT_S = Number(process.env.ROUTES_PROPAGATION_WAIT || 50); // medido na Use Sul: rota nova leva mais de 8 s para valer
 const [, , storeId, mode] = process.argv;
 const log = (...a) => console.log(...a);
-const usage = () => log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 19).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
-if (!['--check', '--deploy', '--rollback'].includes(mode)) { usage(); log('\nNada foi feito (falta --check, --deploy ou --rollback).'); process.exit(2); }
+const usage = () => log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 23).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+if (!['--check', '--deploy', '--rollback', '--enable-shell', '--disable-shell'].includes(mode)) { usage(); log('\nNada foi feito (falta --check, --deploy ou --rollback).'); process.exit(2); }
 let rel; try { rel = releaseStore(storeId); } catch (e) { log(e.message); process.exit(2); }
 const { store } = rel;
 const SAMPLES = JSON.parse(readFileSync(new URL('./store-samples.json', import.meta.url), 'utf8'));
@@ -266,6 +269,90 @@ async function rollback() {
   log('fase 1 (ou única): retirando as duas rotas da loja e devolvendo a INK ao estado nativo'); process.exit((await retireRoutes(snaps)) ? 0 : 1);
 }
 
+// ── páginas de casca (como na Use Sul) ──────────────────────────────────────────────────────────────────────────────────────────────────────
+const routesCmd = (...args) => run('node', ['scripts/store-routes.mjs', rel.id, ...args], { timeout: 900000 });
+async function smokeShell() {
+  const problems = []; const b = store.inkBase; const samples = SAMPLES[rel.id];
+  for (const path of [b, b + '/products', `${b}/collections/${samples.collection}`, `${b}/about`, `${b}/orders/trackings`]) {
+    const r = await get(HOST + path); const html = r && r.status === 200 ? await r.text() : '';
+    if (!r || r.status !== 200 || countLoaders(html) !== 1) problems.push(`${path}: HTTP ${r && r.status}, ${countLoaders(html)} loader(s) (esperado 1: página de casca)`);
+  }
+  const home = await get(HOST + b + '?utm_source=smoke'); const hh = home && home.status === 200 ? await home.text() : ''; if (countLoaders(hh) !== 1) problems.push('início com UTM sem exatamente 1 loader');
+  for (const path of [`${b}/cart`, `${b}/store_sessions/new`, `${b}/login`, `${b}/checkout`, `${b}/orders`]) {
+    const r = await get(HOST + path); const h = r && r.status === 200 ? await r.text() : ''; if (countLoaders(h) !== 0) problems.push(`${path}: o loader apareceu onde não devia`); if (r && r.status >= 500) problems.push(`${path}: HTTP ${r.status}`);
+  }
+  for (const p of samples.allowlist.slice(0, 2)) { const r = await get(HOST + p); const h = r ? await r.text() : ''; if (!r || r.status !== 200 || countLoaders(h) !== 1) problems.push(`${p.slice(0, 50)}…: produto sem exatamente 1 loader após a casca`); }
+  return problems;
+}
+async function shellRollback(prevVersion, snapFile, why, codeDeployed) {
+  log(`\n!! FALHA CRÍTICA (${why}): evidência ANTES do desfazer`); await captureEvidence(why);
+  log('   retirando SÓ a casca desta loja (as 7 rotas com Worker e a exclusão), mantendo as duas de produto');
+  const r = routesCmd('retire', '--scope=shell', `--snapshot=${snapFile}`); log(r.out.trim().split('\n').map((l) => '   ' + l).join('\n'));
+  if (codeDeployed && prevVersion) { log(`   voltando SÓ ${rel.id} para a versão anterior do Worker (${prevVersion.slice(0, 8)}…)`); const w = wrangler(['rollback', prevVersion, '--name', store.workerName, '-y', '--message', 'release-store: rollback da casca']); log('   ' + w.out.trim().split('\n').slice(-2).join(' | ')); }
+  await sleep(8000); const h = await healthNow(); const st = routeState(await listRoutes((await zoneOf(rel.zoneName)).id), rel).stage;
+  log(`   health: shell_pages=${h && h.shell_pages}, rotas: ${st}`); log(`\nCASCA REVERTIDA ${rel.id} (use-sul-widget e a outra loja intactos).`); process.exit(1);
+}
+async function enableShell(ctx) {
+  if (!(await confirm(rel.shellPhrase))) die(`sem confirmação: exporte RELEASE_CONFIRM=${rel.shellPhrase}. Nada foi alterado.`);
+  const zone = ctx.zone; const n = SAMPLES[rel.id].allowlist.length;
+  const h0 = await healthNow(); const e0 = evaluateStoreHealth(h0, rel, { scope: CATALOG, allowlistSize: n, shell: false });
+  if (!e0.ok) die('a loja precisa estar publicada em product-catalog e SEM casca: ' + e0.problems.join('; '));
+  const st0 = routeState(await listRoutes(zone.id), rel); if (st0.stage !== 'final') die(`rotas em estágio '${st0.stage}' (esperado 'final': só produto + /__origens); resolva antes`);
+  const prevVersion = parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName, '--json']).out) || parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName]).out);
+  if (!prevVersion) die('não consegui determinar a versão ativa (destino do rollback)');
+  const snap = buildSnapshot({ rel, zoneId: zone.id, routes: await listRoutes(zone.id) }); const v = validateSnapshot(snap, rel, { zoneId: zone.id }); if (!v.ok) die('snapshot inválido: ' + v.problems.join('; '));
+  const snapFile = `${WORK}/routes-snapshot-casca-${stamp()}.json`; writeFileSync(snapFile, JSON.stringify(snap, null, 1), { mode: 0o600 });
+  log(`\n== 1. snapshot (estado só-produto): ${snap.count} rota(s), digest ${snap.digest.slice(0, 12)}… → ${snapFile.replace(ROOT + '/', '')}; versão a preservar ${prevVersion.slice(0, 8)}…`);
+  if (!ctx.kvFound) die('KV da loja não encontrado');
+  writeFileSync(RESOLVED, resolveToml(readFileSync(`${ROOT}/${rel.tomlFile}`, 'utf8'), rel, ctx.kvFound.id), { mode: 0o600 });
+  let codeDeployed = false;
+
+  log('\n== 2. exclusão de zona (sem Worker) e home com barra');
+  const a1 = routesCmd('apply', '--stage=shell-staged'); log(a1.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (a1.code !== 0) await shellRollback(prevVersion, snapFile, 'apply shell-staged falhou', false);
+  log(`   aguardando ${PROPAGATION_WAIT_S}s a propagação das rotas…`); await sleep(PROPAGATION_WAIT_S * 1000);
+  const p1 = routesCmd('probe', '--stage=shell-staged'); log(p1.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (p1.code !== 0) await shellRollback(prevVersion, snapFile, 'execução do Worker fora do esperado no estágio shell-staged', false);
+  ok('estágio shell-staged provado (só produto e a home com barra executam; login/carrinho/checkout e o resto nativos)');
+
+  log('\n== 3. Worker com as páginas de casca (mesmas variáveis: product-catalog, 8 features)');
+  const vars = releaseVars(rel, CATALOG, SAMPLES);
+  const d = wrangler(deployArgs(rel, RESOLVED, vars).slice(1), { timeout: 600000 }); log(d.out.trim().split('\n').slice(-4).map((l) => '   ' + l).join('\n'));
+  if (d.code !== 0) await shellRollback(prevVersion, snapFile, 'wrangler deploy falhou', true); codeDeployed = true;
+  await sleep(8000);
+  const h1 = await healthNow(); const e1 = evaluateStoreHealth(h1, rel, { scope: CATALOG, allowlistSize: n, version: LOADER_VERSION, shell: true });
+  if (!e1.ok) await shellRollback(prevVersion, snapFile, 'health com a casca: ' + e1.problems.join('; '), true);
+  ok(`health: shell_pages=true, loader ${h1.version}`);
+  const stB = routeState(await listRoutes(zone.id), rel).stage; if (stB !== 'shell-staged') await shellRollback(prevVersion, snapFile, `o deploy alterou as rotas da zona (estágio ${stB})`, true);
+  ok('o wrangler deploy não mexeu nas rotas da zona (ainda shell-staged)');
+
+  log('\n== 4. rotas específicas e, por último, a abrangente');
+  const a2 = routesCmd('apply', '--stage=shell'); log(a2.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (a2.code !== 0) await shellRollback(prevVersion, snapFile, 'apply shell falhou', true);
+  log(`   aguardando ${PROPAGATION_WAIT_S}s a propagação das rotas…`); await sleep(PROPAGATION_WAIT_S * 1000);
+  const rs = await listRoutes(zone.id); const sp = safetyProblems(rs, rel); if (routeState(rs, rel).stage !== 'shell' || sp.length) await shellRollback(prevVersion, snapFile, 'rotas finais: ' + sp.join('; '), true);
+  ok('rotas no estágio shell e segurança estática ok');
+  const p2 = routesCmd('probe', '--stage=shell'); log(p2.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (p2.code !== 0) await shellRollback(prevVersion, snapFile, 'execução do Worker fora do esperado no estágio shell', true);
+  ok('execução provada: casca autorizada executa; login, carrinho e checkout NÃO');
+  const sm = await smokeShell(); if (sm.length) await shellRollback(prevVersion, snapFile, 'smoke da casca: ' + sm.join(' | '), true);
+  ok('smoke da casca: início, listagem, coleção, sobre e rastreio com 1 loader; login/carrinho/checkout/pedidos sem; produtos intactos');
+
+  log('\n== 5. QA em navegador REAL ao vivo (produto + casca, 1280/390/320)');
+  const qa = run('node', ['scripts/qa-store.mjs', rel.id, '--live', '--shell'], { timeout: 2400000 }); log(qa.out.trim().split('\n').slice(-40).map((l) => '   ' + l).join('\n'));
+  if (qa.code !== 0) await shellRollback(prevVersion, snapFile, 'QA ao vivo reprovou (docs/evidence/norte-centro/' + rel.id + '-live/)', true);
+  const h3 = await healthNow();
+  log(`\nCASCA PUBLICADA ${rel.id}: ${store.workerName} v${h3.version}, versão ativa ${(parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName]).out) || '?')}, shell_pages=${h3.shell_pages}`);
+  log(`rollback da casca: RELEASE_CONFIRM=${rel.shellRollbackPhrase} node scripts/release-store.mjs ${rel.id} --disable-shell   (snapshot em ${snapFile.replace(ROOT + '/', '')}; versão anterior ${prevVersion})`);
+  writeFileSync(`${WORK}/shell-release.json`, JSON.stringify({ snapFile, prevVersion, when: new Date().toISOString() }, null, 1), { mode: 0o600 });
+}
+async function disableShell() {
+  if (!(await confirm(rel.shellRollbackPhrase))) die(`sem confirmação: exporte RELEASE_CONFIRM=${rel.shellRollbackPhrase}. Nada foi alterado.`);
+  let info; try { info = JSON.parse(readFileSync(`${WORK}/shell-release.json`, 'utf8')); } catch (_) { die('sem .release/' + rel.id + '/shell-release.json (snapshot e versão anterior da casca)'); }
+  log(`snapshot ${info.snapFile.replace(ROOT + '/', '')}; versão anterior ${info.prevVersion.slice(0, 8)}…`);
+  const r = routesCmd('retire', '--scope=shell', `--snapshot=${info.snapFile}`); log(r.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (r.code !== 0) die('retire falhou (rotas NÃO conferem com o snapshot): nada mais foi feito');
+  const w = wrangler(['rollback', info.prevVersion, '--name', store.workerName, '-y', '--message', 'release-store: disable-shell']); log('   ' + w.out.trim().split('\n').slice(-2).join(' | '));
+  await sleep(8000); const h = await healthNow(); log(`health: shell_pages=${h && h.shell_pages}`); process.exit(h && h.shell_pages === false ? 0 : 1);
+}
+
 if (mode === '--check') { const r = await check(); process.exit(r.ready ? 0 : 1); }
 if (mode === '--deploy') { const r = await check(); if (!r.ready) die('o --check não está limpo; nada foi publicado.'); await deploy(r); }
 if (mode === '--rollback') await rollback();
+if (mode === '--enable-shell') { const r = await check(); if (!r.ready) die('o --check não está limpo; nada foi publicado.'); await enableShell(r); }
+if (mode === '--disable-shell') await disableShell();

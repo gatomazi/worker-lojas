@@ -13,6 +13,22 @@ export const CATALOG = 'product-catalog';
 // Caminhos que NUNCA podem ter Worker (login, carrinho, checkout, pagamento, conta, administração), com ou sem query, nas rotas de qualquer loja.
 export const TRANSACTIONAL = Object.freeze(['cart', 'checkout', 'store_sessions', 'login', 'orders', 'payments', 'payment', 'admin', 'users', 'account']);
 
+// Páginas "de casca" (home, listagem, coleções, sobre, conta/pedidos) — o MESMO desenho da Use Sul (docs/navbar-ink-busca.md, "Rotas da zona"):
+//   1. a EXCLUSÃO `<host><base>/*` (rota SEM Worker, criada na zona pela API; nunca pelo `wrangler deploy`) tira do Worker, por padrão, tudo sob <base>/ (login, carrinho, checkout…);
+//   2. rotas COM Worker, mais específicas que a exclusão, reabrem só as páginas autorizadas; a abrangente `<host><base>*` (só a home sem barra COM query) entra por último.
+// Cloudflare não aceita `?` em padrão de rota: `<base>/?utm=…` (barra + query) cai na exclusão e fica nativa. Rotas não são versionadas: rollback de versão não as remove.
+function shellPatterns(store) {
+  const h = store.inkHost; const b = store.inkBase;
+  return Object.freeze({
+    exclusion: h + b + '/*',
+    homeSlash: h + b + '/',
+    specific: Object.freeze([h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*']),
+    broad: h + b + '*',
+    // ordem de criação: exclusão e home com barra primeiro; a abrangente por último
+    workerRoutes: Object.freeze([h + b + '/', h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*', h + b + '*'])
+  });
+}
+
 export function releaseStore(id) {
   if (typeof id !== 'string' || !RELEASABLE.includes(id)) {
     throw new Error(`loja inválida: ${JSON.stringify(id)} (use exatamente uma de: ${RELEASABLE.join(', ')}; a Use Sul tem o seu próprio release e "all" não existe)`);
@@ -25,7 +41,10 @@ export function releaseStore(id) {
     kvTitle: `use-${id}-cart-refs`,
     confirmPhrase: `PUBLICAR-${id.toUpperCase()}-INK`,
     rollbackPhrase: `REVERTER-${id.toUpperCase()}-INK`,
-    routePatterns: Object.freeze([store.inkHost + store.inkBase + '/product/*', store.inkHost + '/__origens/*'])
+    shellPhrase: `PUBLICAR-CASCA-${id.toUpperCase()}-INK`,
+    shellRollbackPhrase: `REVERTER-CASCA-${id.toUpperCase()}-INK`,
+    routePatterns: Object.freeze([store.inkHost + store.inkBase + '/product/*', store.inkHost + '/__origens/*']),
+    shell: shellPatterns(store)
   });
 }
 
@@ -101,35 +120,63 @@ export function validateSnapshot(snap, rel, { zoneId = null } = {}) {
   return { ok: problems.length === 0, empty: problems.length === 0 && snap.routes.length === 0, problems };
 }
 const onStoreHost = (rel, pattern) => typeof pattern === 'string' && pattern.startsWith(rel.store.inkHost + '/');
+// Todas as rotas que ESTE release pode criar/tocar na zona da loja: as duas de produto + a exclusão + as sete de casca. Nada fora disso, nunca.
+const ownedPatterns = (rel) => [...rel.routePatterns, rel.shell.exclusion, ...rel.shell.workerRoutes];
+const allowedWorkerPatterns = (rel) => new Set([...rel.routePatterns, ...rel.shell.workerRoutes]);
 // Estado das rotas da loja frente ao esperado. Rotas de outros hosts/Workers são só reportadas (nunca tocadas).
+// stage: baseline (nada nosso) | final (só produto + /__origens) | shell-staged (final + exclusão + home com barra) | shell (tudo) | parcial
 export function routeState(current, rel) {
-  const cur = norm(current); const worker = rel.store.workerName;
-  const ours = cur.filter((r) => rel.routePatterns.includes(r.pattern));
-  const missing = rel.routePatterns.filter((p) => !ours.some((r) => r.pattern === p));
-  const conflicts = ours.filter((r) => r.script !== worker).map((r) => `${r.pattern} existe com ${r.script || '(sem Worker)'} (esperado ${worker})`);
-  const foreignOnStoreHost = cur.filter((r) => onStoreHost(rel, r.pattern) && !rel.routePatterns.includes(r.pattern)).map((r) => `${r.pattern} -> ${r.script || '(sem Worker)'}`);
-  return { ours, missing, conflicts, foreignOnStoreHost, stage: ours.length === 0 ? 'baseline' : (missing.length === 0 && conflicts.length === 0 ? 'final' : 'parcial') };
+  const cur = norm(current); const worker = rel.store.workerName; const sh = rel.shell;
+  const owned = new Set(ownedPatterns(rel));
+  const ours = cur.filter((r) => owned.has(r.pattern));
+  const has = (pattern, withWorker) => ours.some((r) => r.pattern === pattern && (withWorker ? r.script === worker : !r.script));
+  const missing = rel.routePatterns.filter((p) => !has(p, true));
+  const conflicts = ours.filter((r) => (r.pattern === sh.exclusion ? !!r.script : r.script !== worker)).map((r) => `${r.pattern} existe com ${r.script || '(sem Worker)'} (esperado ${r.pattern === sh.exclusion ? 'SEM Worker' : worker})`);
+  const foreignOnStoreHost = cur.filter((r) => onStoreHost(rel, r.pattern) && !owned.has(r.pattern)).map((r) => `${r.pattern} -> ${r.script || '(sem Worker)'}`);
+  const product = missing.length === 0;
+  const excl = has(sh.exclusion, false);
+  const shellWorker = sh.workerRoutes.filter((p) => has(p, true));
+  let stage = 'parcial';
+  if (ours.length === 0) stage = 'baseline';
+  else if (conflicts.length === 0 && product && !excl && shellWorker.length === 0) stage = 'final';
+  else if (conflicts.length === 0 && product && excl && shellWorker.length === 1 && shellWorker[0] === sh.homeSlash) stage = 'shell-staged';
+  else if (conflicts.length === 0 && product && excl && shellWorker.length === sh.workerRoutes.length) stage = 'shell';
+  return { ours, missing, conflicts, foreignOnStoreHost, stage, shellWorkerPresent: shellWorker.length, exclusion: excl };
 }
-// Segurança estática: nenhuma rota COM o Worker da loja fora das duas autorizadas, e nenhuma rota (com Worker) do host da loja no caminho transacional.
+// Segurança estática: só as rotas autorizadas podem ter o Worker da loja; a exclusão NUNCA tem Worker; a rota abrangente exige a exclusão ativa;
+// e nenhuma rota (com Worker) do host da loja pode estar fora da lista autorizada (login, carrinho, checkout, pagamento, conta, administração…).
 export function safetyProblems(current, rel) {
-  const problems = []; const worker = rel.store.workerName;
-  for (const r of norm(current)) {
-    if (r.script === worker && !rel.routePatterns.includes(r.pattern)) problems.push(`rota com o Worker ${worker} fora da lista autorizada: ${r.pattern}`);
-    if (r.script && onStoreHost(rel, r.pattern)) {
-      const path = r.pattern.slice(rel.store.inkHost.length).toLowerCase();
-      for (const word of TRANSACTIONAL) if (new RegExp('/' + word + '([/*?]|$)').test(path) || path.startsWith(rel.store.inkBase.toLowerCase() + '*') || path === '/*') problems.push(`rota com Worker no caminho transacional/abrangente: ${r.pattern}`);
-    }
+  const problems = []; const worker = rel.store.workerName; const allowed = allowedWorkerPatterns(rel); const rs = norm(current);
+  for (const r of rs) {
+    if (r.script === worker && !allowed.has(r.pattern)) problems.push(`rota com o Worker ${worker} fora da lista autorizada: ${r.pattern}`);
+    if (r.script && onStoreHost(rel, r.pattern) && !allowed.has(r.pattern)) problems.push(`rota com Worker no host da loja fora da lista autorizada (caminho transacional/abrangente?): ${r.pattern}`);
+    if (r.pattern === rel.shell.exclusion && r.script) problems.push(`a exclusão ${r.pattern} tem Worker (${r.script}): ela TEM de ser SEM Worker`);
   }
+  const hasBroad = rs.some((r) => r.pattern === rel.shell.broad && r.script === worker);
+  const hasExclusion = rs.some((r) => r.pattern === rel.shell.exclusion && !r.script);
+  if (hasBroad && !hasExclusion) problems.push(`rota abrangente ${rel.shell.broad} ativa SEM a exclusão ${rel.shell.exclusion} (o Worker ficaria no caminho da compra)`);
   return [...new Set(problems)];
 }
-// Cria só o que falta (nunca apaga nem troca rota que não seja nossa). `problems` bloqueia.
-export function planApply(current, rel) {
-  const st = routeState(current, rel);
-  return { create: st.missing.map((pattern) => ({ pattern, script: rel.store.workerName })), problems: [...st.conflicts, ...safetyProblems(current, rel)] };
+// Cria só o que falta, na ORDEM segura (nunca apaga nem troca rota que não seja nossa). `problems` bloqueia.
+// stage: 'product' (as duas de produto; padrão) | 'shell-staged' (+ exclusão e home com barra) | 'shell' (+ as específicas e, por último, a abrangente).
+export function planApply(current, rel, stage = 'product') {
+  const st = routeState(current, rel); const worker = rel.store.workerName; const sh = rel.shell;
+  const want = [{ pattern: rel.routePatterns[0], script: worker }, { pattern: rel.routePatterns[1], script: worker }];
+  if (stage === 'shell-staged' || stage === 'shell') want.push({ pattern: sh.exclusion, script: null }, { pattern: sh.homeSlash, script: worker });
+  if (stage === 'shell') for (const p of sh.workerRoutes.filter((x) => x !== sh.homeSlash)) want.push({ pattern: p, script: worker });
+  if (!['product', 'shell-staged', 'shell'].includes(stage)) throw new Error('estágio inválido: ' + stage);
+  const have = new Set(st.ours.map((r) => r.pattern));
+  return { create: want.filter((w) => !have.has(w.pattern)), problems: [...st.conflicts, ...safetyProblems(current, rel)] };
 }
-// Desfazer de uma loja NOVA: remove SOMENTE as duas rotas conhecidas cujo Worker é o da loja. Nunca toca em outra rota, host ou Worker.
-export function planRetire(current, rel) {
-  const remove = norm(current).filter((r) => rel.routePatterns.includes(r.pattern) && r.script === rel.store.workerName).map((r) => ({ id: r.id, pattern: r.pattern }));
+// Desfazer: remove SOMENTE rotas conhecidas nossas (Worker da loja; a exclusão sem Worker). scope 'all' (padrão) = todas as nossas (loja nova); 'shell' = só a casca
+// (exclusão + as sete), mantendo as duas de produto. Nunca toca em outra rota, host ou Worker. Ordem: a abrangente e as específicas saem ANTES da exclusão.
+export function planRetire(current, rel, scope = 'all') {
+  const worker = rel.store.workerName; const sh = rel.shell; const rs = norm(current);
+  const shellWorker = new Set(sh.workerRoutes); const product = new Set(rel.routePatterns);
+  const pick = (r) => (scope === 'shell' ? (shellWorker.has(r.pattern) && r.script === worker) || (r.pattern === sh.exclusion && !r.script) : (product.has(r.pattern) || shellWorker.has(r.pattern)) && r.script === worker || (r.pattern === sh.exclusion && !r.script));
+  if (scope !== 'all' && scope !== 'shell') throw new Error('escopo inválido: ' + scope);
+  const order = (r) => (r.pattern === sh.exclusion ? 2 : (shellWorker.has(r.pattern) ? 0 : 1)); // casca com Worker -> produto -> exclusão por último
+  const remove = rs.filter(pick).sort((a, b) => order(a) - order(b)).map((r) => ({ id: r.id, pattern: r.pattern }));
   return { remove };
 }
 // Restore a partir de um snapshot: só com snapshot VÁLIDO e NÃO vazio; só no host da loja; recusa qualquer divergência. (Vazio -> use `retire`.)
@@ -139,7 +186,8 @@ export function planRestore(snap, current, rel, { zoneId = null } = {}) {
   if (v.empty) throw new Error('restore recusado: snapshot vazio (zona sem rotas quando foi capturado); para desfazer a loja use `retire`, que remove só as duas rotas dela');
   const want = new Map(norm(snap.routes).filter((r) => onStoreHost(rel, r.pattern)).map((r) => [r.pattern, r]));
   const cur = norm(current).filter((r) => onStoreHost(rel, r.pattern));
-  const remove = cur.filter((c) => !want.has(c.pattern));
+  const owned = new Set(ownedPatterns(rel));
+  const remove = cur.filter((c) => !want.has(c.pattern) && owned.has(c.pattern)); // só as nossas; qualquer outra rota do host fica como está
   const curMap = new Map(cur.map((c) => [c.pattern, c]));
   const create = []; const update = [];
   for (const w of want.values()) { const c = curMap.get(w.pattern); if (!c) create.push(w); else if (c.script !== w.script) update.push({ ...c, script: w.script }); }
@@ -147,7 +195,8 @@ export function planRestore(snap, current, rel, { zoneId = null } = {}) {
 }
 
 // ── health e smoke ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-export function evaluateStoreHealth(health, rel, { scope, allowlistSize, version = null }) {
+// `shell`: as páginas de casca estão ligadas? (false até o release da casca; true depois)
+export function evaluateStoreHealth(health, rel, { scope, allowlistSize, version = null, shell = false }) {
   const problems = [];
   if (!health || typeof health !== 'object') return { ok: false, problems: ['health ilegível'] };
   if (health.service !== rel.store.workerName) problems.push(`service ${health.service} (esperado ${rel.store.workerName})`);
@@ -160,17 +209,24 @@ export function evaluateStoreHealth(health, rel, { scope, allowlistSize, version
   const features = Array.isArray(health.widget_features) ? health.widget_features : [];
   for (const f of STORE_FEATURES) if (!features.includes(f)) problems.push('feature ausente: ' + f);
   for (const f of features) if (!STORE_FEATURES.includes(f)) problems.push('feature inesperada: ' + f);
-  if (health.shell_pages !== false) problems.push('shell_pages != false (as páginas de casca ficam FORA nesta rodada)');
+  if (health.shell_pages !== shell) problems.push(`shell_pages ${health.shell_pages} (esperado ${shell})`);
   if (version && health.version !== version) problems.push(`version ${health.version} (esperado ${version})`);
   return { ok: problems.length === 0, problems };
 }
 export const countLoaders = (html) => (String(html).match(/\/__origens\/loader\.js\?v=/g) || []).length;
 
-// Sondas de EXECUÇÃO do Worker (wrangler tail): exec=true = tem de ser invocado; exec=false = NÃO pode ser (com e sem query).
-export function probeSet(rel, samples) {
-  const base = rel.store.inkBase;
-  const exec = [...samples[rel.id].allowlist, samples[rel.id].allowlist[0] + '?utm_source=probe', '/__origens/health'];
-  const skip = [`${base}/cart`, `${base}/cart?x=1`, `${base}/checkout`, `${base}/checkout/contact_and_shipping_details`, `${base}/checkout/contact_and_shipping_details?x=1`,
-    `${base}/store_sessions/new`, `${base}/store_sessions/new?next=%2F`, `${base}/login`, `${base}/login?x=1`, `${base}/orders`, `${base}/orders/trackings`, `${base}`, `${base}/`, `${base}/products`, `${base}/collections/${rel.store.ufs[0].toLowerCase()}`, `${base}/about`];
-  return { exec, skip };
+// Sondas de EXECUÇÃO do Worker (wrangler tail): exec=true = tem de ser invocado; exec=false = NÃO pode ser (com e sem query); info = mostrada, sem veredito.
+// stage 'product' (só produto) ou 'shell-staged' | 'shell' (páginas de casca). `collection` = uma coleção REAL da loja (samples.collection).
+export function probeSet(rel, samples, stage = 'product') {
+  if (!['product', 'shell-staged', 'shell'].includes(stage)) throw new Error('estágio inválido: ' + stage);
+  const base = rel.store.inkBase; const sample = samples[rel.id];
+  const transactional = [`${base}/cart`, `${base}/cart?x=1`, `${base}/checkout`, `${base}/checkout/contact_and_shipping_details`, `${base}/checkout/contact_and_shipping_details?x=1`,
+    `${base}/store_sessions/new`, `${base}/store_sessions/new?next=%2F`, `${base}/login`, `${base}/login?x=1`];
+  const shellPaths = [`${base}/products`, `${base}/products?product_type=1`, `${base}/collections/${sample.collection}`, `${base}/about`, `${base}/orders/trackings`, `${base}/orders?x=1`];
+  const product = [...sample.allowlist, sample.allowlist[0] + '?utm_source=probe', '/__origens/health'];
+  if (stage === 'product') return { exec: product, skip: [...transactional, `${base}/orders`, base, `${base}/`, ...shellPaths], info: [] };
+  // shell-staged: só a home COM barra executa; as demais páginas de casca ainda caem na exclusão (nativas).
+  if (stage === 'shell-staged') return { exec: [...product, `${base}/`], skip: [...transactional, `${base}/orders`, base, ...shellPaths], info: [`${base}/?utm_source=probe`] };
+  // shell: casca autorizada executa (com e sem query); login, carrinho e checkout continuam sem Worker. `<base>/?x` (barra + query) cai na exclusão: lacuna conhecida, só informativa.
+  return { exec: [...product, ...shellPaths, `${base}/`, base, `${base}?utm_source=probe`], skip: transactional, info: [`${base}/?utm_source=probe`] };
 }

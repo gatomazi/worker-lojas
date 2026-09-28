@@ -67,20 +67,29 @@ for (const id of ['norte', 'centro']) {
   test(`[${id}] transactional, admin and shell paths are never touched; POST and Turbo-Frame pass through; other stores' paths are not this store's product`, async () => {
     const mf = await worker(store);
     const untouched = [store.inkBase + '/cart', store.inkBase + '/cart?x=1', store.inkBase + '/checkout', store.inkBase + '/checkout/contact_and_shipping_details', store.inkBase + '/store_sessions/new',
-      store.inkBase + '/login', store.inkBase + '/orders', store.inkBase + '/orders/123', store.inkBase + '/admin', store.inkBase, store.inkBase + '/', store.inkBase + '/products', store.inkBase + '/collections/ac', store.inkBase + '/about', '/admin', '/',
+      store.inkBase + '/login', store.inkBase + '/admin', store.inkBase + '/orders/a/b', store.inkBase + '/products/x', store.inkBase + '/collections/A', store.inkBase + '/collections/a/b', '/admin', '/',
       other.inkBase + '/product/x', store.inkBase + '/product/x/y', store.inkBase + '/product/', store.inkBase + '/product/__origens'];
     for (const path of untouched) { const res = await mf.dispatchFetch(url(store, path)); assert.equal(count(await res.text()), 0, path); }
     assert.equal(count(await (await mf.dispatchFetch(url(store, products[0]), { method: 'POST', body: 'a=1' })).text()), 0, 'POST');
     assert.equal(count(await (await mf.dispatchFetch(url(store, products[0]), { headers: { 'Turbo-Frame': 'x' } })).text()), 0, 'Turbo-Frame');
   });
 
-  test(`[${id}] shell pages stay off (shellPages=false) even with header-nav and product-catalog; health says so`, async () => {
+  test(`[${id}] shell pages (home, listing, collections, about, account) get ONE loader only with product-catalog + header-nav; health says so; the allowlist scope and a missing header-nav keep them native`, async () => {
     const mf = await worker(store);
     const health = await (await mf.dispatchFetch(url(store, '/__origens/health'))).json();
-    assert.equal(health.shell_pages, false);
-    for (const path of [store.inkBase, store.inkBase + '/products', store.inkBase + '/collections/ac', store.inkBase + '/about', store.inkBase + '/orders']) {
-      assert.equal(count(await (await mf.dispatchFetch(url(store, path))).text()), 0, path);
-    }
+    assert.equal(health.shell_pages, true);
+    const shell = [store.inkBase, store.inkBase + '/', store.inkBase + '/products', store.inkBase + '/collections/' + SAMPLES[id].collection, store.inkBase + '/about', store.inkBase + '/orders', store.inkBase + '/orders/trackings', store.inkBase + '/orders/123'];
+    for (const path of shell) assert.equal(count(await (await mf.dispatchFetch(url(store, path))).text()), 1, path);
+    assert.equal(count(await (await mf.dispatchFetch(url(store, store.inkBase + '/products?product_type=1&utm_source=x'))).text()), 1, 'with a query string');
+    const allow = await worker(store, { bindings: { WIDGET_SCOPE_MODE: 'allowlist' } });
+    assert.equal((await (await allow.dispatchFetch(url(store, '/__origens/health'))).json()).shell_pages, false);
+    for (const path of shell) assert.equal(count(await (await allow.dispatchFetch(url(store, path))).text()), 0, 'allowlist scope: ' + path);
+    const noNav = await worker(store, { bindings: { WIDGET_FEATURES: 'return-link,cart-mirror' } });
+    for (const path of shell) assert.equal(count(await (await noNav.dispatchFetch(url(store, path))).text()), 0, 'no header-nav: ' + path);
+    // a non-HTML or header-less page is never rewritten
+    assert.equal((await mf.dispatchFetch(url(store, store.inkBase + '/about'), { method: 'POST', body: 'a=1' })).status, 200);
+    assert.equal(count(await (await mf.dispatchFetch(url(store, store.inkBase + '/about'), { method: 'POST', body: 'a=1' })).text()), 0, 'POST');
+    assert.equal(count(await (await mf.dispatchFetch(url(store, store.inkBase + '/about'), { headers: { 'Turbo-Frame': 'x' } })).text()), 0, 'Turbo-Frame');
   });
 
   test(`[${id}] health: own identity, version, KV binding present, features; an unrelated host is refused`, async () => {
@@ -103,7 +112,7 @@ for (const id of ['norte', 'centro']) {
     const loader = await (await mf.dispatchFetch(url(store, src))).text();
     assert.match(loader, new RegExp('"inkHost":"' + store.inkHost.replaceAll('.', '\\.') + '"')); assert.match(loader, new RegExp('"inkBase":"' + store.inkBase + '"'));
     assert.ok(loader.includes('"base":"' + store.storefrontBase + '"')); assert.ok(loader.includes('"ga":"' + store.ga + '"')); assert.ok(loader.includes('"region":"' + store.region + '"'));
-    assert.match(loader, /const SHELL_ENABLED = false;/);
+    assert.match(loader, /const SHELL_ENABLED = true;/);
     for (const foreign of [STORES.sul, other]) {
       for (const literal of [foreign.inkHost, foreign.inkBase, foreign.ga, '"base":"' + foreign.storefrontBase + '"']) assert.equal(loader.includes(literal), false, 'foreign literal ' + literal);
     }
