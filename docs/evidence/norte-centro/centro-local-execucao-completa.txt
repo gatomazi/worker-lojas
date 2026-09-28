@@ -15,7 +15,7 @@ PASS centro 1280px: o modal nativo "Produto adicionado" abriu (INK)
 PASS centro 1280px: bloco pós-adição montado uma vez, CTA para /centro-oeste; botões nativos intactos  — {"cta":"https://useorigens.com.br/centro-oeste","native":true}
 PASS centro 1280px: drawer do carrinho — "Finalizar compra" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem  — {"open":true,"btn":true,"text":"Finalizar compra","enabled":true,"visible":true,"covered":false,"overlapsOurs":[],"items":1,"rootInDrawer":1}
 PASS centro 1280px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes  — blocos 1, itens 1
-PASS centro 1280px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈34ms (teto de espera da saída: 1200 ms)
+PASS centro 1280px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈154ms (teto de espera da saída: 1200 ms)
 PASS centro 1280px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja  — status 200
 PASS centro 1280px: o mesmo token NÃO existe em www.usesul.com.br (404)  — HTTP 404
 PASS centro 1280px: o mesmo token NÃO existe em www.usenorte.com.br (404)  — HTTP 404
@@ -37,7 +37,7 @@ PASS centro 390px: o modal nativo "Produto adicionado" abriu (INK)
 PASS centro 390px: bloco pós-adição montado uma vez, CTA para /centro-oeste; botões nativos intactos  — {"cta":"https://useorigens.com.br/centro-oeste","native":true}
 PASS centro 390px: drawer do carrinho — "Finalizar compra" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem  — {"open":true,"btn":true,"text":"Finalizar compra","enabled":true,"visible":true,"covered":false,"overlapsOurs":[],"items":1,"rootInDrawer":1}
 PASS centro 390px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes  — blocos 1, itens 1
-PASS centro 390px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈99ms (teto de espera da saída: 1200 ms)
+PASS centro 390px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈547ms (teto de espera da saída: 1200 ms)
 PASS centro 390px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja  — status 200
 PASS centro 390px: o mesmo token NÃO existe em www.usesul.com.br (404)  — HTTP 404
 PASS centro 390px: o mesmo token NÃO existe em www.usenorte.com.br (404)  — HTTP 404
@@ -53,3 +53,29 @@ PASS centro 320px: Enter leva a /centro-oeste/busca?q=goiania (sem cart_ref: car
 PASS centro 320px: a busca do storefront da região respondeu (produtos ou "nenhum") e o título é do storefront  — Ir para o conteúdo 468 cidades do Centro-Oeste em camiseta. Abrir menu USE ORI
 PASS centro 320px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)  — {"before":3,"after":3}
 PASS centro 320px: abrir o menu não faz requisição e os links de região são da loja  — requests +0
+PASS centro 320px: variantes nativas selecionáveis (product_variant_id > 0)
+PASS centro 320px: "Adicionar ao carrinho" nativo encontrado
+PASS centro 320px: o modal nativo "Produto adicionado" abriu (INK)
+PASS centro 320px: bloco pós-adição montado uma vez, CTA para /centro-oeste; botões nativos intactos  — {"cta":"https://useorigens.com.br/centro-oeste","native":true}
+PASS centro 320px: drawer do carrinho — "Finalizar compra" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem  — {"open":true,"btn":true,"text":"Finalizar compra","enabled":true,"visible":true,"covered":false,"overlapsOurs":[],"items":1,"rootInDrawer":1}
+PASS centro 320px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes  — blocos 1, itens 1
+PASS centro 320px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈216ms (teto de espera da saída: 1200 ms)
+PASS centro 320px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja  — status 200
+PASS centro 320px: o mesmo token NÃO existe em www.usesul.com.br (404)  — HTTP 404
+PASS centro 320px: o mesmo token NÃO existe em www.usenorte.com.br (404)  — HTTP 404
+FAIL [Storefront] centro 320px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL  — sem "Meu carrinho": o storefront em produção ainda consulta só o Worker da Sul (PR regional pendente)
+PASS centro 320px: console sem erro atribuível ao nosso código
+PASS centro negativos: produto com UTM → 1 loader e navbar  — {"tags":1}
+PASS centro negativos: URL com barra final → página nativa da INK intacta (sem loader, sem navbar nossa)  — {"tags":0,"nav":false}
+PASS centro negativos: slug inexistente → resposta da INK (404) sem loader e sem nada nosso  — HTTP 404
+PASS centro negativos: <base>/cart → nada nosso (loader 0, navbar false) [HTTP 200]
+PASS centro negativos: <base>/store_sessions/new → nada nosso (loader 0, navbar false) [HTTP 200]
+PASS centro negativos: <base> → nada nosso (loader 0, navbar false) [HTTP 200]
+PASS centro negativos: <base>/products → nada nosso (loader 0, navbar false) [HTTP 200]
+PASS centro negativos: <base>/orders/trackings → nada nosso (loader 0, navbar false) [HTTP 200]
+PASS centro negativos: Turbo produto → produto: 1 cabeçalho, 1 estilo, 1 busca (sem duplicar)  — {"path":"/usecentro/product/campo-grande-origem-ms","styles":1,"forms":1}
+PASS centro negativos: Turbo para uma página não coberta → nada nosso fica na tela  — {"nav":false,"styles":0}
+PASS centro negativos: voltar ao produto remonta uma única vez  — {"styles":1,"forms":1}
+PASS centro negativos: www.usesul.com.br não recebe o loader desta loja (HTTP 404)
+PASS centro negativos: www.usenorte.com.br não recebe o loader desta loja (HTTP 404)
+RESUMO qa-store centro local-worker: 77 PASS, 3 FAIL
