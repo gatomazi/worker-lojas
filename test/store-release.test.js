@@ -124,10 +124,13 @@ test('safetyProblems: nothing with a Worker may sit on cart, checkout, login, or
   for (const id of RELEASABLE) {
     const rel = releaseStore(id); const w = rel.store.workerName; const h = rel.store.inkHost; const b = rel.store.inkBase;
     assert.deepEqual(safetyProblems(rel.routePatterns.map((p, i) => route(i + 1, p, w)), rel), []);
-    for (const pattern of [h + b + '/cart', h + b + '/cart*', h + b + '/checkout/*', h + b + '/store_sessions/*', h + b + '/login', h + b + '/orders*', h + b + '/admin/*', h + b + '/payments*', h + b + '*', h + '/*', h + b + '/product/*/cart']) {
+    for (const pattern of [h + b + '/cart', h + b + '/cart*', h + b + '/checkout/*', h + b + '/store_sessions/*', h + b + '/login', h + b + '/admin/*', h + b + '/payments*', h + '/*', h + b + '/product/*/cart', h + b + '/orders/*', h + b + '/collections*']) {
       assert.ok(safetyProblems([route(1, pattern, w)], rel).length >= 1, pattern);
     }
-    assert.match(safetyProblems([route(1, h + b + '/collections/*', w)], rel).join(';'), /fora da lista autorizada/);
+    // a abrangente da casca só é aceita COM a exclusão ativa
+    assert.match(safetyProblems([route(1, rel.shell.broad, w)], rel).join(';'), /SEM a exclusão/);
+    assert.deepEqual(safetyProblems([route(1, rel.shell.broad, w), route(2, rel.shell.exclusion, null)], rel), []);
+    assert.match(safetyProblems([route(1, rel.shell.exclusion, w)], rel).join(';'), /TEM de ser SEM Worker/);
     assert.deepEqual(safetyProblems([route(1, h + b + '/cart', null)], rel), [], 'an exclusion (no Worker) is not a problem');
     assert.deepEqual(safetyProblems([route(1, 'www.outro.com.br/cart', 'x')], rel), [], 'other hosts are not ours to judge');
   }
@@ -157,4 +160,89 @@ test('probeSet: the real product pages (and UTM) MUST execute the Worker; login,
     assert.equal(skip.some((p) => p.includes('/product/')), false);
   }
   assert.equal(countLoaders('<script src="/__origens/loader.js?v=4.7&c=x"></script>'), 1); assert.equal(countLoaders('<html></html>'), 0);
+});
+
+test('shell patterns mirror the Use Sul design: exclusion <base>/* (no Worker), seven Worker routes, the broad one last; nothing else', () => {
+  for (const id of RELEASABLE) {
+    const rel = releaseStore(id); const h = rel.store.inkHost; const b = rel.store.inkBase; const sh = rel.shell;
+    assert.equal(sh.exclusion, h + b + '/*'); assert.equal(sh.homeSlash, h + b + '/'); assert.equal(sh.broad, h + b + '*');
+    assert.deepEqual([...sh.specific], [h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*']);
+    assert.deepEqual([...sh.workerRoutes], [h + b + '/', h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*', h + b + '*']);
+    assert.equal(sh.workerRoutes.at(-1), sh.broad, 'the broad route is created last');
+    assert.equal(sh.workerRoutes.some((p) => /cart|checkout|store_sessions|login/.test(p)), false);
+    assert.equal(new Set([rel.shell.exclusion, ...sh.workerRoutes, ...rel.routePatterns]).size, 10);
+  }
+});
+
+test('routeState/planApply: final -> shell-staged -> shell in the SAFE order; retire scope=shell keeps the two product routes and removes the exclusion last', () => {
+  for (const id of RELEASABLE) {
+    const rel = releaseStore(id); const w = rel.store.workerName; const sh = rel.shell; let n = 1; let cur = rel.routePatterns.map((p) => route(n++, p, w));
+    assert.equal(routeState(cur, rel).stage, 'final');
+    const staged = planApply(cur, rel, 'shell-staged'); assert.deepEqual(staged.problems, []);
+    assert.deepEqual(staged.create.map((c) => [c.pattern, c.script]), [[sh.exclusion, null], [sh.homeSlash, w]], 'exclusion first, then the home with slash');
+    cur = [...cur, ...staged.create.map((c) => route(n++, c.pattern, c.script))];
+    assert.equal(routeState(cur, rel).stage, 'shell-staged'); assert.deepEqual(safetyProblems(cur, rel), []);
+    const full = planApply(cur, rel, 'shell'); assert.deepEqual(full.problems, []);
+    assert.equal(full.create.length, 6); assert.equal(full.create.at(-1).pattern, sh.broad, 'broad last'); assert.ok(full.create.every((c) => c.script === w));
+    assert.equal(full.create.some((c) => c.pattern === sh.exclusion), false);
+    cur = [...cur, ...full.create.map((c) => route(n++, c.pattern, c.script))];
+    assert.equal(routeState(cur, rel).stage, 'shell'); assert.deepEqual(safetyProblems(cur, rel), []);
+    assert.deepEqual(planApply(cur, rel, 'shell').create, [], 'idempotent');
+    const foreign = [...cur, route(90, 'www.outro.com.br/x', 'zzz'), route(91, rel.store.inkHost + '/blog/*', 'zzz')];
+    const retire = planRetire(foreign, rel, 'shell').remove.map((r) => r.pattern);
+    assert.equal(retire.length, 8); assert.equal(retire.at(-1), sh.exclusion, 'exclusion is removed LAST'); assert.equal(retire.includes(rel.routePatterns[0]), false); assert.equal(retire.includes('www.outro.com.br/x'), false);
+    assert.equal(retire.includes(rel.store.inkHost + '/blog/*'), false, 'a foreign route on the store host is never removed');
+    const all = planRetire(foreign, rel, 'all').remove.map((r) => r.pattern); assert.equal(all.length, 10); assert.equal(all.at(-1), sh.exclusion);
+    assert.throws(() => planRetire(cur, rel, 'tudo'), /escopo inválido/); assert.throws(() => planApply(cur, rel, 'casca'), /estágio inválido/);
+    // half-applied states are "parcial" and never look final
+    assert.equal(routeState([...cur.slice(0, 2), route(50, sh.broad, w)], rel).stage, 'parcial');
+    assert.equal(routeState([...cur.slice(0, 2), route(50, sh.exclusion, w)], rel).stage, 'parcial', 'an exclusion WITH a Worker is a conflict');
+    assert.match(planApply([...cur.slice(0, 2), route(50, sh.exclusion, w)], rel, 'shell-staged').problems.join(';'), /SEM Worker/);
+  }
+});
+
+test('planRestore only removes routes we own on the store host; a foreign route on the host stays even if absent from the snapshot', () => {
+  const rel = releaseStore('norte'); const w = rel.store.workerName;
+  const snap = buildSnapshot({ rel, zoneId: ZONE.norte, routes: rel.routePatterns.map((p, i) => route(i + 1, p, w)) });
+  const current = [...rel.routePatterns.map((p, i) => route(i + 1, p, w)), route(20, rel.shell.exclusion, null), route(21, rel.shell.broad, w), route(22, rel.store.inkHost + '/blog/*', 'zzz')];
+  const plan = planRestore(snap, current, rel, { zoneId: ZONE.norte });
+  assert.deepEqual(plan.remove.map((r) => r.pattern).sort(), [rel.shell.broad, rel.shell.exclusion].sort());
+});
+
+test('probeSet by stage: product-only keeps the shell pages native; shell-staged executes only the home with slash; shell executes the authorized shell pages and never login/cart/checkout', () => {
+  for (const id of RELEASABLE) {
+    const rel = releaseStore(id); const b = rel.store.inkBase; const col = SAMPLES[id].collection; assert.match(col, /^[a-z0-9-]+$/);
+    const p = probeSet(rel, SAMPLES, 'product'); assert.ok(p.skip.includes(b) && p.skip.includes(`${b}/products`) && p.skip.includes(`${b}/orders`)); assert.equal(p.exec.some((x) => x === b || x.startsWith(b + '/orders')), false);
+    const st = probeSet(rel, SAMPLES, 'shell-staged'); assert.ok(st.exec.includes(`${b}/`)); assert.ok(st.skip.includes(`${b}/products`) && st.skip.includes(b) && st.skip.includes(`${b}/orders`)); assert.ok(st.info.length >= 1);
+    const sh = probeSet(rel, SAMPLES, 'shell');
+    for (const x of [b, `${b}/`, `${b}?utm_source=probe`, `${b}/products`, `${b}/products?product_type=1`, `${b}/collections/${col}`, `${b}/about`, `${b}/orders/trackings`, `${b}/orders?x=1`, ...SAMPLES[id].allowlist]) assert.ok(sh.exec.includes(x), x);
+    for (const x of [`${b}/cart`, `${b}/cart?x=1`, `${b}/checkout`, `${b}/checkout/contact_and_shipping_details?x=1`, `${b}/store_sessions/new`, `${b}/login`]) assert.ok(sh.skip.includes(x), x);
+    assert.equal(sh.exec.some((x) => /cart|checkout|store_sessions|login/.test(x)), false);
+    assert.throws(() => probeSet(rel, SAMPLES, 'x'), /estágio inválido/);
+    assert.deepEqual(new Set([...sh.exec, ...sh.skip]).size, sh.exec.length + sh.skip.length, 'no path is both required and forbidden');
+  }
+});
+
+test('evaluateStoreHealth with shell:true expects shell_pages true; the phrases for the shell release are per store and distinct from the others', () => {
+  const rel = releaseStore('norte');
+  const health = { service: rel.store.workerName, store: 'norte', store_status: 'ok', version: LOADER_VERSION, widget_mode: 'true', allowlist_status: 'ok', allowlist_size: 3, scope_mode: CATALOG, scope_status: 'ok', shell_pages: true, features_status: 'ok', widget_features: STORE_FEATURES, kv_bound: true };
+  assert.equal(evaluateStoreHealth(health, rel, { scope: CATALOG, allowlistSize: 3, shell: true }).ok, true);
+  assert.match(evaluateStoreHealth(health, rel, { scope: CATALOG, allowlistSize: 3 }).problems.join(';'), /shell_pages true/);
+  assert.match(evaluateStoreHealth({ ...health, shell_pages: false }, rel, { scope: CATALOG, allowlistSize: 3, shell: true }).problems.join(';'), /shell_pages false/);
+  const c = releaseStore('centro');
+  assert.equal(new Set([rel.confirmPhrase, rel.rollbackPhrase, rel.shellPhrase, rel.shellRollbackPhrase, c.confirmPhrase, c.rollbackPhrase, c.shellPhrase, c.shellRollbackPhrase]).size, 8);
+  assert.equal(rel.shellPhrase, 'PUBLICAR-CASCA-NORTE-INK');
+});
+
+test('resolveToml: without shell only the two product routes are kept; with shell all nine (wrangler deploy syncs Worker routes to the file); the exclusion is refused in the TOML', () => {
+  for (const id of RELEASABLE) {
+    const rel = releaseStore(id); const kv = 'abcdef0123456789abcdef0123456789';
+    const off = resolveToml(toml(id), rel, kv); const on = resolveToml(toml(id), rel, kv, { shell: true });
+    const patterns = (t) => [...t.matchAll(/^pattern = "([^"]+)"/gm)].map((m) => m[1]);
+    assert.deepEqual(patterns(off), rel.routePatterns); assert.deepEqual(patterns(on), [...rel.routePatterns, ...rel.shell.workerRoutes]);
+    assert.equal(patterns(on).includes(rel.shell.exclusion), false);
+    assert.ok(off.includes(`id = "${kv}"`) && on.includes(`id = "${kv}"`)); assert.equal(off.includes('zone_name = "' + rel.zoneName + '"'), true);
+    assert.equal((off.match(/\[\[kv_namespaces\]\]/g) || []).length, 1); assert.equal((off.match(/\[vars\]/g) || []).length, 1);
+    assert.match(configProblems(toml(id) + `\n[[routes]]\npattern = "${rel.shell.exclusion}"\nzone_name = "${rel.zoneName}"\n`, rel).join(';'), /exclusão/);
+  }
 });

@@ -28,7 +28,7 @@ test('every store is internally consistent and no field is shared with another s
   }
   assert.equal(STORES.sul.kvBinding, 'CART_REFS', 'the Sul binding name is unchanged');
   assert.equal(STORES.norte.kvBinding, 'NORTE_CART_REFS'); assert.equal(STORES.centro.kvBinding, 'CENTRO_CART_REFS');
-  assert.equal(STORES.sul.shellPages, true); assert.equal(STORES.norte.shellPages, false); assert.equal(STORES.centro.shellPages, false);
+  assert.equal(STORES.sul.shellPages, true); assert.equal(STORES.norte.shellPages, true); assert.equal(STORES.centro.shellPages, true);
   const c = clientStore(STORES.centro);
   assert.equal(c.home, 'https://useorigens.com.br/centro-oeste'); assert.equal(c.search, 'https://useorigens.com.br/centro-oeste/busca'); assert.equal(c.cities, 'https://useorigens.com.br/centro-oeste#estados');
 });
@@ -65,7 +65,9 @@ test('product patterns: canonical slugs only; no transactional path, subpath, tr
     assert.equal(isCatalogProductPath(b + '/product/' + 'a'.repeat(128), store), true); assert.equal(isCatalogProductPath(b + '/product/' + 'a'.repeat(129), store), false);
     const catalog = parseScopeMode('product-catalog'); const allow = parseScopeMode('allowlist');
     assert.equal(inScope(catalog, { paths: [] }, b + '/product/qualquer', store), true); assert.equal(inScope(allow, { paths: [] }, b + '/product/qualquer', store), false);
-    assert.equal(shellEnabled('product-catalog', ['header-nav'], store.shellPages), false, 'shell pages stay off for ' + id);
+    assert.equal(shellEnabled('product-catalog', ['header-nav'], store.shellPages), true, 'shell pages are on for ' + id);
+    assert.equal(shellEnabled('allowlist', ['header-nav'], store.shellPages), false, 'never in the allowlist scope');
+    assert.equal(shellEnabled('product-catalog', ['cart-mirror'], store.shellPages), false, 'never without header-nav');
   }
   assert.equal(shellEnabled('product-catalog', ['header-nav'], STORES.sul.shellPages), true);
   assert.equal(shellEnabled('product-catalog', ['header-nav']), true, 'default keeps the Sul behavior');
@@ -78,7 +80,10 @@ test('the TOML of each new store is bound to that store only: name, STORE_ID, ho
     assert.equal(tomlValue(text, 'ENABLE_WIDGET'), 'false', 'a bare deploy is fail-closed'); assert.equal(tomlValue(text, 'WIDGET_FEATURES'), 'return-link'); assert.equal(tomlValue(text, 'WIDGET_ALLOWLIST'), '');
     assert.equal(text.includes('workers_dev = false'), true);
     const zone = store.inkHost.replace(/^www\./, '');
-    assert.deepEqual(routes(text), [{ pattern: store.inkHost + store.inkBase + '/product/*', zone }, { pattern: store.inkHost + '/__origens/*', zone }]);
+    const h = store.inkHost; const b = store.inkBase;
+    assert.deepEqual(routes(text), [h + b + '/product/*', h + '/__origens/*', h + b + '/', h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*', h + b + '*'].map((pattern) => ({ pattern, zone })),
+      'product + __origens + the seven shell routes (never the exclusion, which has no Worker and lives in the zone); nothing on cart/checkout/login');
+    assert.equal(routes(text).some((r) => /cart|checkout|store_sessions|login/.test(r.pattern)), false);
     assert.deepEqual([...text.matchAll(/^binding = "([^"]+)"/gm)].map((m) => m[1]), [store.kvBinding], 'exactly one KV binding, the store one');
     assert.match(text, new RegExp('id = "REPLACE_WITH_' + store.kvBinding + '_NAMESPACE_ID"'), 'the id is a placeholder until the release resolves the real namespace');
     for (const other of STORE_IDS.filter((x) => x !== id)) for (const literal of [STORES[other].inkHost, STORES[other].inkBase, STORES[other].workerName]) assert.equal(text.includes(literal), false, id + ' toml mentions ' + literal);

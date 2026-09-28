@@ -151,3 +151,29 @@ Conta (agregado): **26.592 requisições, 0 erros, 25.489 subrequisições** —
 - **`use-sul-widget` não foi alterado:** nenhum `wrangler deploy/rollback/versions` foi executado contra ele; `wrangler.production.toml` está idêntico ao do `main`; nenhuma rota, DNS, KV ou WAF da Sul foi tocado (todas as chamadas à Cloudflare desta rodada foram GETs). O código compartilhado mudou no repositório, mas **só chega à Sul se ela for publicada de novo** (o comportamento com `STORE_ID` ausente = Sul está coberto por teste).
 - Lacunas conhecidas: URL com barra final fica nativa (igual à Sul); páginas de casca e conta **fora** nas duas lojas nesta rodada; sem analytics `ink_navbar`; coleções vazias nos CMS regionais; o QA ao vivo depende do DNS proxied e do PR regional do storefront.
 - Antes do merge do PR do Worker: publicar as duas lojas e só então mergear; se um QA crítico falhar, **não** mergear. Ao mergear, fazer antes o merge do `main` nesta branch (traz as abas WhatsApp/Ajuda; o `list-watch.js` desta branch, mais novo que o do `main`, prevalece) e rodar `npm test` de novo — as abas só passam a valer nas lojas no próximo deploy delas.
+
+## 11. Páginas de casca (início, listagens, coleções, sobre, conta/pedidos) — mesmo desenho da Use Sul
+
+`shellPages: true` em `src/stores.js` para Norte e Centro-Oeste. O Worker só age em caminhos EXATOS de `shellPageKind` (início, `/products`, `/collections/<slug>`, `/about`, `/orders`, `/orders/<id|trackings>`), com `product-catalog` + `header-nav` e o cabeçalho nativo `nav.navbar` presente; login, carrinho, checkout e o resto ficam de fora.
+
+Rotas da zona (criadas pela API, NUNCA pelo `wrangler deploy`; o TOML da loja continua com as 2 rotas de produto): a **exclusão** `<host><base>/*` (sem Worker) tira do Worker tudo sob `<base>/`; sete rotas COM Worker, mais específicas, reabrem só as páginas autorizadas: `<base>/`, `<base>`, `<base>/products*`, `<base>/collections/*`, `<base>/about*`, `<base>/orders*` e, por último, `<base>*`. Exceção conhecida (igual à Sul): a Cloudflare recusa `?` em padrão de rota, então `<base>/?utm=…` (barra + query) cai na exclusão e mantém o cabeçalho nativo.
+
+`node scripts/release-store.mjs <loja> --enable-shell` (frase `PUBLICAR-CASCA-<LOJA>-INK`; a loja precisa estar publicada em `product-catalog`): snapshot → exclusão + home com barra → espera e **prova de execução com `wrangler tail`** (só produto e a home com barra executam) → deploy do Worker (mesmas variáveis, código com a casca) → confere que o deploy não mexeu nas rotas → sete rotas (a abrangente por último) → estágio `shell` + segurança estática + prova de execução (casca executa; login/carrinho/checkout NÃO, com e sem query) → smoke → QA ao vivo `--shell` (1280/390/320). Falha em qualquer passo: evidência antes; `retire --scope=shell` (remove só a casca, mantendo as 2 de produto, e confere contra o snapshot) e `wrangler rollback` para a versão anterior. Desfazer depois: `RELEASE_CONFIRM=REVERTER-CASCA-<LOJA>-INK node scripts/release-store.mjs <loja> --disable-shell`.
+
+Testes: 437/437 (`test/store-release.test.js` cobre estágios, ordem segura de criação/remoção, exclusão sem Worker, abrangente só com exclusão, sondas por estágio; `stores.workerd/dom` cobrem 1 loader nas páginas de casca, nada em login/carrinho/checkout, allowlist e falta de `header-nav` mantendo nativo). QA local com `--shell` na INK real: Norte 106 PASS e Centro-Oeste 106 PASS; as únicas falhas são o passo `[Storefront]` (o token do KV local não existe no Worker de produção) e uma expectativa do QA sobre `/orders` sem sessão (a INK redireciona ao login), corrigida.
+
+### 11.1 Resultado (2026-09-28, noite): casca PUBLICADA nas duas lojas
+
+| | Versão ativa | Loader | Rotas da zona | QA ao vivo (produto + casca, 1280/390/320) |
+|---|---|---|---|---|
+| Norte | `8e997bab…` (anterior `013f722c…`) | 4.8 | estágio `shell` (10 rotas: exclusão sem Worker + 9 com Worker) | **116 PASS, 0 FAIL** |
+| Centro-Oeste | `07e1d287…` (anterior `c0fac294…`) | 4.8 | estágio `shell` | **116 PASS, 0 FAIL** |
+
+Conferido em produção depois: início e `/products` com 1 loader; `store_sessions/new` e `cart` com 0. O loader 4.8 inclui as abas laterais de WhatsApp/Ajuda (já publicadas na Sul).
+
+O que a publicação ensinou (já corrigido no código):
+1. **`wrangler deploy` sincroniza as rotas COM Worker do script com o TOML** (apaga as que não estão nele; a exclusão sem Worker ele não toca). A 1ª tentativa perdeu a "home com barra" e o release desfez sozinho. Agora o TOML lista as 7 rotas de casca e o release só as inclui no arquivo resolvido quando a exclusão de zona já existe (`resolveToml` com `shell`).
+2. **`wrangler tail` perde eventos e conecta devagar** com a rede lenta: a prova de execução espera até 300 s pela conexão, envia as sondas em ritmo e reenvia (2 rodadas) as que deveriam executar; uma execução indevida (login/carrinho/checkout) continua reprovando de imediato.
+3. `/orders` sem sessão é redirecionado pela INK ao login (nada nosso); `/orders/trackings` é público e recebe a navbar.
+
+Rollback da casca por loja: `RELEASE_CONFIRM=REVERTER-CASCA-<LOJA>-INK node scripts/release-store.mjs <loja> --disable-shell` (retira a exclusão e as 7 rotas, mantém as 2 de produto, volta a versão anterior). Estado das seções 1 a 10 acima: histórico da 1ª rodada.

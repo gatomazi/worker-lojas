@@ -17,6 +17,38 @@ zone_name = "usecentro.com.br"
 pattern = "www.usecentro.com.br/__origens/*"
 zone_name = "usecentro.com.br"
 
+# PÁGINAS DE CASCA (início, listagens, coleções, sobre, conta/pedidos) — mesmo desenho da Use Sul; o release `--enable-shell` só as ativa DEPOIS de criar na zona a EXCLUSÃO
+# `www.usecentro.com.br/usecentro/*` (rota SEM Worker, que este arquivo não pode declarar: o wrangler só declara rotas COM Worker). O `wrangler deploy` SINCRONIZA as rotas com Worker do script com
+# este arquivo (apaga as que não estão aqui). Por isso o release usa uma versão resolvida SEM estas sete rotas enquanto a casca está desligada (`resolveToml`, opção shell) e COM
+# elas depois; com a exclusão ativa o Worker continua fora de login, carrinho, checkout e do resto. Nunca faça `wrangler deploy` deste arquivo direto (id do KV é um marcador).
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/products*"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/collections/*"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/about*"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/orders*"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro*"
+zone_name = "usecentro.com.br"
+
 # Fail-closed: um deploy puro deixa a integração DESLIGADA. O release passa ENABLE_WIDGET/WIDGET_* por --var. STORE_ID identifica a loja (e trava host, prefixo, storefront e KV).
 [vars]
 STORE_ID = "centro"

@@ -6,9 +6,18 @@
       "/usenorte/product/assis-brasil-origem-ac",
       "/usenorte/product/labrea-origem-am"
     ],
-    "extraProducts": ["/usenorte/product/anori-coordenadas-am", "/usenorte/product/chupinguaia-coordenadas-ro"],
+    "extraProducts": [
+      "/usenorte/product/anori-coordenadas-am",
+      "/usenorte/product/chupinguaia-coordenadas-ro"
+    ],
     "storefrontHome": "https://useorigens.com.br/norte",
-    "search": { "query": "belem", "city": "Belém", "uf": "PA", "href": "https://useorigens.com.br/norte/pa/belem" }
+    "search": {
+      "query": "belem",
+      "city": "Belém",
+      "uf": "PA",
+      "href": "https://useorigens.com.br/norte/pa/belem"
+    },
+    "collection": "ac"
   },
   "centro": {
     "allowlist": [
@@ -16,8 +25,17 @@
       "/usecentro/product/campo-grande-origem-ms",
       "/usecentro/product/sinop-origem-mt"
     ],
-    "extraProducts": ["/usecentro/product/made-in-distrito-federal-a5e3ed7c-0ee2-4c4c-b2d0-ba6134c22152", "/usecentro/product/dourados-origem-ms"],
+    "extraProducts": [
+      "/usecentro/product/made-in-distrito-federal-a5e3ed7c-0ee2-4c4c-b2d0-ba6134c22152",
+      "/usecentro/product/dourados-origem-ms"
+    ],
     "storefrontHome": "https://useorigens.com.br/centro-oeste",
-    "search": { "query": "goiania", "city": "Goiânia", "uf": "GO", "href": "https://useorigens.com.br/centro-oeste/go/goiania" }
+    "search": {
+      "query": "goiania",
+      "city": "Goiânia",
+      "uf": "GO",
+      "href": "https://useorigens.com.br/centro-oeste/go/goiania"
+    },
+    "collection": "df"
   }
 }
