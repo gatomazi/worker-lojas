@@ -43,8 +43,12 @@ const ok = (m) => log('  OK    ' + m); const warn = (m) => { WARNS.push(m); log(
 const need = (m) => { NEEDS.push(m); log('  CRIA  ' + m + '   (criado pelo --deploy, só com a sua confirmação)'); };
 const die = (m) => { log('PARADO: ' + m); process.exit(1); };
 
-function run(cmd, args, { timeout = 180000, input, cwd = ROOT } = {}) {
-  const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout, input, maxBuffer: 20 * 1024 * 1024 });
+// Rede lenta/sem o registro do npm: o Wrangler espera o teste de atualização (dezenas de segundos por chamada). Estas variáveis o dispensam e o teto por comando
+// é ajustável (WRANGLER_TIMEOUT_MS) em vez de reprovar o release por lentidão do ambiente.
+const CMD_TIMEOUT = Number(process.env.WRANGLER_TIMEOUT_MS || 300000);
+const QUIET_ENV = { ...process.env, NO_UPDATE_NOTIFIER: '1', WRANGLER_SEND_METRICS: 'false', CI: '1' };
+function run(cmd, args, { timeout = CMD_TIMEOUT, input, cwd = ROOT } = {}) {
+  const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout, input, maxBuffer: 20 * 1024 * 1024, env: QUIET_ENV });
   return { code: r.status === null ? 124 : r.status, out: (r.stdout || '') + (r.stderr || ''), stdout: r.stdout || '' };
 }
 const wrangler = (args, opts) => run('npx', ['wrangler', ...args], opts);
