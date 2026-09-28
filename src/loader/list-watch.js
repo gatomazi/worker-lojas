@@ -62,6 +62,19 @@ export const LIST_WATCH = String.raw`
     } catch (_) { return null; }
   }
 
+  // Chave estável para comparar "a mesma pergunta" (mesma sessão, mesmo conjunto done) independente da ordem de
+  // inserção do Set. Usada tanto para decidir se um pré-fetch já cobre o que check() precisa quanto para nunca
+  // repetir o mesmo pré-fetch em montagens seguidas da mesma página (Turbo pode chamar mount() mais de uma vez).
+  function lsKey(token, doneArray) {
+    return token + '|' + doneArray.slice().sort().join(',');
+  }
+
+  function lsFetchNext(token, doneArray, signal) {
+    return fetch(LS_ENDPOINT + '?ls=' + encodeURIComponent(token) + '&done=' + encodeURIComponent(doneArray.join(',')), {
+      credentials: 'omit', headers: { accept: 'application/json' }, signal
+    }).then((response) => (response.ok ? response.json() : null)).catch(() => null);
+  }
+
   function lsEnsureStyle() {
     let style = document.querySelector('style[data-origens-list-session-style]');
     if (!style) {
@@ -104,6 +117,11 @@ export const LIST_WATCH = String.raw`
     const cta = document.createElement('a');
     cta.className = 'o-ls-cta';
     cta.textContent = 'Ver próxima →';
+    // Único link MESMA ORIGEM (INK -> INK) que este código já injeta — todo outro CTA (return-link,
+    // discovery, product-discovery) sai para o storefront, origem diferente, onde o Turbo Drive da INK nunca
+    // intercepta o clique. Aqui intercepta: sem isto, o clique vira uma visita Turbo que a INK trata como
+    // navegação (fechando/esmaecendo o drawer) sem completar o carregamento real da próxima página.
+    cta.setAttribute('data-turbo', 'false');
     const safeHref = lsSafeUrl(next.url, 'https:');
     if (safeHref) {
       const withToken = new URL(safeHref);
@@ -121,6 +139,9 @@ export const LIST_WATCH = String.raw`
     ac: null,
     mounted: false,
     seq: 0,
+    prefetchKey: null,
+    prefetchPromise: null,
+    prefetchController: null,
 
     mount() {
       if (!allowedNow()) return this.unmount();
@@ -140,7 +161,30 @@ export const LIST_WATCH = String.raw`
         this.observer = new MutationObserver(() => this.check());
         this.observer.observe(host, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
       }
+      this.prefetchNext();
       this.check();
+    },
+
+    // Aposta: o produto DESTA página é o que o visitante está prestes a adicionar. Busca a resposta para o
+    // conjunto "done" que passaria a valer se essa aposta se confirmar, ANTES de o drawer abrir — na maioria dos
+    // casos reais (escolher variante/tamanho leva mais que os ~300ms da ida e volta) a resposta já está pronta
+    // quando o add é confirmado, e check() só lê o cache em vez de esperar uma requisição nova. Não marca nada
+    // como feito de verdade (isso continua só em check(), no add confirmado) e nunca aparece nada se a aposta
+    // não se confirmar: só evita repetir uma requisição já em voo/pronta para a MESMA pergunta.
+    prefetchNext() {
+      const token = lsToken();
+      const current = lsCurrentProductId();
+      if (!token || !current) return;
+      const done = [...lsDoneSet()];
+      if (!done.includes(current)) done.push(current);
+      const key = lsKey(token, done);
+      if (this.prefetchKey === key) return;
+      if (this.prefetchController) this.prefetchController.abort();
+      this.prefetchKey = key;
+      this.prefetchController = new AbortController();
+      const timeout = setTimeout(() => this.prefetchController.abort(), LS_FETCH_MS);
+      this.prefetchPromise = lsFetchNext(token, done, this.prefetchController.signal);
+      this.prefetchPromise.then(() => clearTimeout(timeout));
     },
 
     // Mesmo critério de post-add-discovery: drawer existe, visível, confirmação da INK e botões nativos presentes.
@@ -163,13 +207,11 @@ export const LIST_WATCH = String.raw`
       const current = lsCurrentProductId();
       if (current) lsMarkDone(current);
 
+      const doneNow = [...lsDoneSet()];
+      const key = lsKey(token, doneNow);
       const mySeq = ++this.seq;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), LS_FETCH_MS);
-      fetch(LS_ENDPOINT + '?ls=' + encodeURIComponent(token) + '&done=' + encodeURIComponent([...lsDoneSet()].join(',')), {
-        credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal
-      }).then((response) => (response.ok ? response.json() : null)).then((data) => {
-        clearTimeout(timeout);
+
+      const render = (data) => {
         if (mySeq !== this.seq || !allowedNow()) return; // resposta atrasada/rota trocada: descartada
         const wrapperNow = document.getElementById('modal-wrapper');
         if (!this.isOpen(wrapperNow) || wrapperNow.querySelector('[data-origens-list-session]')) return;
@@ -181,12 +223,33 @@ export const LIST_WATCH = String.raw`
         lsEnsureStyle();
         if (footer) footer.insertAdjacentElement('afterend', card); else mostSold.insertAdjacentElement('beforebegin', card);
         this.mounted = true;
-      }).catch(() => { clearTimeout(timeout); });
+      };
+
+      // A aposta do prefetchNext() se confirmou: mesma sessão, mesmo conjunto done resultante — usa a resposta já
+      // pronta (ou quase) em vez de repetir a mesma pergunta com uma requisição nova.
+      if (this.prefetchKey === key && this.prefetchPromise) {
+        this.prefetchPromise.then(render);
+        return;
+      }
+      // A aposta errou (ex.: troca de variante mudou o produto desta página entre o mount() e a confirmação).
+      // Registra ESTA busca como a resposta corrente para a chave real — sem isto, o próximo mount() (o
+      // observer global do runtime chama sync()/mount() de novo a cada mutação do documento, não só a nossa)
+      // veria prefetchKey desatualizado e repetiria a mesma requisição outra vez, mesmo já tendo a resposta certa.
+      if (this.prefetchController) this.prefetchController.abort();
+      this.prefetchController = new AbortController();
+      const timeout = setTimeout(() => this.prefetchController.abort(), LS_FETCH_MS);
+      this.prefetchKey = key;
+      this.prefetchPromise = lsFetchNext(token, doneNow, this.prefetchController.signal);
+      this.prefetchPromise.then(() => clearTimeout(timeout));
+      this.prefetchPromise.then(render);
     },
 
     unmount() {
       if (this.observer) { this.observer.disconnect(); this.observer = null; }
       if (this.ac) { this.ac.abort(); this.ac = null; }
+      if (this.prefetchController) { this.prefetchController.abort(); this.prefetchController = null; }
+      this.prefetchKey = null;
+      this.prefetchPromise = null;
       this.host = null;
       this.seq++; // invalida qualquer fetch em voo
       this.mounted = false;

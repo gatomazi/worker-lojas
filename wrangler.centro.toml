@@ -1,0 +1,31 @@
+name = "use-centro-widget"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+workers_dev = false
+
+# Worker EXCLUSIVO da Use Centro-Oeste (mesmo código da Use Sul, deploy e configuração isolados). NÃO publicar por `wrangler deploy` puro: use scripts/release-store.sh centro
+# (rotas, KV e variáveis com trava dupla). Só o Worker `use-centro-widget` usa este arquivo; nunca o da Use Sul nem o de outra loja.
+#
+# ROTAS: só PRODUTO e o loader/gateways (/__origens). Nada de login, carrinho, checkout, pedidos, pagamentos, administração, home ou listagens: essas rotas NÃO chamam
+# o Worker (a INK responde direto). Não há rota abrangente nem exclusão de zona, porque não há curinga além de <prefixo>/product/*. O Worker ainda repete a checagem
+# (host + caminho + método) no código. Rotas não são versionadas: quem as cria e desfaz é scripts/store-routes.mjs (snapshot, apply, retire).
+[[routes]]
+pattern = "www.usecentro.com.br/usecentro/product/*"
+zone_name = "usecentro.com.br"
+
+[[routes]]
+pattern = "www.usecentro.com.br/__origens/*"
+zone_name = "usecentro.com.br"
+
+# Fail-closed: um deploy puro deixa a integração DESLIGADA. O release passa ENABLE_WIDGET/WIDGET_* por --var. STORE_ID identifica a loja (e trava host, prefixo, storefront e KV).
+[vars]
+STORE_ID = "centro"
+ENABLE_WIDGET = "false"
+WIDGET_FEATURES = "return-link"
+WIDGET_ALLOWLIST = ""
+
+# KV do espelho do carrinho DESTA loja (nunca compartilhado com outra). O release cria/resolve o namespace `use-centro-cart-refs` e injeta o id no arquivo resolvido
+# (.release/); o id abaixo é um marcador: com ele o `wrangler deploy` falha em vez de gravar num namespace errado.
+[[kv_namespaces]]
+binding = "CENTRO_CART_REFS"
+id = "REPLACE_WITH_CENTRO_CART_REFS_NAMESPACE_ID"

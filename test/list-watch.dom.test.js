@@ -77,6 +77,22 @@ test('with ?ls=<token>, a confirmed add mounts the card between the native butto
   assert.equal(cta.textContent, 'Ver próxima →');
   assert.equal(new URL(cta.href).origin + new URL(cta.href).pathname, NEXT.url);
   assert.equal(new URL(cta.href).searchParams.get('ls'), TOKEN, 'the token rides along to the next product page too');
+  assert.equal(cta.getAttribute('data-turbo'), 'false', 'this is the only SAME-ORIGIN (INK -> INK) link this code injects: without opting out, Turbo Drive intercepts the click as a visit instead of a real navigation (real bug, found in production: the drawer closed/dimmed and nothing loaded)');
+});
+
+test('"Ver próxima" survives a Turbo-Drive-style click interceptor (same-origin links are hijacked unless data-turbo="false")', async () => {
+  const t = setup({ search: '?ls=' + TOKEN }); await tick();
+  // Minimal stand-in for how Turbo Drive actually behaves: a capture-phase document listener that hijacks any
+  // same-origin <a href> click unless it opts out — this is what silently broke the real button in production.
+  t.doc.addEventListener('click', (event) => {
+    const a = event.target.closest && event.target.closest('a[href]');
+    if (a && a.getAttribute('data-turbo') !== 'false' && new t.w.URL(a.href).origin === t.w.location.origin) event.preventDefault();
+  }, true);
+  openDrawer(t.doc); await tick(200);
+  const cta = card(t.doc).querySelector('.o-ls-cta');
+  const clickEvent = new t.w.MouseEvent('click', { bubbles: true, cancelable: true });
+  cta.dispatchEvent(clickEvent);
+  assert.equal(clickEvent.defaultPrevented, false, 'data-turbo="false" must keep Turbo from swallowing the navigation');
 });
 
 test('the current page\'s product id is marked done and sent to the gateway (the drawer opening IS the confirmed-add signal)', async () => {
@@ -88,6 +104,45 @@ test('the current page\'s product id is marked done and sent to the gateway (the
   assert.equal(url.searchParams.get('ls'), TOKEN);
   assert.equal(url.searchParams.get('done'), '0', 'form-product-0 on this fixture: the product just confirmed added');
   assert.equal(call.credentials, 'omit');
+});
+
+test('prefetch: the gateway is already called on page load, betting the current product is what gets added — before the drawer ever opens', async () => {
+  const t = setup({ search: '?ls=' + TOKEN }); await tick();
+  const call = lsCalls(t)[0];
+  assert.ok(call, 'fetched speculatively at mount, not only when the drawer opens');
+  const url = new URL(call.url, HOST);
+  assert.equal(url.searchParams.get('ls'), TOKEN);
+  assert.equal(url.searchParams.get('done'), '0', 'speculates that THIS page\'s product (form-product-0) will be the one confirmed added');
+});
+
+test('prefetch pays off: confirming the add reuses the prefetched answer — the card still appears, with NO second request to the gateway', async () => {
+  const t = setup({ search: '?ls=' + TOKEN }); await tick();
+  assert.equal(lsCalls(t).length, 1, 'the prefetch already fired');
+  openDrawer(t.doc); await tick(200);
+  assert.ok(card(t.doc), 'the card renders from the prefetched response');
+  assert.equal(lsCalls(t).length, 1, 'confirming the add did not trigger a second, redundant request');
+});
+
+test('prefetch miss: switching variant (a different form-product-<id>) before adding still gets the RIGHT answer, via a fresh request', async () => {
+  // The bet ("this page's product is what gets added") can miss for a real reason: choosing a different
+  // color/model swaps the native form to a DIFFERENT product id before the visitor actually adds to cart. The
+  // prefetch, fired at mount for the ORIGINAL id, no longer matches what check() computes once the add is
+  // confirmed for the NEW id — must fall back cleanly, never show a card for the wrong prediction.
+  let calls = 0;
+  const t = setup({
+    search: '?ls=' + TOKEN,
+    fetchImpl: (url) => {
+      calls++;
+      const done = new URL(url, HOST).searchParams.get('done');
+      return done === '0' ? json({ next: NEXT, position: 0, total: 3 }) : json({ next: { ...NEXT, inkProductId: '333', title: 'Outra Variante' }, position: 1, total: 3 });
+    }
+  });
+  await tick();
+  assert.equal(calls, 1, 'prefetch fired once, betting on form-product-0');
+  t.doc.querySelector('form[id^="form-product-"]').id = 'form-product-777'; // variant switch: a different underlying product
+  openDrawer(t.doc); await tick(200);
+  assert.equal(calls, 2, 'the stale prefetch (done=0) no longer matches (done=777): a fresh request is made, not a wrong cache hit');
+  assert.equal(card(t.doc).querySelector('.o-ls-title').textContent, 'Outra Variante', 'the card reflects the correct, freshly-fetched answer for the product actually added');
 });
 
 test('a session carried over from a previous page (sessionStorage, no ?ls in this URL) still works', async () => {

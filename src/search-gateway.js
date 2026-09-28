@@ -1,12 +1,12 @@
 // GET /__origens/search?q=  — gateway SOMENTE LEITURA para o índice público de cidades do storefront.
-// Motivo: /api/cidades/sul não envia CORS para www.usesul.com.br, então o navegador não pode consumi-lo diretamente.
+// Motivo: /api/cidades/<região> não envia CORS para o host da INK, então o navegador não pode consumi-lo diretamente.
+// Uma instância por loja (src/stores.js): o índice, os UFs aceitos, os nomes de estado e os links são os da região da loja, nunca de outra.
 // Garantias: origem FIXA (useorigens.com.br), sem SSRF (nenhuma URL vem do visitante), sem repassar Cookie/Authorization,
 // timeout, limite de tamanho, validação de esquema, só campos públicos, links montados aqui (nunca vindos do índice).
 // Não registra a consulta em log. Resposta `no-store`; só o índice público é cacheado (memória + cache de borda, TTL curto).
-import { prepareCities, searchCities, STATE_NAMES } from './search-rank.js';
+import { prepareCities, searchCities } from './search-rank.js';
+import { ACTIVE_STORE } from './stores.js';
 
-const ORIGIN = 'https://useorigens.com.br';
-const INDEX_URL = ORIGIN + '/api/cidades/sul';
 const INDEX_TTL_MS = 5 * 60 * 1000;
 const INDEX_STALE_MS = 24 * 60 * 60 * 1000;
 const INDEX_FETCH_CEILING_MS = 10_000; // teto da busca do índice (continua em segundo plano e aquece o cache)
@@ -16,20 +16,20 @@ const INDEX_MAX_ITEMS = 5000;
 const INDEX_MIN_ITEMS = 100;
 export const MAX_RESULTS = 5;
 const QUERY = /^[\p{L}\p{M}\p{N} .,'’\-]{2,40}$/u;
-const UF = /^(PR|SC|RS)$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const json = (body, status = 200, extra = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra } });
 
 // Aceita só entradas com o formato conhecido; descarta o resto. Devolve null se o índice não parece o real.
-export function validateIndex(data) {
+export function validateIndex(data, store = ACTIVE_STORE) {
+  const allowedUf = new Set(store.ufs);
   if (!Array.isArray(data) || data.length > INDEX_MAX_ITEMS) return null;
   const clean = [];
   for (const item of data) {
     if (!item || typeof item !== 'object') continue;
     const { n, u, s, m, a } = item;
-    if (typeof n !== 'string' || n.length === 0 || n.length > 60 || typeof u !== 'string' || !UF.test(u) || typeof s !== 'string' || s.length > 60 || !SLUG.test(s)) continue;
+    if (typeof n !== 'string' || n.length === 0 || n.length > 60 || typeof u !== 'string' || !allowedUf.has(u) || typeof s !== 'string' || s.length > 60 || !SLUG.test(s)) continue;
     const entry = { n, u, s };
     if (typeof m === 'string' && m.length <= 80) entry.m = m;
     if (Array.isArray(a)) entry.a = a.filter((x) => typeof x === 'string' && x.length <= 40).slice(0, 8);
@@ -38,7 +38,9 @@ export function validateIndex(data) {
   return clean.length >= INDEX_MIN_ITEMS ? clean : null;
 }
 
-export function createSearchGateway({ upstream = (request, init) => fetch(request, init), now = () => Date.now() } = {}) {
+export function createSearchGateway({ upstream = (request, init) => fetch(request, init), now = () => Date.now(), store = ACTIVE_STORE } = {}) {
+  const ORIGIN = store.storefront;
+  const INDEX_URL = ORIGIN + store.citiesApi;
   let cache = null; // { prepared, at }
   let inflight = null;
 
@@ -55,7 +57,7 @@ export function createSearchGateway({ upstream = (request, init) => fetch(reques
       if (declared > INDEX_MAX_CHARS) throw new Error('index too large');
       const text = await response.text();
       if (text.length > INDEX_MAX_CHARS) throw new Error('index too large');
-      const clean = validateIndex(JSON.parse(text));
+      const clean = validateIndex(JSON.parse(text), store);
       if (!clean) throw new Error('index schema');
       return { prepared: prepareCities(clean), at: now() };
     } finally {
@@ -102,10 +104,10 @@ export function createSearchGateway({ upstream = (request, init) => fetch(reques
         console.warn(JSON.stringify({ event: 'use-origens.search-index-error', reason: String(error && error.message).slice(0, 40) }));
         return json({ error: 'unavailable' }, 502);
       }
-      const results = searchCities(prepared, query, { limit: MAX_RESULTS }).map((r) =>
+      const results = searchCities(prepared, query, { ufs: store.ufs, stateNames: store.stateNames, limit: MAX_RESULTS }).map((r) =>
         r.type === 'city'
-          ? { type: 'city', name: r.city.n, uf: r.city.u, meso: r.city.m ?? null, href: ORIGIN + '/sul/' + r.city.u.toLowerCase() + '/' + r.city.s }
-          : { type: 'state', name: STATE_NAMES[r.uf], uf: r.uf, meso: null, href: ORIGIN + '/sul/' + r.uf.toLowerCase() }
+          ? { type: 'city', name: r.city.n, uf: r.city.u, meso: r.city.m ?? null, href: ORIGIN + store.storefrontBase + '/' + r.city.u.toLowerCase() + '/' + r.city.s }
+          : { type: 'state', name: store.stateNames[r.uf], uf: r.uf, meso: null, href: ORIGIN + store.storefrontBase + '/' + r.uf.toLowerCase() }
       );
       return json({ results });
     }

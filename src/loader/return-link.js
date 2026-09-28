@@ -1,13 +1,12 @@
 // return-link: "← Voltar a procurar" abaixo do CTA nativo em fluxo (#add-to-cart-desk). Comportamento do piloto preservado.
 export const RETURN_LINK = String.raw`
-  // Aceita apenas https://useorigens.com.br/sul[/...] sem credenciais nem porta: evita open redirect.
+  // Aceita apenas <origem do storefront><base da região>[/...] sem credenciais nem porta: evita open redirect.
   // Hoje nada no storefront produz origens_return (purchaseUrl não o envia).
   function safeReturnUrl(candidate) {
     if (!candidate) return null;
     try {
       const url = new URL(candidate);
-      const okPath = url.pathname === '/sul' || url.pathname.startsWith('/sul/');
-      if (url.origin === STOREFRONT_ORIGIN && okPath && !url.username && !url.password) return url.href;
+      if (url.origin === STOREFRONT_ORIGIN && isStorefrontPath(url.pathname) && !url.username && !url.password) return url.href;
     } catch (_) { /* parâmetro inválido: usar o destino padrão */ }
     return null;
   }

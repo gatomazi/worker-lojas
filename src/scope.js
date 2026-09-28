@@ -1,14 +1,17 @@
 // WIDGET_SCOPE_MODE: quais páginas podem receber o loader. Fail-closed e DESLIGADO por padrão.
 //   ausente / "allowlist" / qualquer outro valor -> "allowlist": só os caminhos exatos de WIDGET_ALLOWLIST (comportamento atual)
-//   "product-catalog"                            -> qualquer página VERDADEIRA de produto (/usesul/product/<slug>), sem lista de slugs
+//   "product-catalog"                            -> qualquer página VERDADEIRA de produto da loja (<inkBase>/product/<slug>), sem lista de slugs
 // Um valor com erro de digitação cai em "allowlist" (o escopo mais estreito) e o health mostra scope_status "invalid".
 // ENABLE_WIDGET=false continua sendo o kill switch global; este modo nunca amplia hosts, métodos nem rotas além do produto.
+import { ACTIVE_STORE, catalogProductPattern } from './stores.js';
+
 export const SCOPE_MODES = ['allowlist', 'product-catalog'];
 export const CATALOG_MODE = 'product-catalog';
 
 // Slug canônico do catálogo (os 9.775 slugs reais do catálogo conferem): minúsculas, dígitos, "-" e "_"; sem subcaminho,
 // sem barra final, sem "%", sem ".." e sem placeholders. O mesmo formato de allowlist.js.
-export const CATALOG_PRODUCT_PATH = /^\/usesul\/product\/[a-z0-9][a-z0-9_-]{0,127}$/;
+// Uma expressão por loja (stores.js); esta constante é a da Use Sul, mantida por compatibilidade.
+export const CATALOG_PRODUCT_PATH = catalogProductPattern(ACTIVE_STORE);
 
 export function parseScopeMode(raw) {
   if (raw === undefined || raw === null || raw === '') return { mode: 'allowlist', status: 'default' };
@@ -19,11 +22,11 @@ export function parseScopeMode(raw) {
   return { mode: 'allowlist', status: 'invalid' };
 }
 
-export const isCatalogProductPath = (pathname) => typeof pathname === 'string' && CATALOG_PRODUCT_PATH.test(pathname);
+export const isCatalogProductPath = (pathname, store = ACTIVE_STORE) => typeof pathname === 'string' && catalogProductPattern(store).test(pathname);
 
 // Uma rota está no escopo? (só o caminho; o Worker ainda exige GET, sem Turbo-Frame, 200, HTML e formulário nativo de compra.)
-export function inScope(scope, allowlist, pathname) {
-  return scope.mode === CATALOG_MODE ? isCatalogProductPath(pathname) : allowlist.paths.includes(pathname);
+export function inScope(scope, allowlist, pathname, store = ACTIVE_STORE) {
+  return scope.mode === CATALOG_MODE ? isCatalogProductPath(pathname, store) : allowlist.paths.includes(pathname);
 }
 
 // ── Páginas "de casca" (shell): onde só o cabeçalho e o FAB nossos aparecem, sem nenhum módulo de produto ────────────────────────────────────
@@ -44,4 +47,5 @@ export function shellPageKind(pathname, base) {
   return null;
 }
 // O escopo de casca está ligado? (catálogo + header-nav; nunca no modo de allowlist de cinco produtos)
-export const shellEnabled = (scopeMode, features) => scopeMode === CATALOG_MODE && Array.isArray(features) && features.includes('header-nav');
+// `shellPages` é a decisão POR LOJA (stores.js): onde as rotas da zona não foram validadas para as páginas de casca, o Worker nem o loader as tocam.
+export const shellEnabled = (scopeMode, features, shellPages = true) => shellPages === true && scopeMode === CATALOG_MODE && Array.isArray(features) && features.includes('header-nav');

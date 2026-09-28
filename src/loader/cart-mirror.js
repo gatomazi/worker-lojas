@@ -138,7 +138,7 @@ export const CART_MIRROR = String.raw`
       if (!link || (link.id !== 'use-origens-return-link' && !link.closest('[data-origens-discovery], [data-origens-nav]'))) return null;
       try {
         const url = new URL(link.href);
-        if (url.origin !== STOREFRONT_ORIGIN || (url.pathname !== '/sul' && !url.pathname.startsWith('/sul/'))) return null;
+        if (url.origin !== STOREFRONT_ORIGIN || !isStorefrontPath(url.pathname)) return null;
       } catch (_) { return null; }
       return link;
     },
