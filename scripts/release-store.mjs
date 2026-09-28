@@ -198,7 +198,9 @@ async function deploy(ctx) {
     if (c.code !== 0) die('não consegui criar o KV: ' + c.out.split('\n').slice(-3).join(' '));
     const list = jsonFrom(wrangler(['kv', 'namespace', 'list']).stdout); kvId = (list || []).find((n) => n.title === rel.kvTitle)?.id; if (!kvId) die('KV criado mas não localizado na listagem');
   } else log(`== 2. KV ${rel.kvTitle} já existe (${kvId.slice(0, 8)}…)`);
-  writeFileSync(RESOLVED, resolveToml(readFileSync(`${ROOT}/${rel.tomlFile}`, 'utf8'), rel, kvId), { mode: 0o600 });
+  // As sete rotas de casca só entram no arquivo se a casca JÁ está ligada (o `wrangler deploy` apaga rotas com Worker que não estão no arquivo).
+  const shellOn = routeState(await listRoutes(zone.id), rel).stage === 'shell';
+  writeFileSync(RESOLVED, resolveToml(readFileSync(`${ROOT}/${rel.tomlFile}`, 'utf8'), rel, kvId, { shell: shellOn }), { mode: 0o600 });
 
   const before = wrangler(['deployments', 'list', '--name', store.workerName]); const firstRelease = /does not exist|10007/.test(before.out) || before.code !== 0;
   const rollbackTo = async (phase1Version, why) => {
@@ -304,7 +306,9 @@ async function enableShell(ctx) {
   const snapFile = `${WORK}/routes-snapshot-casca-${stamp()}.json`; writeFileSync(snapFile, JSON.stringify(snap, null, 1), { mode: 0o600 });
   log(`\n== 1. snapshot (estado só-produto): ${snap.count} rota(s), digest ${snap.digest.slice(0, 12)}… → ${snapFile.replace(ROOT + '/', '')}; versão a preservar ${prevVersion.slice(0, 8)}…`);
   if (!ctx.kvFound) die('KV da loja não encontrado');
-  writeFileSync(RESOLVED, resolveToml(readFileSync(`${ROOT}/${rel.tomlFile}`, 'utf8'), rel, ctx.kvFound.id), { mode: 0o600 });
+  // TOML COM as sete rotas de casca: o `wrangler deploy` sincroniza as rotas com Worker do script com o arquivo (apagaria a home com barra, por exemplo). A exclusão
+  // (sem Worker) já existe na zona a esta altura, então as rotas de casca criadas pelo deploy nunca ficam sem ela.
+  writeFileSync(RESOLVED, resolveToml(readFileSync(`${ROOT}/${rel.tomlFile}`, 'utf8'), rel, ctx.kvFound.id, { shell: true }), { mode: 0o600 });
   let codeDeployed = false;
 
   log('\n== 2. exclusão de zona (sem Worker) e home com barra');
@@ -312,6 +316,7 @@ async function enableShell(ctx) {
   log(`   aguardando ${PROPAGATION_WAIT_S}s a propagação das rotas…`); await sleep(PROPAGATION_WAIT_S * 1000);
   const p1 = routesCmd('probe', '--stage=shell-staged'); log(p1.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (p1.code !== 0) await shellRollback(prevVersion, snapFile, 'execução do Worker fora do esperado no estágio shell-staged', false);
   ok('estágio shell-staged provado (só produto e a home com barra executam; login/carrinho/checkout e o resto nativos)');
+  const stExcl = routeState(await listRoutes(zone.id), rel); if (!stExcl.exclusion) await shellRollback(prevVersion, snapFile, 'a exclusão de zona não existe antes do deploy com as rotas de casca', false);
 
   log('\n== 3. Worker com as páginas de casca (mesmas variáveis: product-catalog, 8 features)');
   const vars = releaseVars(rel, CATALOG, SAMPLES);
@@ -321,10 +326,11 @@ async function enableShell(ctx) {
   const h1 = await healthNow(); const e1 = evaluateStoreHealth(h1, rel, { scope: CATALOG, allowlistSize: n, version: LOADER_VERSION, shell: true });
   if (!e1.ok) await shellRollback(prevVersion, snapFile, 'health com a casca: ' + e1.problems.join('; '), true);
   ok(`health: shell_pages=true, loader ${h1.version}`);
-  const stB = routeState(await listRoutes(zone.id), rel).stage; if (stB !== 'shell-staged') await shellRollback(prevVersion, snapFile, `o deploy alterou as rotas da zona (estágio ${stB})`, true);
-  ok('o wrangler deploy não mexeu nas rotas da zona (ainda shell-staged)');
+  const rB = await listRoutes(zone.id); const stB = routeState(rB, rel); const spB = safetyProblems(rB, rel);
+  if (!stB.exclusion || spB.length || stB.conflicts.length) await shellRollback(prevVersion, snapFile, `o deploy deixou as rotas da zona inseguras (estágio ${stB.stage}; exclusão ${stB.exclusion}): ${[...spB, ...stB.conflicts].join('; ')}`, true);
+  ok(`após o deploy: exclusão intacta, estágio ${stB.stage}, segurança estática ok`);
 
-  log('\n== 4. rotas específicas e, por último, a abrangente');
+  log('\n== 4. conferência/complemento das rotas (o deploy já cria as sete; o `apply` só completa o que faltar)');
   const a2 = routesCmd('apply', '--stage=shell'); log(a2.out.trim().split('\n').map((l) => '   ' + l).join('\n')); if (a2.code !== 0) await shellRollback(prevVersion, snapFile, 'apply shell falhou', true);
   log(`   aguardando ${PROPAGATION_WAIT_S}s a propagação das rotas…`); await sleep(PROPAGATION_WAIT_S * 1000);
   const rs = await listRoutes(zone.id); const sp = safetyProblems(rs, rel); if (routeState(rs, rel).stage !== 'shell' || sp.length) await shellRollback(prevVersion, snapFile, 'rotas finais: ' + sp.join('; '), true);

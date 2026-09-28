@@ -233,3 +233,16 @@ test('evaluateStoreHealth with shell:true expects shell_pages true; the phrases 
   assert.equal(new Set([rel.confirmPhrase, rel.rollbackPhrase, rel.shellPhrase, rel.shellRollbackPhrase, c.confirmPhrase, c.rollbackPhrase, c.shellPhrase, c.shellRollbackPhrase]).size, 8);
   assert.equal(rel.shellPhrase, 'PUBLICAR-CASCA-NORTE-INK');
 });
+
+test('resolveToml: without shell only the two product routes are kept; with shell all nine (wrangler deploy syncs Worker routes to the file); the exclusion is refused in the TOML', () => {
+  for (const id of RELEASABLE) {
+    const rel = releaseStore(id); const kv = 'abcdef0123456789abcdef0123456789';
+    const off = resolveToml(toml(id), rel, kv); const on = resolveToml(toml(id), rel, kv, { shell: true });
+    const patterns = (t) => [...t.matchAll(/^pattern = "([^"]+)"/gm)].map((m) => m[1]);
+    assert.deepEqual(patterns(off), rel.routePatterns); assert.deepEqual(patterns(on), [...rel.routePatterns, ...rel.shell.workerRoutes]);
+    assert.equal(patterns(on).includes(rel.shell.exclusion), false);
+    assert.ok(off.includes(`id = "${kv}"`) && on.includes(`id = "${kv}"`)); assert.equal(off.includes('zone_name = "' + rel.zoneName + '"'), true);
+    assert.equal((off.match(/\[\[kv_namespaces\]\]/g) || []).length, 1); assert.equal((off.match(/\[vars\]/g) || []).length, 1);
+    assert.match(configProblems(toml(id) + `\n[[routes]]\npattern = "${rel.shell.exclusion}"\nzone_name = "${rel.zoneName}"\n`, rel).join(';'), /exclusão/);
+  }
+});

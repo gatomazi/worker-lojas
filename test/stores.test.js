@@ -80,7 +80,10 @@ test('the TOML of each new store is bound to that store only: name, STORE_ID, ho
     assert.equal(tomlValue(text, 'ENABLE_WIDGET'), 'false', 'a bare deploy is fail-closed'); assert.equal(tomlValue(text, 'WIDGET_FEATURES'), 'return-link'); assert.equal(tomlValue(text, 'WIDGET_ALLOWLIST'), '');
     assert.equal(text.includes('workers_dev = false'), true);
     const zone = store.inkHost.replace(/^www\./, '');
-    assert.deepEqual(routes(text), [{ pattern: store.inkHost + store.inkBase + '/product/*', zone }, { pattern: store.inkHost + '/__origens/*', zone }]);
+    const h = store.inkHost; const b = store.inkBase;
+    assert.deepEqual(routes(text), [h + b + '/product/*', h + '/__origens/*', h + b + '/', h + b, h + b + '/products*', h + b + '/collections/*', h + b + '/about*', h + b + '/orders*', h + b + '*'].map((pattern) => ({ pattern, zone })),
+      'product + __origens + the seven shell routes (never the exclusion, which has no Worker and lives in the zone); nothing on cart/checkout/login');
+    assert.equal(routes(text).some((r) => /cart|checkout|store_sessions|login/.test(r.pattern)), false);
     assert.deepEqual([...text.matchAll(/^binding = "([^"]+)"/gm)].map((m) => m[1]), [store.kvBinding], 'exactly one KV binding, the store one');
     assert.match(text, new RegExp('id = "REPLACE_WITH_' + store.kvBinding + '_NAMESPACE_ID"'), 'the id is a placeholder until the release resolves the real namespace');
     for (const other of STORE_IDS.filter((x) => x !== id)) for (const literal of [STORES[other].inkHost, STORES[other].inkBase, STORES[other].workerName]) assert.equal(text.includes(literal), false, id + ' toml mentions ' + literal);

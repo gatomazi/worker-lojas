@@ -55,7 +55,9 @@ export function configProblems(tomlText, rel) {
   if (tomlValue(tomlText, 'name') !== store.workerName) problems.push(`name do TOML = ${tomlValue(tomlText, 'name')} (esperado ${store.workerName})`);
   if (tomlValue(tomlText, 'STORE_ID') !== rel.id) problems.push(`STORE_ID do TOML = ${tomlValue(tomlText, 'STORE_ID')} (esperado ${rel.id})`);
   const routes = [...tomlText.matchAll(/\[\[routes\]\]\s*\npattern = "([^"]+)"\s*\nzone_name = "([^"]+)"/g)].map((m) => ({ pattern: m[1], zone: m[2] }));
-  if (JSON.stringify(routes.map((r) => r.pattern)) !== JSON.stringify(rel.routePatterns)) problems.push(`rotas do TOML [${routes.map((r) => r.pattern).join(', ')}] != esperadas [${rel.routePatterns.join(', ')}]`);
+  const expected = [...rel.routePatterns, ...rel.shell.workerRoutes];
+  if (JSON.stringify(routes.map((r) => r.pattern)) !== JSON.stringify(expected)) problems.push(`rotas do TOML [${routes.map((r) => r.pattern).join(', ')}] != esperadas [${expected.join(', ')}]`);
+  if (routes.some((r) => r.pattern === rel.shell.exclusion)) problems.push('a exclusão (sem Worker) NÃO pode estar no TOML: o wrangler só declara rotas COM Worker; ela é criada na zona por store-routes.mjs');
   if (routes.some((r) => r.zone !== rel.zoneName)) problems.push('zone_name do TOML diferente da zona da loja');
   const bindings = [...tomlText.matchAll(/^binding = "([^"]+)"/gm)].map((m) => m[1]);
   if (JSON.stringify(bindings) !== JSON.stringify([store.kvBinding])) problems.push(`bindings KV do TOML [${bindings.join(', ')}] != [${store.kvBinding}]`);
@@ -67,11 +69,15 @@ export function configProblems(tomlText, rel) {
   return problems;
 }
 // TOML resolvido: só troca o marcador do id do KV pelo id REAL (32 hex) do namespace da própria loja.
-export function resolveToml(tomlText, rel, kvId) {
+// `shell` (padrão false): as sete rotas de CASCA só ficam no arquivo resolvido quando a exclusão de zona já existe. O `wrangler deploy` SINCRONIZA as rotas COM Worker
+// do script com o TOML (apaga as que não estão nele; a exclusão, sem Worker, ele não toca) — por isso, com a casca ligada, todas as sete TÊM de estar no arquivo.
+export function resolveToml(tomlText, rel, kvId, { shell = false } = {}) {
   if (typeof kvId !== 'string' || !/^[0-9a-f]{32}$/.test(kvId)) throw new Error('id do namespace KV inválido');
   const marker = `REPLACE_WITH_${rel.store.kvBinding}_NAMESPACE_ID`;
   if (!tomlText.includes(marker)) throw new Error('marcador do id do KV ausente no TOML');
-  return tomlText.replace(marker, kvId);
+  let out = tomlText.replace(marker, kvId);
+  if (!shell) for (const pattern of rel.shell.workerRoutes) out = out.replace(new RegExp('\\[\\[routes\\]\\]\\s*\\npattern = "' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"\\s*\\nzone_name = "[^"]+"\\s*\\n?'), '');
+  return out;
 }
 
 // ── variáveis do deploy: sempre explícitas (o TOML é fail-closed); duas fases ──────────────────────────────────────────────────────────────────
