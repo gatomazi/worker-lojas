@@ -8,7 +8,8 @@
 // Para medir também sem aceite, basta trocar REQUIRE_INK_COOKIE_NOTICE_ACCEPTED para false.
 // Nunca envia: cart_ref, conteúdo do carrinho, URL completa/query, texto de busca, cookies ou qualquer dado pessoal.
 export const TRACKING = String.raw`
-  const GA_MEASUREMENT_ID = 'G-8GYTEJ1F77';
+  // Propriedade GA4 que a PRÓPRIA página da INK desta loja já carrega (a mesma do storefront da região): STORE.ga vem de src/stores.js.
+  const GA_MEASUREMENT_ID = STORE.ga;
   const REQUIRE_INK_COOKIE_NOTICE_ACCEPTED = true;
   const ENTRY_POINTS = ['ink_cart_drawer', 'ink_post_add', 'ink_product_detail', 'ink_product_return', 'storefront_return'];
   const SRC_PARAM = 'origens_src';
@@ -31,7 +32,7 @@ export const TRACKING = String.raw`
   function track(name, entryPoint) {
     try {
       if (!allowedNow() || !ENTRY_POINTS.includes(entryPoint) || !gaWired() || !inkCookieNoticeAccepted()) return false;
-      const params = { send_to: GA_MEASUREMENT_ID, entry_point: entryPoint, region: 'sul', transport_type: 'beacon' };
+      const params = { send_to: GA_MEASUREMENT_ID, entry_point: entryPoint, region: STORE.region, transport_type: 'beacon' };
       const slug = currentProductSlug();
       if (slug) params.product_slug = slug;
       window.gtag('event', name, params);
@@ -50,7 +51,7 @@ export const TRACKING = String.raw`
   function isStorefrontLink(link) {
     try {
       const url = new URL(link.href);
-      return url.protocol === 'https:' && url.origin === STOREFRONT_ORIGIN && (url.pathname === '/sul' || url.pathname.startsWith('/sul/'));
+      return url.protocol === 'https:' && url.origin === STOREFRONT_ORIGIN && isStorefrontPath(url.pathname);
     } catch (_) { return false; }
   }
 

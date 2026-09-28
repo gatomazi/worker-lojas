@@ -4,6 +4,10 @@ Cloudflare Worker injeta **um único loader** no HTML da INK; o loader adiciona 
 
 Estado: **Fase 2C (allowlist), nada publicado**. Sem deploy, sem rota em produção, sem alteração de DNS/Cloudflare. Evidências, riscos e rollback em [`docs/fase-2a.md`](docs/fase-2a.md), [`docs/fase-2b-smoke.md`](docs/fase-2b-smoke.md) e [`docs/fase-2c-allowlist.md`](docs/fase-2c-allowlist.md); plano geral em [`docs/plan.md`](docs/plan.md).
 
+## Lojas Norte e Centro-Oeste (mesmo código, um Worker por loja)
+
+`src/stores.js` define cada loja; `STORE_ID` no TOML (`wrangler.norte.toml`, `wrangler.centro.toml`) escolhe a loja do Worker. Release por loja: `node scripts/release-store.mjs <norte|centro> --check|--deploy|--rollback`; QA em navegador real: `node scripts/qa-store.mjs <loja> --local-worker|--live`; rotas da zona: `scripts/store-routes.mjs`; contadores: `scripts/store-metrics.mjs`. Estado, bloqueios e comandos exatos em [`docs/norte-centro-workers.md`](docs/norte-centro-workers.md).
+
 ## Estrutura
 
 | Arquivo | Papel |

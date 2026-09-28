@@ -82,7 +82,7 @@ test('health reports shell_pages; the loader knows the shell scope only when it 
   const off = await (await get({ ...ON, WIDGET_SCOPE_MODE: 'allowlist' }, '/__origens/health')).json();
   assert.equal(off.shell_pages, false);
   const loader = await (await get(ON, '/__origens/loader.js')).text();
-  assert.match(loader, /const SHELL_ENABLED = true;/); assert.match(loader, /function shellPageKind\(pathname, base\)/); assert.match(loader, /const INK_BASE = "\/usesul";/);
+  assert.match(loader, /const SHELL_ENABLED = true;/); assert.match(loader, /function shellPageKind\(pathname, base\)/); assert.match(loader, /const STORE = \{[^}]*"inkBase":"\/usesul"/); assert.match(loader, /const INK_BASE = STORE\.inkBase;/);
   const loaderOff = await (await get({ ...ON, WIDGET_SCOPE_MODE: 'allowlist' }, '/__origens/loader.js')).text();
   assert.match(loaderOff, /const SHELL_ENABLED = false;/);
 });

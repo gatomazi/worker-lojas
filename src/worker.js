@@ -6,11 +6,11 @@ import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
 import { createListSession, LIST_SESSION_PATH } from './list-session.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
-import { ACTIVE_STORE } from './stores.js';
+import { resolveStore, productPagePattern } from './stores.js';
 
-const HOST = 'www.usesul.com.br';
-// Página de produto exata: /usesul/product/<slug>. Sem subcaminhos, sem __origens.
-const PRODUCT_PAGE = /^\/usesul\/product\/(?!__)[^/]+\/?$/;
+// UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
+// declarou a variável). STORE_ID desconhecido = fail-closed: só o health responde e todo o resto vai direto à INK.
+// Página de produto exata: <inkBase>/product/<slug>. Sem subcaminhos, sem __origens.
 const LOADER_PATH = '/__origens/loader.js';
 const DISCOVERY_PATH = '/__origens/discovery.js';
 const SEARCH_PATH = '/__origens/search';
@@ -31,10 +31,9 @@ function widgetMode(env) {
 
 // Só GET, HTML de página de produto OU (com header-nav + catálogo) de página "de casca" não transacional: home, listagem, coleções, sobre, conta/pedidos.
 // Login, carrinho, checkout e qualquer outro caminho nunca. Turbo-Frame devolve fragmento sem <head>: fora do escopo.
-const shellKindOf = (url) => shellPageKind(url.pathname, ACTIVE_STORE.inkBase);
-function isEligibleRequest(request, url, shellOn) {
+function isEligibleRequest(request, url, shellOn, store) {
   if (request.method !== 'GET' || request.headers.has('Turbo-Frame')) return false;
-  return PRODUCT_PAGE.test(url.pathname) || (shellOn && shellKindOf(url) !== null);
+  return productPagePattern(store).test(url.pathname) || (shellOn && shellPageKind(url.pathname, store.inkBase) !== null);
 }
 
 // Redirects e erros da origem chegam ao cliente sem serem seguidos nem alterados.
@@ -98,15 +97,15 @@ const DISABLED_JS = '/* use-origens widget disabled */';
 
 // Publicar o loader NÃO autoriza injetá-lo: quem autoriza páginas é só a allowlist, aplicada em
 // injectLoader e reaplicada dentro do próprio loader (embutida aqui). Só entram os módulos de WIDGET_FEATURES.
-function serveLoader(request, url, mode, allowlist, features, scope) {
+function serveLoader(request, url, mode, allowlist, features, scope, store) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
   // Com a flag desligada (ou dry-run) o loader vira no-op: páginas em cache no navegador não quebram.
   if (mode !== 'true') return javascript(request, DISABLED_JS, 'no-store');
-  const expected = loaderQuery(allowlist.paths, features.features, scope.mode);
+  const expected = loaderQuery(allowlist.paths, features.features, scope.mode, store);
   const cache = url.searchParams.get('c') === expected.split('&c=')[1] && url.searchParams.get('v') === LOADER_VERSION ? IMMUTABLE : SHORT;
-  return javascript(request, buildLoaderSource(allowlist.paths, features.features, scope.mode), cache);
+  return javascript(request, buildLoaderSource(allowlist.paths, features.features, scope.mode, store), cache);
 }
 
 // Módulo de descoberta carregado sob demanda pelo loader, só quando o drawer pós-adição abre.
@@ -122,9 +121,9 @@ function serveDiscovery(request, url, mode, features) {
   return javascript(request, buildDiscoverySource(discoveryOptions(features.features)), cache);
 }
 
-async function injectLoader(request, url, mode, allowlist, features, scope, upstream) {
-  const shell = !PRODUCT_PAGE.test(url.pathname); // só chega aqui uma página de produto ou de casca (isEligibleRequest)
-  const allowlisted = shell ? shellEnabled(scope.mode, features.features) : inScope(scope, allowlist, url.pathname);
+async function injectLoader(request, url, mode, allowlist, features, scope, store, upstream) {
+  const shell = !productPagePattern(store).test(url.pathname); // só chega aqui uma página de produto ou de casca (isEligibleRequest)
+  const allowlisted = shell ? shellEnabled(scope.mode, features.features, store.shellPages) : inScope(scope, allowlist, url.pathname, store);
 
   // Fail-closed: fora do escopo nada é reescrito, e nem sequer se olha a resposta.
   if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
@@ -154,14 +153,14 @@ async function injectLoader(request, url, mode, allowlist, features, scope, upst
 
   let transformed;
   if (scope.mode === CATALOG_MODE) {
-    const state = { product: false, alreadyPresent: false, tag: loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode)) };
+    const state = { product: false, alreadyPresent: false, tag: loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode, store)) };
     transformed = new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderMarker(state))
       .on(shell ? 'nav.navbar' : 'form[id^="form-product-"]', shell ? new ShellHeaderDetector(state) : new ProductFormDetector(state))
       .on('body', new BodyLoaderInjector(state))
       .transform(response);
   } else {
-    const injector = new LoaderInjector(loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode)));
+    const injector = new LoaderInjector(loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode, store)));
     transformed = new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderDetector(injector))
       .on('head', injector)
@@ -177,46 +176,61 @@ async function injectLoader(request, url, mode, allowlist, features, scope, upst
 
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
-export function createWorker(upstream, { gateway = createSearchGateway(), cartRefs = createCartRefs(), navbar = createNavbarGateway(), listSession = createListSession() } = {}) {
+// Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null } = {}) {
+  const services = new Map();
+  const servicesOf = (store) => {
+    if (!services.has(store.id)) services.set(store.id, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }) });
+    return services.get(store.id);
+  };
   return {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
       const mode = widgetMode(env);
-      const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST);
+      const resolved = resolveStore(env.STORE_ID);
+      const store = resolved.store;
+      const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST, store ?? undefined);
       const features = parseFeatures(env.WIDGET_FEATURES);
       const scope = parseScopeMode(env.WIDGET_SCOPE_MODE);
 
-      // Health não depende da origem: valida a publicação antes de qualquer ativação.
-      if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && url.hostname !== HOST)) {
+      // Health não depende da origem: valida a publicação antes de qualquer ativação. Sem loja válida (STORE_ID desconhecido) só o health responde.
+      if (url.pathname === HEALTH_PATH || (url.pathname === '/__health' && (!store || url.hostname !== store.inkHost))) {
         return Response.json({
-          service: 'use-sul-widget',
+          service: store ? store.workerName : 'use-origens-widget',
+          store: resolved.id,
+          store_status: resolved.status,
           version: LOADER_VERSION,
-          widget_mode: mode,
+          widget_mode: store ? mode : 'false',
           allowlist_status: allowlist.status,
           allowlist_size: allowlist.paths.length,
           scope_mode: scope.mode,
           scope_status: scope.status,
-          shell_pages: shellEnabled(scope.mode, features.features),
+          shell_pages: store ? shellEnabled(scope.mode, features.features, store.shellPages) : false,
           features_status: features.status,
-          widget_features: features.features,
+          widget_features: store ? features.features : [],
+          // Só a EXISTÊNCIA do binding do KV desta loja (nunca o id nem o conteúdo).
+          kv_bound: store ? Boolean(env[store.kvBinding]) : false,
           cart_ref_stats: cartRefs.stats()
         });
       }
 
-      // workers.dev não é espelho da INK.
-      if (url.hostname !== HOST) {
+      // Loja desconhecida: fail-closed, a INK responde tudo.
+      if (!store) return passThrough(request, upstream);
+
+      // workers.dev (ou qualquer host que não seja o da loja deste Worker) não é espelho da INK.
+      if (url.hostname !== store.inkHost) {
         return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
       }
 
-      if (url.pathname === LOADER_PATH) return serveLoader(request, url, mode, allowlist, features, scope);
+      if (url.pathname === LOADER_PATH) return serveLoader(request, url, mode, allowlist, features, scope, store);
       if (url.pathname === DISCOVERY_PATH) return serveDiscovery(request, url, mode, features);
       // Gateway de busca: só com a flag ligada E a feature city-search; caso contrário a INK responde (404 dela).
-      // Ponte do espelho do carrinho: só com true + cart-mirror (e o KV CART_REFS provisionado); senão a INK responde.
+      // Ponte do espelho do carrinho: só com true + cart-mirror (e o KV DESTA LOJA provisionado); senão a INK responde.
       if (url.pathname === CART_REF_PATH || url.pathname.startsWith(CART_REF_PATH + '/')) {
         if (mode !== 'true' || !features.features.includes('cart-mirror')) return passThrough(request, upstream);
         try {
-          if (url.pathname === CART_REF_PATH) return await cartRefs.create(request, { kv: env.CART_REFS, allowedPaths: allowlist.paths, pathAllowed: scope.mode === CATALOG_MODE ? isCatalogProductPath : null, origin: 'https://' + HOST });
-          return await cartRefs.read(request, { kv: env.CART_REFS, token: url.pathname.slice(CART_REF_PATH.length + 1) });
+          if (url.pathname === CART_REF_PATH) return await cartRefs.create(request, { kv: env[store.kvBinding], store: store.id, allowedPaths: allowlist.paths, pathAllowed: scope.mode === CATALOG_MODE ? (path) => isCatalogProductPath(path, store) : null, origin: 'https://' + store.inkHost });
+          return await cartRefs.read(request, { kv: env[store.kvBinding], store: store.id, token: url.pathname.slice(CART_REF_PATH.length + 1) });
         } catch (_) {
           // O espelho é opcional: erro inesperado = 503 JSON (o cliente navega sem token); nunca uma página de erro da Cloudflare.
           logEvent('error', 'cart-ref-failed', {});
@@ -225,21 +239,21 @@ export function createWorker(upstream, { gateway = createSearchGateway(), cartRe
       }
       // Configuração pública da navbar (coleções do CMS): só com true + header-nav; caso contrário a INK responde (404 dela).
       if (url.pathname === NAVBAR_PATH) {
-        return mode === 'true' && features.features.includes('header-nav') ? navbar.handle(request) : passThrough(request, upstream);
+        return mode === 'true' && features.features.includes('header-nav') ? servicesOf(store).navbar.handle(request) : passThrough(request, upstream);
       }
       // Sessão de compra de "Meus Lugares": só com true + list-session; caso contrário a INK responde (404 dela).
       if (url.pathname === LIST_SESSION_PATH) {
-        return mode === 'true' && features.features.includes('list-session') ? listSession.handle(request) : passThrough(request, upstream);
+        return mode === 'true' && features.features.includes('list-session') ? servicesOf(store).listSession.handle(request) : passThrough(request, upstream);
       }
       if (url.pathname === SEARCH_PATH) {
-        return mode === 'true' && features.features.includes('city-search') ? gateway.handle(request, ctx) : passThrough(request, upstream);
+        return mode === 'true' && features.features.includes('city-search') ? servicesOf(store).gateway.handle(request, ctx) : passThrough(request, upstream);
       }
 
       // Sem nenhum módulo liberado não há o que injetar (fail-closed).
-      if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url, shellEnabled(scope.mode, features.features))) return passThrough(request, upstream);
+      if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url, shellEnabled(scope.mode, features.features, store.shellPages), store)) return passThrough(request, upstream);
       // Falha ABERTA: qualquer erro nosso ao reescrever devolve a página original da INK (a compra nunca depende do widget).
       try {
-        return await injectLoader(request, url, mode, allowlist, features, scope, upstream);
+        return await injectLoader(request, url, mode, allowlist, features, scope, store, upstream);
       } catch (_) {
         logEvent('error', 'inject-failed', { path: url.pathname });
         return passThrough(request, upstream);

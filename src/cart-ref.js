@@ -3,7 +3,10 @@
 // token aleatório (128 bits). O carrinho verdadeiro continua sendo o da INK. Nenhum cookie/sessão/CSRF/dado pessoal é aceito ou guardado.
 //   POST /__origens/cart-ref            (só a página autorizada da INK; JSON validado; devolve {ref, ttl})
 //   GET  /__origens/cart-ref/<token>    (lido pelo SERVIDOR do storefront; sem CORS; no-store)
-// Armazenamento: KV `CART_REFS` (expirationTtl). Sem o binding, a feature responde 501 "not_configured" e nada é gravado.
+// Armazenamento: um KV POR LOJA (binding definido em src/stores.js: CART_REFS, NORTE_CART_REFS, CENTRO_CART_REFS; expirationTtl). Sem o binding, a feature
+// responde 501 "not_configured" e nada é gravado. Cada registro leva o id da loja que o criou e só é devolvido a essa loja: mesmo que um namespace fosse
+// ligado à loja errada por engano, um token de outra loja responde 404 (nunca há fallback para outro namespace).
+
 export const CART_REF_TTL_SECONDS = 1800;
 export const MAX_ITEMS = 20;
 const MAX_BODY_CHARS = 8192;
@@ -81,8 +84,8 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
   const ipOf = (request) => request.headers.get('cf-connecting-ip') || 'unknown';
 
   return {
-    // POST: só da página autorizada da INK (mesma origem, Referer na allowlist). `kv` = env.CART_REFS.
-    async create(request, { kv, allowedPaths, origin, pathAllowed = null }) {
+    // POST: só da página autorizada da INK (mesma origem, Referer na allowlist). `kv` = o binding da loja; `store` = id da loja (grava junto do resumo).
+    async create(request, { kv, allowedPaths, origin, pathAllowed = null, store = null }) {
       if (!kv) return json({ error: 'not_configured' }, 501);
       if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
       const site = request.headers.get('sec-fetch-site');
@@ -98,7 +101,7 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
       const ref = newToken(random);
       const savedAt = now();
       try {
-        await kv.put('cartref:' + ref, JSON.stringify({ ...snapshot, savedAt }), { expirationTtl: CART_REF_TTL_SECONDS });
+        await kv.put('cartref:' + ref, JSON.stringify(store ? { ...snapshot, savedAt, store } : { ...snapshot, savedAt }), { expirationTtl: CART_REF_TTL_SECONDS });
       } catch (_) {
         counters.write_failures++; // KV indisponível/limite: o cliente segue sem espelho; nada quebra a compra
         return json({ error: 'unavailable' }, 503);
@@ -108,7 +111,7 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
     },
 
     // GET: lido pelo servidor do storefront. Token desconhecido/expirado/malformado => 404 (sem distinguir).
-    async read(request, { kv, token }) {
+    async read(request, { kv, token, store = null }) {
       if (!kv) return json({ error: 'not_configured' }, 501);
       if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } });
       if (!allow('get:' + ipOf(request), 120)) { counters.rate_limited++; return json({ error: 'rate_limited' }, 429, { 'retry-after': '60' }); }
@@ -117,10 +120,12 @@ export function createCartRefs({ now = () => Date.now(), random = (a) => crypto.
       let stored;
       try { stored = await kv.get('cartref:' + token, 'json'); } catch (_) { return json({ error: 'unavailable' }, 503); }
       if (!stored || typeof stored.savedAt !== 'number') { counters.read_misses++; return json({ error: 'not_found' }, 404); }
+      // Registro de OUTRA loja (ou sem marca, a que só a Use Sul gravava antes): não é desta loja. Sem distinguir de "não existe".
+      if (store && (stored.store ?? 'sul') !== store) { counters.read_misses++; return json({ error: 'not_found' }, 404); }
       counters.read_hits++;
       const ageSeconds = Math.max(0, Math.round((now() - stored.savedAt) / 1000));
       if (ageSeconds > CART_REF_TTL_SECONDS) return json({ error: 'not_found' }, 404);
-      const { savedAt, ...snapshot } = stored;
+      const { savedAt, store: _store, ...snapshot } = stored;
       return json({ ...snapshot, ageSeconds, expiresInSeconds: Math.max(0, CART_REF_TTL_SECONDS - ageSeconds) });
     },
 

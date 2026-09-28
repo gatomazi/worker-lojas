@@ -1,0 +1,55 @@
+PASS health: Worker da loja no ar (local) com a identidade use-centro-widget  — {"service":"use-centro-widget","store":"centro","kv":true,"mode":"true","scope":"product-catalog","v":"4.7"}
+PASS centro 1280px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada  — {"tags":1,"v":"4.7","nav":true,"headers":3}
+PASS centro 1280px: as 8 features do Worker da loja chegaram ao navegador  — ["return-link","post-add-discovery","city-search","cart-discovery","cart-mirror","product-discovery","header-nav","list-session"]
+PASS centro 1280px: identidade — logo/Cidades/estados levam a /centro-oeste no storefront; nada de outra loja/região no que é nosso  — {"logo":"https://useorigens.com.br/centro-oeste","foreignFound":[]}
+PASS centro 1280px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)  — {"oursOverflow":[],"pageOverflowNativoIncluido":0,"styles":1,"forms":1}
+PASS centro 1280px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)  — GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js
+PASS centro 1280px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho  — ours +0, posts 0
+PASS centro 1280px: Enter leva a /centro-oeste/busca?q=goiania (sem cart_ref: carrinho vazio)  — /centro-oeste/busca?q=goiania
+PASS centro 1280px: a busca do storefront da região respondeu (produtos ou "nenhum") e o título é do storefront  — Ir para o conteúdo 468 cidades do Centro-Oeste em camiseta. Você escolhe aqui e
+PASS centro 1280px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)  — {"before":1,"after":1}
+PASS centro 1280px: abrir o menu não faz requisição e os links de região são da loja  — requests +0
+PASS centro 1280px: variantes nativas selecionáveis (product_variant_id > 0)
+PASS centro 1280px: "Adicionar ao carrinho" nativo encontrado
+PASS centro 1280px: o modal nativo "Produto adicionado" abriu (INK)
+PASS centro 1280px: bloco pós-adição montado uma vez, CTA para /centro-oeste; botões nativos intactos  — {"cta":"https://useorigens.com.br/centro-oeste","native":true}
+PASS centro 1280px: drawer do carrinho — "Finalizar compra" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem  — {"open":true,"btn":true,"text":"Finalizar compra","enabled":true,"visible":true,"covered":false,"overlapsOurs":[],"items":1,"rootInDrawer":1}
+PASS centro 1280px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes  — blocos 1, itens 1
+PASS centro 1280px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈34ms (teto de espera da saída: 1200 ms)
+PASS centro 1280px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja  — status 200
+PASS centro 1280px: o mesmo token NÃO existe em www.usesul.com.br (404)  — HTTP 404
+PASS centro 1280px: o mesmo token NÃO existe em www.usenorte.com.br (404)  — HTTP 404
+FAIL [Storefront] centro 1280px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL  — sem "Meu carrinho": o storefront em produção ainda consulta só o Worker da Sul (PR regional pendente)
+PASS centro 1280px: console sem erro atribuível ao nosso código
+PASS centro 390px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada  — {"tags":1,"v":"4.7","nav":true,"headers":3}
+PASS centro 390px: as 8 features do Worker da loja chegaram ao navegador  — ["return-link","post-add-discovery","city-search","cart-discovery","cart-mirror","product-discovery","header-nav","list-session"]
+PASS centro 390px: identidade — logo/Cidades/estados levam a /centro-oeste no storefront; nada de outra loja/região no que é nosso  — {"logo":"https://useorigens.com.br/centro-oeste","foreignFound":[]}
+PASS centro 390px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)  — {"oursOverflow":[],"pageOverflowNativoIncluido":3,"styles":1,"forms":1}
+PASS centro 390px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)  — GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js
+PASS centro 390px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho  — ours +0, posts 0
+PASS centro 390px: Enter leva a /centro-oeste/busca?q=goiania (sem cart_ref: carrinho vazio)  — /centro-oeste/busca?q=goiania
+PASS centro 390px: a busca do storefront da região respondeu (produtos ou "nenhum") e o título é do storefront  — Ir para o conteúdo 468 cidades do Centro-Oeste em camiseta. Abrir menu USE ORI
+PASS centro 390px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)  — {"before":2,"after":2}
+PASS centro 390px: abrir o menu não faz requisição e os links de região são da loja  — requests +0
+PASS centro 390px: variantes nativas selecionáveis (product_variant_id > 0)
+PASS centro 390px: "Adicionar ao carrinho" nativo encontrado
+PASS centro 390px: o modal nativo "Produto adicionado" abriu (INK)
+PASS centro 390px: bloco pós-adição montado uma vez, CTA para /centro-oeste; botões nativos intactos  — {"cta":"https://useorigens.com.br/centro-oeste","native":true}
+PASS centro 390px: drawer do carrinho — "Finalizar compra" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem  — {"open":true,"btn":true,"text":"Finalizar compra","enabled":true,"visible":true,"covered":false,"overlapsOurs":[],"items":1,"rootInDrawer":1}
+PASS centro 390px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes  — blocos 1, itens 1
+PASS centro 390px: saída "Explorar todas as estampas" → /centro-oeste com cart_ref válido; exatamente UMA escrita (1)  — /centro-oeste ref=<22 chars ok> posts=1 POST≈99ms (teto de espera da saída: 1200 ms)
+PASS centro 390px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja  — status 200
+PASS centro 390px: o mesmo token NÃO existe em www.usesul.com.br (404)  — HTTP 404
+PASS centro 390px: o mesmo token NÃO existe em www.usenorte.com.br (404)  — HTTP 404
+FAIL [Storefront] centro 390px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL  — sem "Meu carrinho": o storefront em produção ainda consulta só o Worker da Sul (PR regional pendente)
+PASS centro 390px: console sem erro atribuível ao nosso código
+PASS centro 320px: produto real ro/product/goiania-origem-go → 1 loader (v4.7) e a navbar montada  — {"tags":1,"v":"4.7","nav":true,"headers":3}
+PASS centro 320px: as 8 features do Worker da loja chegaram ao navegador  — ["return-link","post-add-discovery","city-search","cart-discovery","cart-mirror","product-discovery","header-nav","list-session"]
+PASS centro 320px: identidade — logo/Cidades/estados levam a /centro-oeste no storefront; nada de outra loja/região no que é nosso  — {"logo":"https://useorigens.com.br/centro-oeste","foreignFound":[]}
+PASS centro 320px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)  — {"oursOverflow":[],"pageOverflowNativoIncluido":38,"styles":1,"forms":1}
+PASS centro 320px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)  — GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js
+PASS centro 320px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho  — ours +0, posts 0
+PASS centro 320px: Enter leva a /centro-oeste/busca?q=goiania (sem cart_ref: carrinho vazio)  — /centro-oeste/busca?q=goiania
+PASS centro 320px: a busca do storefront da região respondeu (produtos ou "nenhum") e o título é do storefront  — Ir para o conteúdo 468 cidades do Centro-Oeste em camiseta. Abrir menu USE ORI
+PASS centro 320px: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)  — {"before":3,"after":3}
+PASS centro 320px: abrir o menu não faz requisição e os links de região são da loja  — requests +0

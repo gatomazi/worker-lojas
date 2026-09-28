@@ -1,0 +1,23 @@
+{
+  "_comment": "Amostras REAIS (públicas, acessíveis em 2026-09-28) por loja, usadas pelos testes, pelo QA e pelo release. Produtos com <form id=form-product-*>. A allowlist da fase conservadora do release é `allowlist`. Nada aqui é segredo.",
+  "norte": {
+    "allowlist": [
+      "/usenorte/product/acara-origem-pa-51b9a32f-0281-478d-b641-77b8df830cc2",
+      "/usenorte/product/assis-brasil-origem-ac",
+      "/usenorte/product/labrea-origem-am"
+    ],
+    "extraProducts": ["/usenorte/product/anori-coordenadas-am", "/usenorte/product/chupinguaia-coordenadas-ro"],
+    "storefrontHome": "https://useorigens.com.br/norte",
+    "search": { "query": "belem", "city": "Belém", "uf": "PA", "href": "https://useorigens.com.br/norte/pa/belem" }
+  },
+  "centro": {
+    "allowlist": [
+      "/usecentro/product/goiania-origem-go",
+      "/usecentro/product/campo-grande-origem-ms",
+      "/usecentro/product/sinop-origem-mt"
+    ],
+    "extraProducts": ["/usecentro/product/made-in-distrito-federal-a5e3ed7c-0ee2-4c4c-b2d0-ba6134c22152", "/usecentro/product/dourados-origem-ms"],
+    "storefrontHome": "https://useorigens.com.br/centro-oeste",
+    "search": { "query": "goiania", "city": "Goiânia", "uf": "GO", "href": "https://useorigens.com.br/centro-oeste/go/goiania" }
+  }
+}

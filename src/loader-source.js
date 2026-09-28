@@ -1,4 +1,4 @@
-// Loader entregue pelo próprio Worker, no mesmo hostname da loja (www.usesul.com.br). Um ÚNICO ponto de entrada,
+// Loader entregue pelo próprio Worker, no mesmo hostname da loja (www.usesul.com.br, www.usenorte.com.br, www.usecentro.com.br: um Worker por loja). Um ÚNICO ponto de entrada,
 // composto por módulos independentes (src/loader/*): runtime, return-link, post-add-discovery e cart-discovery (estes carregam
 // discovery.js sob demanda). Só entram no bundle os módulos liberados por WIDGET_FEATURES.
 // A allowlist é embutida na entrega (defesa em profundidade): o Turbo Drive mantém o JS vivo entre páginas.
@@ -12,11 +12,10 @@ import { TRACKING } from './loader/tracking.js';
 import { PRODUCT_DISCOVERY } from './loader/product-discovery.js';
 import { HEADER_NAV } from './loader/header-nav.js';
 import { LIST_WATCH } from './loader/list-watch.js';
-import { clientStore } from './stores.js';
+import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 import { shellPageKind, shellEnabled } from './scope.js';
-import { ACTIVE_STORE } from './stores.js';
 
 export const LOADER_VERSION = '4.7';
 export { buildDiscoverySource };
@@ -40,7 +39,8 @@ export const discoveryQuery = (features) => memoize('d:' + features.join(','), (
 
 // allowedPaths e features já vêm validados (parseAllowlist/parseFeatures): só [a-z0-9_/-] e nomes conhecidos,
 // então JSON.stringify é seguro aqui.
-export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES, scopeMode = 'allowlist') {
+// `store`: a loja deste Worker (src/stores.js). O loader carrega host, prefixo, storefront e GA4 DELA e nenhum de outra loja.
+export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES, scopeMode = 'allowlist', store = ACTIVE_STORE) {
   const parts = [RUNTIME_HEAD];
   // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
   if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(TRACKING);
@@ -56,16 +56,16 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   return parts.join('')
     .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))
     .replaceAll('__VERSION__', () => LOADER_VERSION)
-    .replace('__NAV_STORE__', () => JSON.stringify(clientStore()))
+    .replace('__NAV_STORE__', () => JSON.stringify(clientStore(store)))
+    .replaceAll('__STORE__', () => JSON.stringify(clientStore(store)))
     .replace('__SHELL_FN__', () => shellPageKind.toString())
-    .replace('__SHELL_ENABLED__', () => String(shellEnabled(scopeMode, features)))
-    .replace('__INK_BASE__', () => JSON.stringify(ACTIVE_STORE.inkBase))
+    .replace('__SHELL_ENABLED__', () => String(shellEnabled(scopeMode, features, store.shellPages)))
     .replace('__ALLOWED_PATHS__', () => JSON.stringify(allowedPaths))
     .replace('__FEATURES__', () => JSON.stringify(features))
     .replace('__SCOPE_MODE__', () => JSON.stringify(scopeMode === 'product-catalog' ? 'product-catalog' : 'allowlist'));
 }
 
-export const loaderQuery = (allowedPaths, features, scopeMode) => memoize('l:' + JSON.stringify([allowedPaths, features, scopeMode]), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildLoaderSource(allowedPaths, features, scopeMode)));
+export const loaderQuery = (allowedPaths, features, scopeMode, store = ACTIVE_STORE) => memoize('l:' + JSON.stringify([store.id, allowedPaths, features, scopeMode]), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildLoaderSource(allowedPaths, features, scopeMode, store)));
 
 // Sem allowlist embutida: nunca monta. Mantido para compatibilidade e testes de fail-closed.
 export const LOADER_SOURCE = buildLoaderSource([]);

@@ -31,13 +31,14 @@ function scoreCity(p, q) {
   return 0;
 }
 
-export function searchCities(prepared, query, { ufs = SUL_UFS, limit = 8 } = {}) {
+// `ufs` e `stateNames` são os da loja (src/stores.js); sem eles vale o padrão histórico da Use Sul.
+export function searchCities(prepared, query, { ufs = SUL_UFS, stateNames = STATE_NAMES, limit = 8 } = {}) {
   const q = normalizeText(query);
   if (q.length === 0) return [];
   const allowed = new Set(ufs);
   const results = [];
 
-  for (const [uf, name] of Object.entries(STATE_NAMES)) {
+  for (const [uf, name] of Object.entries(stateNames)) {
     if (!allowed.has(uf)) continue;
     const nameKey = normalizeText(name);
     const score = q.length === 2 && normalizeText(uf) === q ? 90 : q.length >= 3 && nameKey.startsWith(q) ? 60 : 0;

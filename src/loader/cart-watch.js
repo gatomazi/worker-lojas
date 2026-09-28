@@ -4,7 +4,7 @@
 export const CART_WATCH = String.raw`
   // Intenção "abrir o carrinho" vinda do storefront (?origens_open_cart=1 na URL da página AUTORIZADA): ativa o próprio botão nativo do
   // carrinho (o drawer da INK), no máximo 8 tentativas em ~4 s, e remove o parâmetro da URL. Não altera o carrinho.
-  // Motivo: GET /usesul/cart NÃO é uma página utilizável (é o fragmento do drawer sem layout); o carrinho real da INK é o drawer.
+  // Motivo: GET <inkBase>/cart NÃO é uma página utilizável (é o fragmento do drawer sem layout); o carrinho real da INK é o drawer.
   function consumeOpenCartIntent() {
     if (!allowedNow()) return;
     const url = new URL(window.location.href);

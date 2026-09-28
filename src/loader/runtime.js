@@ -7,20 +7,25 @@ export const RUNTIME_HEAD = String.raw`(() => {
   if (window.__useOrigensLoader) return;
   window.__useOrigensLoader = '__VERSION__';
 
+  // Loja deste loader (src/stores.js, montada pelo Worker da loja): um loader nunca serve outro host, prefixo ou storefront regional.
+  const STORE = __STORE__;
   const ALLOWED_PATHS = __ALLOWED_PATHS__;
   const FEATURES = __FEATURES__;
   // "allowlist" (padrão): só ALLOWED_PATHS. "product-catalog": qualquer página verdadeira de produto (slug canônico + formulário nativo).
   const SCOPE_MODE = __SCOPE_MODE__;
-  const CATALOG_PRODUCT_PATH = /^\/usesul\/product\/[a-z0-9][a-z0-9_-]{0,127}$/;
+  const INK_BASE = STORE.inkBase;
+  const CATALOG_PRODUCT_PATH = new RegExp('^' + INK_BASE + '/product/[a-z0-9][a-z0-9_-]{0,127}$');
   // Páginas "de casca" (home, listagem, coleções, sobre, conta/pedidos): só widgets marcados com shell:true (header-nav, FAB, ponte do carrinho) rodam ali.
   // Ligado só com o escopo de catálogo + header-nav. A função vem do Worker (src/scope.js), uma única definição.
   const SHELL_ENABLED = __SHELL_ENABLED__;
-  const INK_BASE = __INK_BASE__;
   __SHELL_FN__
-  const PRODUCT_PATH = /^\/usesul\/product\/[^/]+$/;
-  // Rota canônica verificada do storefront. www.usesul.com.br/sul NÃO serve: responde 302 para /usesul.
-  const STOREFRONT_ORIGIN = 'https://useorigens.com.br';
-  const DEFAULT_RETURN = STOREFRONT_ORIGIN + '/sul';
+  const PRODUCT_PATH = new RegExp('^' + INK_BASE + '/product/[^/]+$');
+  // Rota canônica verificada do storefront da região. A INK NÃO serve essa rota no domínio dela: ela responde 302 para o início da loja.
+  const STOREFRONT_ORIGIN = STORE.origin;
+  const STOREFRONT_BASE = STORE.base;
+  const DEFAULT_RETURN = STOREFRONT_ORIGIN + STOREFRONT_BASE;
+  // Um caminho do storefront DESTA região (o próprio /<região> ou algo abaixo dele): nunca outra região nem outra rota.
+  const isStorefrontPath = (pathname) => pathname === STOREFRONT_BASE || pathname.startsWith(STOREFRONT_BASE + '/');
 
   const widgets = [];
   const teardownCallbacks = [];
@@ -29,7 +34,7 @@ export const RUNTIME_HEAD = String.raw`(() => {
 
   // allowlist: só caminho exato; lista vazia => nunca monta. product-catalog: slug canônico de produto (a URL de destino do Turbo).
   function pathAllowed(pathname) {
-    if (window.location.hostname !== 'www.usesul.com.br' || !PRODUCT_PATH.test(pathname)) return false;
+    if (window.location.hostname !== STORE.inkHost || !PRODUCT_PATH.test(pathname)) return false;
     return SCOPE_MODE === 'product-catalog' ? CATALOG_PRODUCT_PATH.test(pathname) : ALLOWED_PATHS.includes(pathname);
   }
   // No modo catálogo a página ATUAL também precisa ter o formulário nativo de compra (404/página estranha com URL de produto = nada nosso).
@@ -38,7 +43,7 @@ export const RUNTIME_HEAD = String.raw`(() => {
     return SCOPE_MODE !== 'product-catalog' || !!document.querySelector('form[id^="form-product-"]');
   }
   // Página de casca (não transacional) desta loja? Nunca login, carrinho nem checkout.
-  function shellPath(pathname) { return SHELL_ENABLED && window.location.hostname === 'www.usesul.com.br' && shellPageKind(pathname, INK_BASE) !== null; }
+  function shellPath(pathname) { return SHELL_ENABLED && window.location.hostname === STORE.inkHost && shellPageKind(pathname, INK_BASE) !== null; }
   // 'product' | 'shell' | null: o que a página ATUAL permite montar. pageNow() = qualquer um dos dois (usada pelos widgets shell:true).
   function currentKind() { return allowedNow() ? 'product' : (shellPath(window.location.pathname) ? 'shell' : null); }
   function pageNow() { return currentKind() !== null; }
@@ -98,6 +103,8 @@ export const RUNTIME_HEAD = String.raw`(() => {
     version: '__VERSION__',
     features: FEATURES.slice(),
     storefront: STOREFRONT_ORIGIN,
+    base: STOREFRONT_BASE,
+    region: STORE.region,
     allowed: allowedNow,
     onTeardown(fn) { teardownCallbacks.push(fn); },
     requestSync: schedule

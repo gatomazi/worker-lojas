@@ -17,14 +17,15 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   const POSTADD = __POSTADD__;
   const CART = __CART__;
   const PRODUCT = __PRODUCT__;
-  const STOREFRONT = rt.storefront + '/sul';
+  const STOREFRONT = rt.storefront + rt.base;
   const SEARCH_ENDPOINT = '/__origens/search';
   const OLIVE = '#4d543d';
   const MAX_RESULTS = { 'post-add': 5, cart: 3, product: 4 };
   const MIN_CHARS = 2;
   const DEBOUNCE_MS = 200;
   const TIMEOUT_MS = 4000;
-  const SAFE_HREF = /^\/sul(?:\/[a-z]{2}(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)?)?$/;
+  // Só a base da região desta loja (rt.base: a base da região no storefront), opcionalmente /<uf>[/<cidade>]. A base vem do Worker; nunca de dados do visitante.
+  const SAFE_HREF = new RegExp('^' + rt.base + '(?:/[a-z]{2}(?:/[a-z0-9]+(?:-[a-z0-9]+)*)?)?$');
 
   // Comunicação (texto único por superfície). O bloco do produto usa a frase aprovada; os drawers, a versão curta.
   const CTA_TEXT = 'Explorar todas as estampas';
@@ -90,7 +91,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     return node;
   }
 
-  // Aceita só links para o storefront (mesma origem fixa, caminhos /sul[/uf[/slug]]), sem credenciais, query nem fragmento.
+  // Aceita só links para o storefront (mesma origem fixa, caminhos <base>[/uf[/slug]]), sem credenciais, query nem fragmento.
   function safeHref(href) {
     try {
       const url = new URL(href);
