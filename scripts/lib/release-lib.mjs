@@ -113,11 +113,13 @@ export function planNavbarRelease({ health, captured, tomlBindings, newVersion =
 }
 
 // Depois do deploy da navbar (ou do rollback), o health mostra a configuração planejada? `before` = health capturado antes.
+// As features são comparadas como CONJUNTO: o Worker as lista na ordem do seu registro (src/features.js FEATURE_NAMES), que não é a ordem em que este
+// script as monta — comparar por texto reprovava um deploy correto (e disparava o rollback) só porque "header-nav" vem antes de "list-session" no health.
 export function sameNavbarConfig(before, after, { withNavbar }) {
   if (!before || !after) return false;
   const scope = (h) => (h.scope_mode === undefined ? 'allowlist' : h.scope_mode);
   const want = withNavbar ? SEVEN_FEATURES : SIX_FEATURES;
-  return before.widget_mode === after.widget_mode && before.allowlist_size === after.allowlist_size && scope(before) === scope(after) && JSON.stringify(after.widget_features) === JSON.stringify(want) && (withNavbar ? true : before.version === after.version);
+  return before.widget_mode === after.widget_mode && before.allowlist_size === after.allowlist_size && scope(before) === scope(after) && sortedEq(Array.isArray(after.widget_features) ? after.widget_features : [], want) && (withNavbar ? true : before.version === after.version);
 }
 
 // Modo "update": as páginas de casca (home, listagem, coleções...) já estavam no ar ANTES deste release? Só o health capturado sabe (shell_pages).

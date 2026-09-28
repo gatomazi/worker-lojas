@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { evaluateHealth, parseVersionBindings, planNavbarRelease, sameNavbarConfig, shellOnBefore, SIX_FEATURES, SEVEN_FEATURES, FIVE_SLUGS } from '../scripts/lib/release-lib.mjs';
+import { FEATURE_NAMES, parseFeatures } from '../src/features.js';
 
 // Release da navbar: seis features + header-nav, configuração REAL capturada, sem relaxar nada do release global.
 const ALLOW = FIVE_SLUGS.map((s) => '/usesul/product/' + s);
@@ -165,6 +166,19 @@ test('release-navbar.sh: snapshot -> rehearsal -> exclusion BEFORE the deploy th
   const check = src.slice(at('if [ "$MODE" = check ]'), at('# ── --deploy'));
   assert.doesNotMatch(check, /(zone-routes\.mjs|ROUTES_CMD) (apply|restore|rehearse|snapshot)/, '--check only READS routes (verify), never writes');
   assert.match(src, /ROUTES_TOUCHED=1\n\(cd "\$ROOT" && \$ROUTES_CMD apply/, 'the rollback only touches routes once the release has started changing them');
+});
+
+test('the release feature sets match what the REAL Worker reports: same members, and the post-deploy comparison does not depend on the order the health lists them', () => {
+  // Uma falha real: o health lista as features na ordem do registro do Worker (FEATURE_NAMES), não na ordem em que o script as monta.
+  for (const set of [SIX_FEATURES, SEVEN_FEATURES]) for (const f of set) assert.ok(FEATURE_NAMES.includes(f), 'the release tooling only knows features the Worker knows: ' + f);
+  const reported = (set) => parseFeatures(set.join(',')).features; // exatamente o que o /__origens/health devolve (ordem do FEATURE_NAMES)
+  assert.deepEqual(reported(SEVEN_FEATURES), FEATURE_NAMES.filter((f) => SEVEN_FEATURES.includes(f)));
+  const before = health({ widget_features: reported(SIX_FEATURES), shell_pages: true });
+  assert.equal(sameNavbarConfig(before, health({ version: '4.8', widget_features: reported(SEVEN_FEATURES), shell_pages: true }), { withNavbar: true }), true, 'a correct deploy is not "a change beyond header-nav" because of ordering');
+  assert.equal(sameNavbarConfig(before, health({ version: '4.8', widget_features: [...reported(SEVEN_FEATURES)].reverse() }), { withNavbar: true }), true, 'any order');
+  assert.equal(sameNavbarConfig(before, health({ version: '4.8', widget_features: reported(SEVEN_FEATURES).filter((f) => f !== 'list-session') }), { withNavbar: true }), false, 'a missing feature is still a difference');
+  assert.equal(sameNavbarConfig(before, health({ version: '4.8', widget_features: [...reported(SEVEN_FEATURES), 'evil'] }), { withNavbar: true }), false, 'an extra feature is still a difference');
+  assert.equal(sameNavbarConfig(before, health({ widget_features: undefined }), { withNavbar: true }), false, 'no feature list at all');
 });
 
 test('shellOnBefore: the shell pages are expected BEFORE the release (and after a rollback) only when the captured health already shows them on', () => {
