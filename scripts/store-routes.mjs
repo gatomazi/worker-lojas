@@ -39,15 +39,24 @@ async function probe(stage) {
   if (!live) { tail.kill(); throw new Error('wrangler tail não confirmou conexão (canário não visto): ' + out.replace(/\s+/g, ' ').slice(0, 200)); }
   const sent = [];
   const probes = [...set.exec.map((url) => ({ url, exec: true })), ...set.skip.map((url) => ({ url, exec: false })), ...set.info.map((url) => ({ url, exec: null }))];
-  for (const [i, p] of probes.entries()) {
-    const ua = `route-probe/${nonce}-${i}`;
-    const status = await fetch('https://' + host + p.url, { redirect: 'manual', headers: { 'user-agent': ua } }).then((r) => r.status).catch(() => 'erro');
-    sent.push({ ...p, ua, status });
+  const send = async (p, i, round) => { const ua = `route-probe/${nonce}-${round}${String(i).padStart(3, '0')}`; const status = await fetch('https://' + host + p.url, { redirect: 'manual', headers: { 'user-agent': ua } }).then((r) => r.status).catch(() => 'erro'); return { ...p, ua, status }; };
+  // Enviadas em ritmo (o `wrangler tail` AMOSTRA/perde eventos sob rajada: numa execução, sondas de rotas que existem não apareceram).
+  for (const [i, p] of probes.entries()) { sent.push(await send(p, i, 0)); await new Promise((r) => setTimeout(r, 500)); }
+  await new Promise((r) => setTimeout(r, 10000));
+  const seenNow = () => { const seen = new Set(); for (const m of out.matchAll(/route-probe\/[0-9a-f]{8}-\d+/g)) seen.add(m[0]); return seen; };
+  // Uma sonda que DEVE executar e não apareceu pode ser evento perdido do tail: reenvia (até 2 rodadas, User-Agent novo). Uma execução que não deveria existir não é "consertada" por reenvio.
+  for (let round = 1; round <= 2; round++) {
+    const seen = seenNow(); const missing = sent.filter((x) => x.exec === true && !x.executed && !seen.has(x.ua));
+    for (const x of sent) if (seen.has(x.ua)) x.executed = true;
+    if (!missing.length) break;
+    log(`   reenviando ${missing.length} sonda(s) que devem executar e não apareceram no tail (rodada ${round}): ${missing.map((m) => m.url).join(', ')}`);
+    for (const [i, m] of missing.entries()) { const r = await send(m, i, round); m.ua2 = r.ua; m.status = r.status; m.ua = r.ua; await new Promise((res) => setTimeout(res, 800)); }
+    await new Promise((r) => setTimeout(r, 12000));
   }
-  await new Promise((r) => setTimeout(r, 10000)); tail.kill();
-  const seen = new Set(); for (const m of out.matchAll(/route-probe\/[0-9a-f]{8}-\d+/g)) seen.add(m[0]);
+  tail.kill();
+  const seen = seenNow(); for (const x of sent) if (seen.has(x.ua)) x.executed = true;
   let bad = 0;
-  for (const s of sent) { const executed = seen.has(s.ua); if (s.exec === null) { log(`INFO ${executed ? '[Worker invocado]  ' : '[sem invocação]    '} HTTP ${s.status}  ${s.url}  (sem veredito: lacuna conhecida)`); continue; } const ok = executed === s.exec; if (!ok) bad++; log(`${ok ? 'OK  ' : 'FAIL'} ${s.exec ? 'executa ' : 'NÃO exec'} ${executed ? '[Worker invocado]' : '[sem invocação]  '} HTTP ${s.status}  ${s.url}`); }
+  for (const s of sent) { const executed = !!s.executed || seen.has(s.ua); if (s.exec === null) { log(`INFO ${executed ? '[Worker invocado]  ' : '[sem invocação]    '} HTTP ${s.status}  ${s.url}  (sem veredito: lacuna conhecida)`); continue; } const ok = executed === s.exec; if (!ok) bad++; log(`${ok ? 'OK  ' : 'FAIL'} ${s.exec ? 'executa ' : 'NÃO exec'} ${executed ? '[Worker invocado]' : '[sem invocação]  '} HTTP ${s.status}  ${s.url}`); }
   return bad === 0;
 }
 
