@@ -1,0 +1,527 @@
+{
+ "when": "2026-09-28T15:15:46.586Z",
+ "store": "norte",
+ "mode": "live",
+ "loader": "4.7",
+ "pass": 86,
+ "fail": 0,
+ "failures": [],
+ "checks": [
+  {
+   "name": "health: Worker da loja no ar (PRODUÇÃO) com a identidade use-norte-widget",
+   "ok": true,
+   "detail": "{\"service\":\"use-norte-widget\",\"store\":\"norte\",\"kv\":true,\"mode\":\"true\",\"scope\":\"product-catalog\",\"v\":\"4.7\"}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: produto real -0281-478d-b641-77b8df830cc2 → 1 loader (v4.7) e a navbar montada",
+   "ok": true,
+   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: as 8 features do Worker da loja chegaram ao navegador",
+   "ok": true,
+   "detail": "[\"return-link\",\"post-add-discovery\",\"city-search\",\"cart-discovery\",\"cart-mirror\",\"product-discovery\",\"header-nav\",\"list-session\"]",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: identidade — logo/Cidades/estados levam a /norte no storefront; nada de outra loja/região no que é nosso",
+   "ok": true,
+   "detail": "{\"logo\":\"https://useorigens.com.br/norte\",\"foreignFound\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)",
+   "ok": true,
+   "detail": "{\"oursOverflow\":[],\"pageOverflowNativoIncluido\":0,\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)",
+   "ok": true,
+   "detail": "GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho",
+   "ok": true,
+   "detail": "ours +0, posts 0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: Enter leva a /norte/busca?q=belem (sem cart_ref: carrinho vazio)",
+   "ok": true,
+   "detail": "/norte/busca?q=belem",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: a busca do storefront da região respondeu (produtos ou \"nenhum\") e o título é do storefront",
+   "ok": true,
+   "detail": "Ir para o conteúdo 450 cidades do Norte em camiseta. Você escolhe aqui e finali",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 1280px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
+   "ok": true,
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: abrir o menu não faz requisição e os links de região são da loja",
+   "ok": true,
+   "detail": "requests +0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: variantes nativas selecionáveis (product_variant_id > 0)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 1280px: \"Adicionar ao carrinho\" nativo encontrado",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 1280px: o modal nativo \"Produto adicionado\" abriu (INK)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 1280px: bloco pós-adição montado uma vez, CTA para /norte; botões nativos intactos",
+   "ok": true,
+   "detail": "{\"cta\":\"https://useorigens.com.br/norte\",\"native\":true}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: drawer do carrinho — \"Finalizar compra\" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem",
+   "ok": true,
+   "detail": "{\"open\":true,\"btn\":true,\"text\":\"Finalizar compra\",\"enabled\":true,\"visible\":true,\"covered\":false,\"overlapsOurs\":[],\"items\":1,\"rootInDrawer\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes",
+   "ok": true,
+   "detail": "blocos 1, itens 1",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
+   "ok": true,
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈499ms (teto de espera da saída: 1200 ms)",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja",
+   "ok": true,
+   "detail": "status 200",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: o mesmo token NÃO existe em www.usesul.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: o mesmo token NÃO existe em www.usecentro.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 1280px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL",
+   "ok": true,
+   "detail": "",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 1280px: \"Meu carrinho\" mostra os itens da INK da loja (1) e \"Ir para meu carrinho\" volta à INK DESTA loja",
+   "ok": true,
+   "detail": "www.usenorte.com.br/usenorte/product/acara-origem-pa-51b9a32f-0281-478d-b641-77b8df830cc2",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 1280px: de volta à INK: drawer NATIVO aberto com os itens preservados e \"Finalizar compra\" íntegro",
+   "ok": true,
+   "detail": "{\"open\":true,\"items\":1}",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 1280px: console sem erro atribuível ao nosso código",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: produto real -0281-478d-b641-77b8df830cc2 → 1 loader (v4.7) e a navbar montada",
+   "ok": true,
+   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: as 8 features do Worker da loja chegaram ao navegador",
+   "ok": true,
+   "detail": "[\"return-link\",\"post-add-discovery\",\"city-search\",\"cart-discovery\",\"cart-mirror\",\"product-discovery\",\"header-nav\",\"list-session\"]",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: identidade — logo/Cidades/estados levam a /norte no storefront; nada de outra loja/região no que é nosso",
+   "ok": true,
+   "detail": "{\"logo\":\"https://useorigens.com.br/norte\",\"foreignFound\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)",
+   "ok": true,
+   "detail": "{\"oursOverflow\":[],\"pageOverflowNativoIncluido\":3,\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)",
+   "ok": true,
+   "detail": "GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho",
+   "ok": true,
+   "detail": "ours +0, posts 0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: Enter leva a /norte/busca?q=belem (sem cart_ref: carrinho vazio)",
+   "ok": true,
+   "detail": "/norte/busca?q=belem",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: a busca do storefront da região respondeu (produtos ou \"nenhum\") e o título é do storefront",
+   "ok": true,
+   "detail": "Ir para o conteúdo 450 cidades do Norte em camiseta. Abrir menu USE ORIGENS Me",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 390px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
+   "ok": true,
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: abrir o menu não faz requisição e os links de região são da loja",
+   "ok": true,
+   "detail": "requests +0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: variantes nativas selecionáveis (product_variant_id > 0)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 390px: \"Adicionar ao carrinho\" nativo encontrado",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 390px: o modal nativo \"Produto adicionado\" abriu (INK)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 390px: bloco pós-adição montado uma vez, CTA para /norte; botões nativos intactos",
+   "ok": true,
+   "detail": "{\"cta\":\"https://useorigens.com.br/norte\",\"native\":true}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: drawer do carrinho — \"Finalizar compra\" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem",
+   "ok": true,
+   "detail": "{\"open\":true,\"btn\":true,\"text\":\"Finalizar compra\",\"enabled\":true,\"visible\":true,\"covered\":false,\"overlapsOurs\":[],\"items\":1,\"rootInDrawer\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes",
+   "ok": true,
+   "detail": "blocos 1, itens 1",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
+   "ok": true,
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈457ms (teto de espera da saída: 1200 ms)",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja",
+   "ok": true,
+   "detail": "status 200",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: o mesmo token NÃO existe em www.usesul.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: o mesmo token NÃO existe em www.usecentro.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 390px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL",
+   "ok": true,
+   "detail": "",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 390px: \"Meu carrinho\" mostra os itens da INK da loja (1) e \"Ir para meu carrinho\" volta à INK DESTA loja",
+   "ok": true,
+   "detail": "www.usenorte.com.br/usenorte/product/acara-origem-pa-51b9a32f-0281-478d-b641-77b8df830cc2",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 390px: de volta à INK: drawer NATIVO aberto com os itens preservados e \"Finalizar compra\" íntegro",
+   "ok": true,
+   "detail": "{\"open\":true,\"items\":1}",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 390px: console sem erro atribuível ao nosso código",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: produto real -0281-478d-b641-77b8df830cc2 → 1 loader (v4.7) e a navbar montada",
+   "ok": true,
+   "detail": "{\"tags\":1,\"v\":\"4.7\",\"nav\":true,\"headers\":3}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: as 8 features do Worker da loja chegaram ao navegador",
+   "ok": true,
+   "detail": "[\"return-link\",\"post-add-discovery\",\"city-search\",\"cart-discovery\",\"cart-mirror\",\"product-discovery\",\"header-nav\",\"list-session\"]",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: identidade — logo/Cidades/estados levam a /norte no storefront; nada de outra loja/região no que é nosso",
+   "ok": true,
+   "detail": "{\"logo\":\"https://useorigens.com.br/norte\",\"foreignFound\":[]}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: nada nosso ultrapassa a largura da tela e sem duplicação (1 cabeçalho, 1 estilo, 1 formulário de busca)",
+   "ok": true,
+   "detail": "{\"oursOverflow\":[],\"pageOverflowNativoIncluido\":38,\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: requisições nossas por abertura de produto (loader + navbar; busca só se o visitante buscar)",
+   "ok": true,
+   "detail": "GET /__origens/loader.js | GET /__origens/navbar | GET /__origens/discovery.js",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: digitar na busca não faz nenhuma requisição (nem storefront, nem Worker) e não grava carrinho",
+   "ok": true,
+   "detail": "ours +0, posts 0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: Enter leva a /norte/busca?q=belem (sem cart_ref: carrinho vazio)",
+   "ok": true,
+   "detail": "/norte/busca?q=belem",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: a busca do storefront da região respondeu (produtos ou \"nenhum\") e o título é do storefront",
+   "ok": true,
+   "detail": "Ir para o conteúdo 450 cidades do Norte em camiseta. Abrir menu USE ORIGENS Me",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 320px: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker só informativo ao vivo: por isolate)",
+   "ok": true,
+   "detail": "{\"posts\":0,\"counterBefore\":0,\"counterAfter\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: abrir o menu não faz requisição e os links de região são da loja",
+   "ok": true,
+   "detail": "requests +0",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: variantes nativas selecionáveis (product_variant_id > 0)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 320px: \"Adicionar ao carrinho\" nativo encontrado",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 320px: o modal nativo \"Produto adicionado\" abriu (INK)",
+   "ok": true,
+   "detail": "",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 320px: bloco pós-adição montado uma vez, CTA para /norte; botões nativos intactos",
+   "ok": true,
+   "detail": "{\"cta\":\"https://useorigens.com.br/norte\",\"native\":true}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: drawer do carrinho — \"Finalizar compra\" visível, habilitado, não coberto, e a navbar/descoberta não o encobrem",
+   "ok": true,
+   "detail": "{\"open\":true,\"btn\":true,\"text\":\"Finalizar compra\",\"enabled\":true,\"visible\":true,\"covered\":false,\"overlapsOurs\":[],\"items\":1,\"rootInDrawer\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: bloco de descoberta do carrinho no drawer (1) e itens nativos presentes",
+   "ok": true,
+   "detail": "blocos 1, itens 1",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: saída \"Explorar todas as estampas\" → /norte com cart_ref válido; exatamente UMA escrita (1)",
+   "ok": true,
+   "detail": "/norte ref=<22 chars ok> posts=1 POST≈446ms (teto de espera da saída: 1200 ms)",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: o Worker da loja devolve o resumo do carrinho (itens 1) só para o token da PRÓPRIA loja",
+   "ok": true,
+   "detail": "status 200",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: o mesmo token NÃO existe em www.usesul.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: o mesmo token NÃO existe em www.usecentro.com.br (404)",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte 320px: storefront regional reconheceu o token (Meu carrinho visível) — exige o storefront com o espelho REGIONAL",
+   "ok": true,
+   "detail": "",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 320px: \"Meu carrinho\" mostra os itens da INK da loja (1) e \"Ir para meu carrinho\" volta à INK DESTA loja",
+   "ok": true,
+   "detail": "www.usenorte.com.br/usenorte/product/acara-origem-pa-51b9a32f-0281-478d-b641-77b8df830cc2",
+   "cls": "Storefront"
+  },
+  {
+   "name": "norte 320px: de volta à INK: drawer NATIVO aberto com os itens preservados e \"Finalizar compra\" íntegro",
+   "ok": true,
+   "detail": "{\"open\":true,\"items\":1}",
+   "cls": "INK"
+  },
+  {
+   "name": "norte 320px: console sem erro atribuível ao nosso código",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: produto com UTM → 1 loader e navbar",
+   "ok": true,
+   "detail": "{\"tags\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: URL com barra final → página nativa da INK intacta (sem loader, sem navbar nossa)",
+   "ok": true,
+   "detail": "{\"tags\":0,\"nav\":false}",
+   "cls": "INK"
+  },
+  {
+   "name": "norte negativos: slug inexistente → resposta da INK (404) sem loader e sem nada nosso",
+   "ok": true,
+   "detail": "HTTP 404",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: <base>/cart → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: <base>/store_sessions/new → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: <base> → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: <base>/products → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: <base>/orders/trackings → nada nosso (loader 0, navbar false) [HTTP 200]",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: Turbo produto → produto: 1 cabeçalho, 1 estilo, 1 busca (sem duplicar)",
+   "ok": true,
+   "detail": "{\"path\":\"/usenorte/product/assis-brasil-origem-ac\",\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: Turbo para uma página não coberta → nada nosso fica na tela",
+   "ok": true,
+   "detail": "{\"nav\":false,\"styles\":0}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: voltar ao produto remonta uma única vez",
+   "ok": true,
+   "detail": "{\"styles\":1,\"forms\":1}",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: www.usesul.com.br não recebe o loader desta loja (HTTP 404)",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  },
+  {
+   "name": "norte negativos: www.usecentro.com.br não recebe o loader desta loja (HTTP 404)",
+   "ok": true,
+   "detail": "",
+   "cls": "Worker"
+  }
+ ]
+}
