@@ -30,7 +30,8 @@ async function probe(stage) {
   const feed = (d) => { out += d.toString(); }; tail.stdout.on('data', feed); tail.stderr.on('data', feed); tail.on('exit', (c) => { exited = c; });
   // Em --format json o wrangler não avisa quando conecta (5 a 30 s): um CANÁRIO (/__origens/health) sai a cada 3 s até o tail mostrá-lo; só então as sondas.
   const canary = `route-probe/${nonce}-canary`; const t0 = Date.now(); let live = false;
-  while (Date.now() - t0 < 90000 && exited === null) {
+  const liveWaitMs = Number(process.env.PROBE_LIVE_WAIT_S || 300) * 1000; // com a rede lenta o `wrangler tail` levou mais de 90 s para conectar
+  while (Date.now() - t0 < liveWaitMs && exited === null) {
     await fetch('https://' + host + '/__origens/health', { headers: { 'user-agent': canary } }).then((r) => r.text()).catch(() => {});
     await new Promise((r) => setTimeout(r, 3000));
     if (out.includes(canary)) { live = true; break; }
@@ -98,5 +99,7 @@ if (cmd === 'snapshot') {
   log(same ? 'OK rotas restauradas: idênticas ao snapshot' : 'FAIL as rotas atuais NÃO conferem com o snapshot'); process.exit(same ? 0 : 1);
 } else if (cmd === 'probe') {
   const stage = arg('stage') || 'product'; if (!['product', 'shell-staged', 'shell'].includes(stage)) { console.error('estágio inválido'); process.exit(2); }
-  process.exit((await probe(stage)) ? 0 : 1);
+  // Falha de CONEXÃO do tail (canário não visto) não é veredito de roteamento: uma nova tentativa antes de reprovar (o outro resultado, execução errada, reprova na hora).
+  let okProbe; for (let attempt = 1; attempt <= 2; attempt++) { try { okProbe = await probe(stage); break; } catch (e) { console.log('AVISO: ' + String(e.message).slice(0, 160) + (attempt < 2 ? ' — nova tentativa' : '')); okProbe = false; } }
+  process.exit(okProbe ? 0 : 1);
 } else { console.error('uso: node scripts/store-routes.mjs <norte|centro> snapshot|list|verify|apply|retire|restore|probe (veja o cabeçalho)'); process.exit(2); }
