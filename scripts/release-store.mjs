@@ -171,10 +171,23 @@ async function smoke(phase) {
 // ── deploy ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 async function deploy(ctx) {
   if (!(await confirm(rel.confirmPhrase))) die(`sem confirmação: exporte RELEASE_CONFIRM=${rel.confirmPhrase} ou digite a frase. Nada foi alterado.`);
-  const zone = ctx.zone; const routes0 = await listRoutes(zone.id); const snap = buildSnapshot({ rel, zoneId: zone.id, routes: routes0 });
-  const v = validateSnapshot(snap, rel, { zoneId: zone.id }); if (!v.ok) die('snapshot inválido: ' + v.problems.join('; '));
-  const snapFile = `${WORK}/routes-snapshot-${stamp()}.json`; writeFileSync(snapFile, JSON.stringify(snap, null, 1), { mode: 0o600 });
-  log(`\n== 1. snapshot das rotas: ${snap.count} rota(s), digest ${snap.digest.slice(0, 12)}… → ${snapFile.replace(ROOT + '/', '')}`);
+  const zone = ctx.zone;
+  // RETOMADA: se a fase 1 já está no ar (health conservador do próprio Worker + rotas finais), não repete a fase 1 nem refaz o snapshot: usa o snapshot ORIGINAL (o mais antigo)
+  // e promove para a fase 2. O desfazer continua sendo a versão da fase 1 (fase 2) ou o `retire` contra o snapshot original.
+  const h0 = await healthNow();
+  const resume = !!h0 && evaluateStoreHealth(h0, rel, { scope: CONSERVATIVE, allowlistSize: SAMPLES[rel.id].allowlist.length, version: LOADER_VERSION }).ok && routeState(await listRoutes(zone.id), rel).stage === 'final';
+  let snapFile;
+  if (resume) {
+    snapFile = run('bash', ['-c', `ls -1tr "${WORK}"/routes-snapshot-*.json 2>/dev/null | head -1`]).stdout.trim();
+    if (!snapFile) die('retomada: nenhum snapshot original em ' + WORK.replace(ROOT + '/', ''));
+    const orig = JSON.parse(readFileSync(snapFile, 'utf8')); const vo = validateSnapshot(orig, rel, { zoneId: zone.id }); if (!vo.ok) die('snapshot original inválido: ' + vo.problems.join('; '));
+    log(`\n== RETOMADA: a fase 1 já está no ar; snapshot original ${snapFile.replace(ROOT + '/', '')} (${orig.count} rota(s) antes do release)`);
+  } else {
+    const snap = buildSnapshot({ rel, zoneId: zone.id, routes: await listRoutes(zone.id) });
+    const v = validateSnapshot(snap, rel, { zoneId: zone.id }); if (!v.ok) die('snapshot inválido: ' + v.problems.join('; '));
+    snapFile = `${WORK}/routes-snapshot-${stamp()}.json`; writeFileSync(snapFile, JSON.stringify(snap, null, 1), { mode: 0o600 });
+    log(`\n== 1. snapshot das rotas: ${snap.count} rota(s), digest ${snap.digest.slice(0, 12)}… → ${snapFile.replace(ROOT + '/', '')}`);
+  }
 
   let kvId = ctx.kvFound && ctx.kvFound.id;
   if (!kvId) {
@@ -192,13 +205,15 @@ async function deploy(ctx) {
     log(`\nREVERTIDO ${rel.id}. Nenhuma outra loja foi tocada (use-sul-widget e a outra loja intactos).`); process.exit(1);
   };
 
+  let phase1Version = null;
+  if (!resume) {
   // FASE 1 ------------------------------------------------------------------------------------------------------------------------------
   log(`\n== 3. FASE 1 (${CONSERVATIVE}: ${SAMPLES[rel.id].allowlist.length} produtos reais) — Worker + rotas`);
   const v1 = releaseVars(rel, CONSERVATIVE, SAMPLES);
   const d1 = wrangler(deployArgs(rel, RESOLVED, v1).slice(1), { timeout: 300000 }); log(d1.out.trim().split('\n').slice(-6).map((l) => '   ' + l).join('\n'));
   if (d1.code !== 0) await rollbackTo(null, 'wrangler deploy da fase 1 falhou');
   log(`   aguardando ${PROPAGATION_WAIT_S}s a propagação das rotas…`); await sleep(PROPAGATION_WAIT_S * 1000);
-  const phase1Version = parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName, '--json']).out) || parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName]).out);
+  phase1Version = parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName, '--json']).out) || parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName]).out);
   const h1 = await healthNow(); const e1 = evaluateStoreHealth(h1, rel, { scope: CONSERVATIVE, allowlistSize: SAMPLES[rel.id].allowlist.length, version: LOADER_VERSION });
   if (!e1.ok) await rollbackTo(null, 'health da fase 1: ' + e1.problems.join('; '));
   ok(`health fase 1: ${store.workerName} v${h1.version}, ${h1.widget_features.length} features, KV ligado, escopo allowlist`);
@@ -209,6 +224,12 @@ async function deploy(ctx) {
   if (probe.code !== 0) await rollbackTo(null, 'execução do Worker fora do esperado (login/carrinho/checkout NÃO podem invocá-lo)');
   const s1 = await smoke(CONSERVATIVE); if (s1.length) await rollbackTo(null, 'smoke da fase 1: ' + s1.join(' | '));
   ok('smoke fase 1: produtos reais com 1 loader; transacionais/casca/slug inexistente sem loader; navbar, busca e cart-ref respondem');
+
+  } else {
+    phase1Version = parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName, '--json']).out) || parseActiveVersion(wrangler(['deployments', 'list', '--name', store.workerName]).out);
+    if (!phase1Version) die('retomada: não consegui determinar a versão ativa da fase 1');
+    ok(`fase 1 já ativa (versão ${phase1Version.slice(0, 8)}…): promovendo direto para a fase 2`);
+  }
 
   // FASE 2 ------------------------------------------------------------------------------------------------------------------------------
   log(`\n== 4. FASE 2 (${CATALOG}) — só o domínio ${store.inkHost}`);

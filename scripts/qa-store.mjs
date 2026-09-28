@@ -151,7 +151,7 @@ async function viewportPass(width) {
     await shot(s, 'produto');
 
     // ── 2. digitar / abrir menu: nenhuma requisição, nenhuma escrita no KV ────────────────────────────────────────────────────────────────────
-    const h0 = await health(); const reqBefore = s.ours.length; const docsBefore = s.storefrontDocs.length;
+    const h0 = await health(); const postsAtStart = s.posts; const reqBefore = s.ours.length; const docsBefore = s.storefrontDocs.length;
     const lupa = s.page.locator('.o-nav-lupa:visible').first();
     await lupa.click(); await s.page.locator('#o-nav-q').waitFor({ state: 'visible', timeout: 5000 });
     await s.page.locator('#o-nav-q').pressSequentially(SAMPLES.search.query, { delay: 60 }); await wait(s.page, 1200);
@@ -167,7 +167,9 @@ async function viewportPass(width) {
     await shot(s, 'storefront-busca');
     await open(s, P0);
     const h1 = await health();
-    check(`${tag}: zero escritas no KV por abertura, digitação e abertura da busca (contador do Worker)`, (h1.cart_ref_stats && h1.cart_ref_stats.writes) === (h0.cart_ref_stats && h0.cart_ref_stats.writes), JSON.stringify({ before: h0.cart_ref_stats && h0.cart_ref_stats.writes, after: h1.cart_ref_stats && h1.cart_ref_stats.writes }));
+    // Testemunha das escritas no KV: o ÚNICO caminho é o POST /__origens/cart-ref, observado no navegador (zero POST em abertura, digitação, busca e menu).
+    // O contador do health é POR ISOLATE: ao vivo, duas leituras podem cair em isolates diferentes (0→1→0), então só vale como prova no Worker local (um único isolate).
+    check(`${tag}: zero escritas no KV por abertura, digitação e abertura da busca (nenhum POST cart-ref; contador do Worker${LOCALW ? '' : ' só informativo ao vivo: por isolate'})`, s.posts === postsAtStart && (!LOCALW || (h1.cart_ref_stats && h1.cart_ref_stats.writes) === (h0.cart_ref_stats && h0.cart_ref_stats.writes)), JSON.stringify({ posts: s.posts - postsAtStart, counterBefore: h0.cart_ref_stats && h0.cart_ref_stats.writes, counterAfter: h1.cart_ref_stats && h1.cart_ref_stats.writes }));
 
     // ── 4. menu (desktop: Regiões; mobile: hambúrguer) sem requisição ─────────────────────────────────────────────────────────────────────────
     const before = s.ours.length;
