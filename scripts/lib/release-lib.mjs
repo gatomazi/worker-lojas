@@ -119,3 +119,7 @@ export function sameNavbarConfig(before, after, { withNavbar }) {
   const want = withNavbar ? SEVEN_FEATURES : SIX_FEATURES;
   return before.widget_mode === after.widget_mode && before.allowlist_size === after.allowlist_size && scope(before) === scope(after) && JSON.stringify(after.widget_features) === JSON.stringify(want) && (withNavbar ? true : before.version === after.version);
 }
+
+// Modo "update": as páginas de casca (home, listagem, coleções...) já estavam no ar ANTES deste release? Só o health capturado sabe (shell_pages).
+// O smoke de "antes" e a confirmação de um rollback esperam a casca exatamente quando ela já existia — nunca uma suposição fixa.
+export const shellOnBefore = (health) => !!health && health.shell_pages === true;
