@@ -2,6 +2,7 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { Miniflare } from 'miniflare';
 import { workerModules } from './helpers.js';
+import { LOADER_VERSION } from '../src/loader-source.js';
 
 // Páginas "de casca" no workerd REAL: a navbar acompanha o cliente por home, listagem, coleções, sobre e conta/pedidos, mas só com o escopo de catálogo E a
 // feature header-nav; login, carrinho e checkout nunca. A origem (INK) é um stub que devolve o HTML do cabeçalho real.
@@ -78,7 +79,7 @@ test('account pages keep the visitor\'s cookies and the origin\'s Set-Cookie unt
 
 test('health reports shell_pages; the loader knows the shell scope only when it is on and carries the single shared classifier', async () => {
   const on = await (await get(ON, '/__origens/health')).json();
-  assert.equal(on.shell_pages, true); assert.equal(on.version, '4.8'); assert.equal(on.scope_mode, 'product-catalog');
+  assert.equal(on.shell_pages, true); assert.equal(on.version, LOADER_VERSION); assert.equal(on.scope_mode, 'product-catalog');
   const off = await (await get({ ...ON, WIDGET_SCOPE_MODE: 'allowlist' }, '/__origens/health')).json();
   assert.equal(off.shell_pages, false);
   const loader = await (await get(ON, '/__origens/loader.js')).text();

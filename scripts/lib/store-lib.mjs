@@ -6,8 +6,10 @@ import { FEATURE_NAMES } from '../../src/features.js';
 
 // Só estas lojas passam por este release. A Use Sul tem o SEU release (release-navbar.sh) e NUNCA é tocada daqui; "all" não existe: um comando = um Worker.
 export const RELEASABLE = Object.freeze(['norte', 'centro']);
-// As oito features estáveis já ao ar na Sul (todas as do código; nenhuma flag nova). A ordem é a canônica de features.js.
-export const STORE_FEATURES = Object.freeze([...FEATURE_NAMES]);
+// As oito features estáveis já ao ar na Sul. A ordem é a canônica de features.js. Uma flag NOVA (ex.: promo-fab) nunca entra aqui sozinha: um release de
+// rotina publica exatamente o que já está no ar; ligar uma flag nova é um passo próprio do rollout dela (docs/promo-fab.md).
+export const OPT_IN_FEATURES = Object.freeze(['promo-fab']);
+export const STORE_FEATURES = Object.freeze(FEATURE_NAMES.filter((f) => !OPT_IN_FEATURES.includes(f)));
 export const CONSERVATIVE = 'allowlist';
 export const CATALOG = 'product-catalog';
 // Caminhos que NUNCA podem ter Worker (login, carrinho, checkout, pagamento, conta, administração), com ou sem query, nas rotas de qualquer loja.
