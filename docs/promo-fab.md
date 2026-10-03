@@ -67,7 +67,14 @@ npx wrangler deploy -c wrangler.production.toml \
   --var "WIDGET_ALLOWLIST:/usesul/product/serra-catarinense,/usesul/product/made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3-8258-d2ba71fa8241,/usesul/product/made-in-santa-catarina-60ba13f6-62cf-4309-9d03-490ab9193829,/usesul/product/paranaense-essencia,/usesul/product/made-in-parana-cda5fe30-bb4e-4e2e-b416-01e3ec45649a" \
   --var "WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,list-session,header-nav,promo-fab"
 
-# Norte (www.usenorte.com.br) — TOML com o id REAL do KV (gerado pelo release-store, ignorado pelo git)
+# Norte e Centro-Oeste: o TOML versionado tem o id do KV como marcador. Gere o resolvido a partir do TOML COMPLETO (9 rotas, casca incluída), trocando SÓ o marcador.
+# NUNCA use o resolvido da fase 1 do release-store (só 2 rotas): o `wrangler deploy` sincroniza as rotas e REMOVE as 7 da casca (incidente de 2026-10-02, Norte).
+# Ids reais: `npx wrangler versions view <versão ativa> --name use-<loja>-widget` (binding *_CART_REFS).
+sed "s/REPLACE_WITH_NORTE_CART_REFS_NAMESPACE_ID/<id do NORTE_CART_REFS>/" wrangler.norte.toml > wrangler.norte.resolved.toml
+sed "s/REPLACE_WITH_CENTRO_CART_REFS_NAMESPACE_ID/<id do CENTRO_CART_REFS>/" wrangler.centro.toml > wrangler.centro.resolved.toml
+grep -c pattern wrangler.norte.resolved.toml   # tem de dar 9
+
+# Norte (www.usenorte.com.br)
 npx wrangler deploy -c wrangler.norte.resolved.toml --name use-norte-widget \
   --var STORE_ID:norte --var ENABLE_WIDGET:true --var WIDGET_SCOPE_MODE:product-catalog \
   --var "WIDGET_ALLOWLIST:/usenorte/product/acara-origem-pa-51b9a32f-0281-478d-b641-77b8df830cc2,/usenorte/product/assis-brasil-origem-ac,/usenorte/product/labrea-origem-am" \
@@ -80,9 +87,22 @@ npx wrangler deploy -c wrangler.centro.resolved.toml --name use-centro-widget \
   --var "WIDGET_FEATURES:return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab"
 ```
 
-Conferir depois de cada loja: `curl -s https://<host>/__origens/health` (version `4.9`, nove features, `scope_mode` e `shell_pages` iguais aos de antes),
+Conferir depois de cada loja: a saída do deploy lista as **9 rotas** (Norte/Centro) ou as 9 da Sul; `node scripts/store-routes.mjs <norte|centro> verify --stage=shell` dá OK;
+`curl -s https://<host>/__origens/health` (version `4.9`, nove features, `scope_mode` e `shell_pages` iguais aos de antes),
 `curl -s https://<host>/__origens/promotions` (200 com os itens da região), e QA no navegador. As rotas da zona **não mudam** (só a versão do Worker).
 
 Rollback: `npx wrangler rollback <versão anotada> --name <worker>` (rotas, KV e checkout intactos), ou simplesmente desativar/despublicar os itens no
 CMS (o botão some sem deploy). As allowlists acima são as dos releases atuais (`global-common.sh` e `scripts/store-samples.json`); se tiverem mudado,
 use as da versão ativa (`npx wrangler versions view <id> --name <worker>`).
+
+## Publicado em 2026-10-02
+
+| Loja | Versão nova | Rollback (versão anterior) |
+|---|---|---|
+| Use Sul | `19cb692b-bc05-4680-9b0c-e0f0bf63a85b` | `48b989ea-5434-4db0-8f75-d05cd5004f6d` |
+| Use Norte | `5a39d186-e943-476c-b87a-7f254b062ffb` | `8e997bab-ec4b-4b91-ae9c-7c5c14ee1638` |
+| Use Centro-Oeste | `baa328be-7253-4f84-8225-04855e0aa3a4` | `07e1d287-43e7-4692-8307-e024c77d8b41` |
+
+Incidente (Norte, ~3 min): o primeiro deploy usou o TOML da fase 1 (2 rotas) e removeu as 7 rotas da casca; produto, carrinho e checkout não foram
+afetados (nas páginas de casca a INK mostrou o cabeçalho nativo). Corrigido republicando com o TOML completo (versão `5a39d186`);
+`store-routes.mjs norte verify --stage=shell` OK. Rollback de versão sozinho NÃO restaura rotas.
