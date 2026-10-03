@@ -9,10 +9,9 @@
 //             POST, nunca aplica nem calcula desconto: quem valida e aplica é o carrinho da INK.
 //   Espaço:   sobe acima do CTA fixo (#add-to-cart-mob) e do aviso de cookies; some com o carrinho, um modal, o menu, o painel do Ajuda, o teclado virtual, sem
 //             espaço sob o cabeçalho ou quando cobriria controles do formulário de compra (variantes, quantidade, Adicionar ao carrinho).
-//   Atenção:  uma "mexidinha" curta (2 oscilações, ~560 ms) depois de 4–6 s na página e no máximo a cada 12–18 s sem clique/toque ou digitação (rolar não adia), 3 vezes por
-//             página; nunca com
-//             painel/menu/carrinho/modal abertos, digitando, aba oculta, botão escondido ou prefers-reduced-motion; e nunca mais na sessão depois de abrir,
-//             copiar ou fechar.
+//   Atenção:  uma "mexidinha" curta (2 oscilações, ~560 ms) a cada 6–8 s (decisão do proprietário), sem limite por página e sem ser adiada por rolagem, clique ou
+//             digitação; pulada com painel/menu/carrinho/modal abertos, digitando, aba oculta ou botão escondido; nunca com prefers-reduced-motion; e nunca mais na
+//             sessão depois de ABRIR o painel.
 // Todo texto vem do CMS e entra só por textContent.
 export const PROMO_FAB = String.raw`
   const PROMO_ENDPOINT = '/__origens/promotions';
@@ -26,9 +25,7 @@ export const PROMO_FAB = String.raw`
   const PROMO_GAP = 8;
   // Igual à aba de WhatsApp: acima do slide ativo do carrossel de imagens (z-index 30) e abaixo de qualquer modal real da INK.
   const PROMO_Z = 31;
-  const PROMO_FIRST = [4000, 6000];
-  const PROMO_REPEAT = [12000, 18000];
-  const PROMO_MAX_NUDGES = 3;
+  const PROMO_EVERY = [6000, 8000];
   const PROMO_NUDGE_MS = 560;
   const PROMO_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
   const PROMO_CODE = /^[A-Za-z0-9_-]{2,40}$/;
@@ -189,7 +186,7 @@ export const PROMO_FAB = String.raw`
     loading: false,
     timer: null,
     nudgeTimer: null,
-    nudges: 0,
+    quiet: false,
     open: false,
     copyTimer: null,
 
@@ -234,10 +231,6 @@ export const PROMO_FAB = String.raw`
       document.addEventListener('focusout', later, { signal: signal });
       if (window.visualViewport) { window.visualViewport.addEventListener('resize', later, { signal: signal }); window.visualViewport.addEventListener('scroll', later, { signal: signal }); }
       fab.addEventListener('click', () => (this.open ? this.close(true) : this.show()), { signal: signal });
-      const activity = () => { if (this.nudges > 0 && this.nudgeTimer) this.scheduleNudge(); };
-      // Clique/toque efetivo ou digitação adiam a PRÓXIMA mexida; rolar não (quem navega pela página ainda vê a mexidinha). "click", e não pointerdown/
-      // touchstart, porque rolar com o dedo dispara esses mas nunca um click.
-      for (const name of ['click', 'keydown']) window.addEventListener(name, activity, { passive: true, capture: true, signal: signal });
       this.place();
       if (!promoQuiet() && !promoReduced()) this.scheduleNudge();
     },
@@ -390,7 +383,6 @@ export const PROMO_FAB = String.raw`
     },
 
     async copy(item, button, code, li) {
-      promoSetQuiet();
       const ok = await promoCopy(item.code);
       const live = document.querySelector('#o-promo [data-promo-live]');
       for (const other of document.querySelectorAll('#o-promo .o-promo-copy')) other.textContent = 'Copiar';
@@ -412,7 +404,6 @@ export const PROMO_FAB = String.raw`
     close(refocus) {
       if (!this.open) return;
       this.open = false;
-      promoSetQuiet();
       if (this.panelAc) { this.panelAc.abort(); this.panelAc = null; }
       for (const sel of ['#o-promo-panel', '#o-promo .o-promo-backdrop']) { const el = document.querySelector(sel); if (el) el.remove(); }
       if (this.locked) { document.documentElement.style.overflow = this.lock || ''; this.locked = false; }
@@ -424,11 +415,10 @@ export const PROMO_FAB = String.raw`
 
     scheduleNudge() {
       clearTimeout(this.nudgeTimer); this.nudgeTimer = null;
-      if (this.nudges >= PROMO_MAX_NUDGES || promoQuiet()) return;
-      const range = this.nudges === 0 ? PROMO_FIRST : PROMO_REPEAT;
-      this.nudgeTimer = setTimeout(() => this.nudge(), Math.round(range[0] + Math.random() * (range[1] - range[0])));
+      if (this.quiet || promoQuiet()) return;
+      this.nudgeTimer = setTimeout(() => this.nudge(), Math.round(PROMO_EVERY[0] + Math.random() * (PROMO_EVERY[1] - PROMO_EVERY[0])));
     },
-    stopNudges() { clearTimeout(this.nudgeTimer); this.nudgeTimer = null; this.nudges = PROMO_MAX_NUDGES; },
+    stopNudges() { clearTimeout(this.nudgeTimer); this.nudgeTimer = null; this.quiet = true; },
 
     nudge() {
       this.nudgeTimer = null;
@@ -438,17 +428,13 @@ export const PROMO_FAB = String.raw`
       if (calm) {
         fab.classList.remove('o-promo-wiggle'); void fab.offsetWidth; fab.classList.add('o-promo-wiggle');
         setTimeout(() => fab.classList.remove('o-promo-wiggle'), PROMO_NUDGE_MS + 40);
-        this.nudges += 1;
-        this.scheduleNudge();
-      } else {
-        clearTimeout(this.nudgeTimer);
-        this.nudgeTimer = setTimeout(() => this.nudge(), PROMO_REPEAT[0]);
       }
+      this.scheduleNudge();
     },
 
     unmount() {
       clearTimeout(this.timer); clearTimeout(this.nudgeTimer); clearTimeout(this.copyTimer);
-      this.nudgeTimer = null; this.nudges = 0;
+      this.nudgeTimer = null; this.quiet = false;
       if (this.panelAc) { this.panelAc.abort(); this.panelAc = null; }
       if (this.ac) { this.ac.abort(); this.ac = null; }
       if (this.locked) { document.documentElement.style.overflow = this.lock || ''; this.locked = false; }

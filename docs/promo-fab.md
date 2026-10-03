@@ -33,8 +33,9 @@ O checkout não é alterado (o Worker nunca injeta em login, carrinho ou checkou
   (variantes, quantidade, Adicionar ao carrinho em fluxo). Medido contra a base REAL dos fixos (sonda em `bottom:0`): a página da INK é mais larga que
   a tela no celular e o navegador reduz o zoom, então `clientHeight` não serve. Sem zoom reduzido (320 px: layout de 358 px), o viewport de layout passa
   da tela: botão e folha ficam ancorados no viewport **visual** (o que o visitante vê) e acompanham o deslocamento dele. O motivo atual fica em `#o-promo[data-promo-hidden]` (diagnóstico).
-- Microanimação: 2 oscilações, 560 ms; 1ª após 4–6 s, depois a cada 12–18 s sem clique/toque ou digitação (rolar não adia), máx. 3 por página; nunca com painel/menu/carrinho/modal,
-  digitando, aba oculta, botão escondido ou `prefers-reduced-motion`; parada pelo resto da sessão depois de abrir/copiar/fechar.
+- Microanimação: 2 oscilações, 560 ms, **a cada 6–8 s** (decisão do proprietário), sem limite por página e sem ser adiada por rolagem, clique ou
+  digitação; pulada com painel/menu/carrinho/modal abertos, digitando, aba oculta ou botão escondido; nunca com `prefers-reduced-motion`; **abrir o painel**
+  a encerra pelo resto da sessão.
 - Turbo: `turbo:before-cache` desmonta (o snapshot nunca leva o botão), a remontagem cria exatamente um. Todo texto via `textContent`.
 - Medição (GA4 da própria INK, só com o aviso de cookies dela aceito): `promo_fab_open`, `promo_coupon_copy`, `promo_panel_close` com `region`,
   `promo_id`, `surface=ink`.

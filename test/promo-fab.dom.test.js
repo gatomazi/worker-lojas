@@ -246,23 +246,28 @@ test('Turbo: before-cache tears the button down (no duplicate in the snapshot); 
   assert.equal(t.all('#o-promo .o-promo-fab').length, 1);
 });
 
-test('wiggle: once after 4–6 s when calm, never with reduced motion, never once the visitor interacted in this session', async () => {
-  // Shrink time: the first delay is read from Math.random (0 => 4 s); run timers fast by patching setTimeout for long delays.
+test('wiggle: every 6–8 s with no limit, never with reduced motion, never in a session where the panel was already opened', async () => {
+  // Clock fast-forwarded: every 6–8 s delay becomes 30 ms.
   const run = async (opts) => {
     const t = setup(opts);
     const real = t.w.setTimeout.bind(t.w);
-    t.w.setTimeout = (fn, ms, ...a) => real(fn, ms >= 4000 ? 30 : ms, ...a);
+    t.w.setTimeout = (fn, ms, ...a) => real(fn, ms >= 6000 ? 30 : ms, ...a);
     t.wiggles = 0;
     const add = t.w.DOMTokenList.prototype.add;
     t.w.DOMTokenList.prototype.add = function (...names) { if (names.includes('o-promo-wiggle')) t.wiggles++; return add.apply(this, names); };
     await tick(600);
     return t;
   };
-  assert.ok((await run({})).wiggles >= 1);
+  const free = await run({});
+  assert.ok(free.wiggles >= 5, 'keeps going, no cap per page (' + free.wiggles + ')');
   assert.equal((await run({ reduced: true })).wiggles, 0);
   assert.equal((await run({ carry: { 'origens:promo:quiet': '1' } })).wiggles, 0);
-  const calm = await run({});
-  assert.equal(calm.wiggles, 3, 'never more than three per page view (all three fired: the clock was fast-forwarded)');
+  // Opening the panel stops it for good (and marks the session).
+  const before = free.wiggles;
+  free.click(free.fab()); await tick(20);
+  free.key('Escape'); await tick(300);
+  assert.ok(free.wiggles <= before + 1, 'no more wiggles after the panel was opened');
+  assert.equal(free.w.sessionStorage.getItem('origens:promo:quiet'), '1');
 });
 
 test('security: CMS text only ever lands as text, never as markup', async () => {
@@ -273,23 +278,17 @@ test('security: CMS text only ever lands as text, never as markup', async () => 
   assert.equal(t.all('#o-promo-panel script, #o-promo-panel img').length, 0);
 });
 
-test('wiggle rhythm: scrolling never postpones the next nudge; a click/tap or typing does', async () => {
+test('wiggle rhythm: nothing the visitor does on the page postpones it; copying or closing alone never marks the session', async () => {
   const t = setup();
   const real = t.w.setTimeout.bind(t.w);
-  const repeats = [];
-  // First nudge (4–6 s) fast-forwarded; the 12–18 s repeat is only recorded (never fires) so every reschedule is visible.
-  t.w.setTimeout = (fn, ms, ...a) => { if (ms >= 12000) { repeats.push(ms); return 999000 + repeats.length; } return real(fn, ms >= 4000 ? 5 : ms, ...a); };
+  const delays = [];
+  t.w.setTimeout = (fn, ms, ...a) => { if (ms >= 6000) { delays.push(ms); return 999000 + delays.length; } return real(fn, ms, ...a); };
   await tick(300);
-  assert.equal(repeats.length, 1, 'after the first wiggle, the next one is scheduled');
+  assert.equal(delays.length, 1, 'one nudge scheduled');
+  assert.ok(delays[0] >= 6000 && delays[0] <= 8000);
   for (let i = 0; i < 5; i++) t.w.dispatchEvent(new t.w.Event('scroll'));
-  t.doc.dispatchEvent(new t.w.Event('touchstart', { bubbles: true }));
-  t.doc.dispatchEvent(new t.w.Event('pointerdown', { bubbles: true }));
+  t.click(t.doc.body); t.key('a');
   await tick(20);
-  assert.equal(repeats.length, 1, 'scroll / touch scroll do not push it back');
-  t.click(t.doc.body);
-  await tick(20);
-  assert.equal(repeats.length, 2, 'a real click/tap does');
-  t.key('a');
-  await tick(20);
-  assert.equal(repeats.length, 3, 'typing does');
+  assert.equal(delays.length, 1, 'scroll, click and typing do not reschedule it');
+  assert.equal(t.w.sessionStorage.getItem('origens:promo:quiet'), null);
 });
