@@ -272,3 +272,24 @@ test('security: CMS text only ever lands as text, never as markup', async () => 
   assert.equal(t.q('#o-promo-panel .o-promo-desc').textContent, 'R$ 30 & mais "aspas" \'simples\'');
   assert.equal(t.all('#o-promo-panel script, #o-promo-panel img').length, 0);
 });
+
+test('wiggle rhythm: scrolling never postpones the next nudge; a click/tap or typing does', async () => {
+  const t = setup();
+  const real = t.w.setTimeout.bind(t.w);
+  const repeats = [];
+  // First nudge (4–6 s) fast-forwarded; the 12–18 s repeat is only recorded (never fires) so every reschedule is visible.
+  t.w.setTimeout = (fn, ms, ...a) => { if (ms >= 12000) { repeats.push(ms); return 999000 + repeats.length; } return real(fn, ms >= 4000 ? 5 : ms, ...a); };
+  await tick(300);
+  assert.equal(repeats.length, 1, 'after the first wiggle, the next one is scheduled');
+  for (let i = 0; i < 5; i++) t.w.dispatchEvent(new t.w.Event('scroll'));
+  t.doc.dispatchEvent(new t.w.Event('touchstart', { bubbles: true }));
+  t.doc.dispatchEvent(new t.w.Event('pointerdown', { bubbles: true }));
+  await tick(20);
+  assert.equal(repeats.length, 1, 'scroll / touch scroll do not push it back');
+  t.click(t.doc.body);
+  await tick(20);
+  assert.equal(repeats.length, 2, 'a real click/tap does');
+  t.key('a');
+  await tick(20);
+  assert.equal(repeats.length, 3, 'typing does');
+});

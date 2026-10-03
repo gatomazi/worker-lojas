@@ -9,7 +9,8 @@
 //             POST, nunca aplica nem calcula desconto: quem valida e aplica é o carrinho da INK.
 //   Espaço:   sobe acima do CTA fixo (#add-to-cart-mob) e do aviso de cookies; some com o carrinho, um modal, o menu, o painel do Ajuda, o teclado virtual, sem
 //             espaço sob o cabeçalho ou quando cobriria controles do formulário de compra (variantes, quantidade, Adicionar ao carrinho).
-//   Atenção:  uma "mexidinha" curta (2 oscilações, ~560 ms) depois de 4–6 s na página e no máximo a cada 12–18 s sem atividade, 3 vezes por página; nunca com
+//   Atenção:  uma "mexidinha" curta (2 oscilações, ~560 ms) depois de 4–6 s na página e no máximo a cada 12–18 s sem clique/toque ou digitação (rolar não adia), 3 vezes por
+//             página; nunca com
 //             painel/menu/carrinho/modal abertos, digitando, aba oculta, botão escondido ou prefers-reduced-motion; e nunca mais na sessão depois de abrir,
 //             copiar ou fechar.
 // Todo texto vem do CMS e entra só por textContent.
@@ -234,7 +235,9 @@ export const PROMO_FAB = String.raw`
       if (window.visualViewport) { window.visualViewport.addEventListener('resize', later, { signal: signal }); window.visualViewport.addEventListener('scroll', later, { signal: signal }); }
       fab.addEventListener('click', () => (this.open ? this.close(true) : this.show()), { signal: signal });
       const activity = () => { if (this.nudges > 0 && this.nudgeTimer) this.scheduleNudge(); };
-      for (const name of ['pointerdown', 'keydown', 'scroll', 'touchstart']) window.addEventListener(name, activity, { passive: true, capture: true, signal: signal });
+      // Clique/toque efetivo ou digitação adiam a PRÓXIMA mexida; rolar não (quem navega pela página ainda vê a mexidinha). "click", e não pointerdown/
+      // touchstart, porque rolar com o dedo dispara esses mas nunca um click.
+      for (const name of ['click', 'keydown']) window.addEventListener(name, activity, { passive: true, capture: true, signal: signal });
       this.place();
       if (!promoQuiet() && !promoReduced()) this.scheduleNudge();
     },
