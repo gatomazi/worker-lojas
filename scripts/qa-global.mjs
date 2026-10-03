@@ -21,7 +21,7 @@ const FIVE = ['serra-catarinense', 'made-in-rio-grande-do-sul-8834d3a7-4ed3-49a3
 const path = (p) => '/usesul/product/' + p.slug;
 const EVIDENCE = new URL('../docs/evidence/expansao-global/', import.meta.url).pathname; mkdirSync(EVIDENCE, { recursive: true });
 const SRC = new URL('../src/', import.meta.url).pathname;
-const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'navbar-gateway.js', 'stores.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/header-nav.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
+const FILES = ['worker.js', 'allowlist.js', 'scope.js', 'features.js', 'search-gateway.js', 'navbar-gateway.js', 'promotions-gateway.js', 'list-session.js', 'stores.js', 'search-rank.js', 'cart-ref.js', 'loader-source.js', 'loader/runtime.js', 'loader/return-link.js', 'loader/drawer-watch.js', 'loader/cart-watch.js', 'loader/cart-mirror.js', 'loader/tracking.js', 'loader/product-discovery.js', 'loader/header-nav.js', 'loader/list-watch.js', 'loader/promo-fab.js', 'loader/discovery-loader.js', 'loader/discovery-ui.js'];
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery';
 let CUR = null; const failures = [];
 const results = []; const check = (n, ok, d = '', kind = 'QA') => { results.push(!!ok); if (CUR) CUR.lastCheck = n; if (!ok) failures.push({ n, kind, d: String(d).slice(0, 400) }); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + d : '') + (ok ? '' : `  [classe: ${kind}]`)); };
