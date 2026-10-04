@@ -1,6 +1,7 @@
 // auto-recommendations: bloco "Você também pode gostar" na página de produto, com até 4 estampas relacionadas. A lista vem PRONTA
 // (pré-calculada no storefront, servida e validada pelo Worker em /__origens/recommendations/<id>): aqui só se busca uma vez por página,
-// revalida e desenha. Fica ao lado do "Compre junto" nativo (nunca o esconde nem o substitui nesta rodada), depois do bloco principal de compra.
+// revalida e desenha. Desktop em duas colunas: logo abaixo da imagem do produto (ocupa o vão da coluna da galeria). Empilhado (mobile): depois do
+// bloco principal de compra, logo após o "Compre junto" nativo (nunca o esconde nem o substitui nesta rodada).
 // Só observa/insere: não toca no formulário, variantes, CTA, sticky mobile, POST, CSRF nem checkout da INK. Card inteiro é um link comum para a
 // página real da INK (mesma aba; o carrinho segue por conta própria). Sem botão de carrinho, sem cookies, sem armazenamento, sem dado pessoal.
 // Qualquer falha (sem índice, rede, timeout, < 2 itens válidos) = nenhum DOM: a página da INK fica exatamente como era.
@@ -11,6 +12,7 @@ export const RECOMMENDATIONS = String.raw`
   const RECO_TIMEOUT_MS = 3000;
   const RECO_MIN = 2;
   const RECO_MAX = 4;
+  const RECO_GALLERY_GAP = 32;
   const RECO_IMAGE_HOST = 'gcp-images.majestic.ink.rsvcloud.com';
   const RECO_TITLE = 'Você também pode gostar';
   const RECO_GA = STORE.ga;
@@ -49,8 +51,40 @@ export const RECOMMENDATIONS = String.raw`
 
   const recoPrice = (value) => { try { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch (_) { return 'R$ ' + value.toFixed(2).replace('.', ','); } };
 
-  // Depois do bloco principal de compra: logo após o "Compre junto" nativo quando existe (os dois lado a lado para comparação), senão
-  // após o nosso "Continue explorando", senão após o formulário. Sempre FORA do <form> e do turbo-frame que a INK recarrega.
+  // Desktop (PDP em duas colunas: galeria à esquerda, detalhes à direita): a coluna da galeria termina bem antes da de detalhes e deixa um vão
+  // (~1000 px medidos em 1280 na PDP real). O bloco ocupa esse vão, logo abaixo da imagem, SEM mudar a altura da seção da galeria: fica dentro dela
+  // com position:absolute; top:100% (a INK posiciona o selo "Clique para dar zoom" pela base da seção; se a seção crescesse, o selo desceria
+  // para cima dos cards). Só quando as duas colunas estão de fato lado a lado (medido) e o bloco CABE no vão; senão, posição em fluxo abaixo.
+  function recoGallerySlot() {
+    const gallery = document.querySelector('.details-product > section.section-product-v2');
+    const details = document.querySelector('.details-product > section.section-details');
+    if (!gallery || !details || getComputedStyle(gallery).position !== 'relative') return null;
+    const g = gallery.getBoundingClientRect();
+    const d = details.getBoundingClientRect();
+    return g.width > 0 && d.width > 0 && g.right <= d.left + 1 ? { gallery, details, room: d.bottom - g.bottom } : null;
+  }
+  // Coloca (ou move) o bloco no lugar certo para o layout ATUAL. Devolve false quando não há lugar seguro.
+  function recoPlace(root) {
+    const slot = recoGallerySlot();
+    if (slot) {
+      // Mede onde o bloco JÁ está (as duas colunas têm a mesma largura no desktop); só no primeiro desenho ele entra na galeria para ser medido.
+      // Decidir antes de mover evita o vaivém galeria <-> fluxo (cada movimento dispara o MutationObserver do runtime).
+      if (!root.isConnected) slot.gallery.appendChild(root);
+      if (root.offsetHeight + RECO_GALLERY_GAP <= slot.room) { // cabe no vão: não empurra nada
+        if (root.parentElement !== slot.gallery || slot.gallery.lastElementChild !== root) slot.gallery.appendChild(root);
+        if (root.getAttribute('data-placement') !== 'gallery') root.setAttribute('data-placement', 'gallery');
+        return true;
+      }
+    }
+    const anchor = recoAnchor();
+    if (!anchor) { if (slot) root.remove(); return false; }
+    if (anchor.nextElementSibling !== root) anchor.insertAdjacentElement('afterend', root);
+    if (root.getAttribute('data-placement') !== 'flow') root.setAttribute('data-placement', 'flow');
+    return true;
+  }
+
+  // Layout empilhado: depois do bloco principal de compra, logo após o "Compre junto" nativo quando existe (os dois lado a lado para comparação),
+  // senão após o nosso "Continue explorando", senão após o formulário. Sempre FORA do <form> e do turbo-frame que a INK recarrega.
   function recoAnchor() {
     const together = document.querySelector('section.buy-together');
     if (together && together.parentElement && !together.closest('.modal-buy-together, form')) return together;
@@ -75,6 +109,7 @@ export const RECOMMENDATIONS = String.raw`
     '[' + RECO_ROOT + '] .o-reco-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;line-height:1.3;font-weight:500;overflow-wrap:anywhere;min-height:2.6em}',
     '[' + RECO_ROOT + '] .o-reco-price{font-size:15px;line-height:1.3;font-weight:700;color:#111827}',
     '[' + RECO_ROOT + '] .o-reco-cta{margin-top:2px;font-size:13px;line-height:1.3;font-weight:600;color:#4d543d;text-decoration:underline;text-underline-offset:2px}',
+    '[' + RECO_ROOT + '][data-placement="gallery"]{position:absolute;top:100%;left:0;right:0;margin:' + RECO_GALLERY_GAP + 'px 0 0;z-index:1;background:#fff}',
     '@media (min-width: 768px){[' + RECO_ROOT + '] .o-reco-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;scroll-snap-type:none;padding:0}[' + RECO_ROOT + '] .o-reco-item{max-width:none}}'
   ].join('');
 
@@ -103,8 +138,7 @@ export const RECOMMENDATIONS = String.raw`
   }
 
   function recoRender(items, productId) {
-    const anchor = recoAnchor();
-    if (!anchor) { recoLog('no anchor'); return null; }
+    if (!recoGallerySlot() && !recoAnchor()) { recoLog('no anchor'); return null; }
     recoEnsureStyle();
     const root = document.createElement('section');
     root.setAttribute(RECO_ROOT, '');
@@ -158,7 +192,7 @@ export const RECOMMENDATIONS = String.raw`
     };
     root.addEventListener('click', onClick);
     root.addEventListener('auxclick', onClick);
-    anchor.insertAdjacentElement('afterend', root);
+    if (!recoPlace(root)) return null;
     return root;
   }
 
@@ -169,6 +203,8 @@ export const RECOMMENDATIONS = String.raw`
   register({
     id: 'auto-recommendations',
     ac: null,
+    onResize: null,
+    observer: null,
     pending: null, // pathname do pedido em curso
     failed: new Set(), // pathnames sem lista (ou com falha): nunca se pede de novo nesta visita
 
@@ -176,7 +212,14 @@ export const RECOMMENDATIONS = String.raw`
       if (!allowedNow()) return this.unmount();
       const path = window.location.pathname;
       const current = document.querySelector('[' + RECO_ROOT + ']');
-      if (current && current.isConnected && current.getAttribute('data-path') === path) return; // idempotente: já desenhado para esta página
+      if (!this.onResize) { this.onResize = () => schedule(); window.addEventListener('resize', this.onResize, { passive: true }); }
+      // A galeria/coluna de compra mudam de altura depois do carregamento das imagens: reavalia se o bloco ainda cabe no vão.
+      if (!this.observer && typeof ResizeObserver === 'function') {
+        const cols = document.querySelectorAll('.details-product > section.section-product-v2, .details-product > section.section-details');
+        if (cols.length) { this.observer = new ResizeObserver(() => schedule()); cols.forEach((c) => this.observer.observe(c)); }
+      }
+      // Idempotente: já desenhado para esta página; só muda de lugar se o layout mudou (ex.: janela redimensionada entre 1 e 2 colunas).
+      if (current && current.isConnected && current.getAttribute('data-path') === path) { recoPlace(current); return; }
       if (current) recoRemove(); // sobra de outra página (Turbo)
       if (this.pending === path || this.failed.has(path)) return;
       const productId = recoProductId();
@@ -203,6 +246,8 @@ export const RECOMMENDATIONS = String.raw`
     },
 
     unmount() {
+      if (this.onResize) { window.removeEventListener('resize', this.onResize); this.onResize = null; }
+      if (this.observer) { this.observer.disconnect(); this.observer = null; }
       if (this.ac) { try { this.ac.abort(); } catch (_) { /* ignora */ } this.ac = null; }
       this.pending = null;
       recoRemove();

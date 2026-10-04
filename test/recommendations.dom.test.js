@@ -120,3 +120,49 @@ test('the block is built with textContent only (a hostile title is text, not mar
   const name = block(t.doc)[0].querySelector('.o-reco-name');
   assert.equal(name.textContent, '<b>x</b> & "y"'); assert.equal(name.querySelector('b'), null);
 });
+
+// Layout: jsdom não calcula geometria; as caixas da galeria e dos detalhes são simuladas (lado a lado = desktop; empilhadas = mobile).
+function layout(t, sideBySide, detailsHeight = 1584) {
+  const box = (left, width, top, height) => ({ left, width, top, height, right: left + width, bottom: top + height, x: left, y: top });
+  t.doc.querySelector('section.section-product-v2').getBoundingClientRect = () => (sideBySide ? box(66, 562, 176, 562) : box(16, 358, 176, 400));
+  t.doc.querySelector('section.section-details').getBoundingClientRect = () => (sideBySide ? box(652, 562, 176, detailsHeight) : box(16, 358, 600, 1500));
+}
+// offsetHeight do bloco (jsdom devolve 0): ~340 px como no desktop real.
+function blockHeight(t, h = 340) { Object.defineProperty(t.w.HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return this.hasAttribute && this.hasAttribute('data-origens-reco') ? h : 0; } }); }
+
+test('desktop (two columns side by side): the block goes right below the product image, inside the gallery column', async () => {
+  const t = setup();
+  layout(t, true); blockHeight(t);
+  await tick();
+  const root = block(t.doc)[0];
+  const gallery = t.doc.querySelector('section.section-product-v2');
+  assert.equal(root.parentElement, gallery);
+  assert.equal(gallery.lastElementChild, root, 'after the image carousel');
+  assert.equal(root.getAttribute('data-placement'), 'gallery');
+  assert.ok(!t.doc.querySelector('section.section-details').contains(root), 'nothing pushed in the purchase column');
+  assert.ok(t.doc.querySelector('section.buy-together').isConnected, 'native "Compre Junto" kept');
+});
+
+test('resizing between two columns and stacked moves the SAME block (no new request, no duplicate)', async () => {
+  const t = setup();
+  layout(t, true);
+  await tick();
+  const root = block(t.doc)[0];
+  layout(t, false); t.w.dispatchEvent(new t.w.Event('resize')); await tick();
+  assert.equal(block(t.doc).length, 1);
+  assert.equal(block(t.doc)[0], root);
+  assert.equal(t.doc.querySelector('section.buy-together').nextElementSibling, root);
+  assert.equal(root.getAttribute('data-placement'), 'flow');
+  layout(t, true); t.w.dispatchEvent(new t.w.Event('resize')); await tick();
+  assert.equal(root.parentElement, t.doc.querySelector('section.section-product-v2'));
+  assert.equal(t.fetchCalls.length, 1);
+});
+
+test('desktop without enough empty space under the image (short purchase column): falls back to the flow position, never overlaps', async () => {
+  const t = setup();
+  layout(t, true, 700); blockHeight(t); // vão de 138 px < 340 + 32
+  await tick();
+  const root = block(t.doc)[0];
+  assert.equal(root.getAttribute('data-placement'), 'flow');
+  assert.equal(t.doc.querySelector('section.buy-together').nextElementSibling, root);
+});

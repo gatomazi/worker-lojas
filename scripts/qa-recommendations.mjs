@@ -116,7 +116,13 @@ const state = (page) => page.evaluate(() => {
   const desc = [...document.querySelectorAll('h2, h3, p, div')].find((e) => /^\s*Descri[cç][aã]o\s*$/i.test(e.textContent || ''));
   const before = (a, b) => !!(a && b && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING));
   let sw = document.documentElement.scrollWidth; const vw = document.documentElement.clientWidth;
-  let swWithout = sw; if (root) { root.style.display = 'none'; swWithout = document.documentElement.scrollWidth; root.style.display = ''; }
+  const gallery = document.querySelector('.details-product > section.section-product-v2');
+  const carousel = gallery && gallery.firstElementChild;
+  const details = document.querySelector('.details-product > section.section-details');
+  const geo = () => ({ galleryH: gallery ? Math.round(gallery.getBoundingClientRect().height) : 0, carouselH: carousel ? Math.round(carousel.getBoundingClientRect().height) : 0, detailsH: details ? Math.round(details.getBoundingClientRect().height) : 0, ctaTop: Math.round((document.getElementById('add-to-cart-desk') || document.body).getBoundingClientRect().top + scrollY) });
+  const withBlock = geo();
+  let swWithout = sw; let withoutBlock = withBlock; if (root) { root.style.display = 'none'; swWithout = document.documentElement.scrollWidth; withoutBlock = geo(); root.style.display = ''; }
+  const rootBox = root ? root.getBoundingClientRect() : null; const carBox = carousel ? carousel.getBoundingClientRect() : null;
   return {
     blocks: document.querySelectorAll('[data-origens-reco]').length,
     title: root && root.querySelector('h2') ? root.querySelector('h2').textContent : null,
@@ -127,7 +133,11 @@ const state = (page) => page.evaluate(() => {
     overflowOurs: sw > vw + 1 && swWithout <= vw + 1, sw, swWithout, vw,
     trackScrolls: !!(track && track.scrollWidth > track.clientWidth + 4), visibleCards: track && rects[0] ? Number((track.clientWidth / (rects[0].width + 12)).toFixed(2)) : 0,
     oneRow: rects.length > 0 && rects.every((r) => Math.abs(r.top - rects[0].top) < 2),
-    loader: window.__useOrigensLoader, features: (window.__useOrigens || {}).features || []
+    loader: window.__useOrigensLoader, features: (window.__useOrigens || {}).features || [],
+    placement: root ? root.getAttribute('data-placement') : null, inGallery: !!(gallery && root && gallery.contains(root)),
+    belowImage: !!(rootBox && carBox && rootBox.top >= carBox.bottom - 1 && rootBox.left >= carBox.left - 1 && rootBox.right <= carBox.right + 1),
+    carouselSame: withBlock.carouselH === withoutBlock.carouselH && withBlock.galleryH === withoutBlock.galleryH,
+    fitsGap: !!(rootBox && details && rootBox.bottom <= details.getBoundingClientRect().bottom + 1), detailsSame: withBlock.detailsH === withoutBlock.detailsH, ctaSame: withBlock.ctaTop === withoutBlock.ctaTop
   };
 });
 
@@ -137,7 +147,8 @@ async function shot(s, name, { together = false } = {}) {
   const notice = page.locator('.cookie-acceptance button');
   if (await notice.count() && await notice.first().isVisible()) { await notice.first().click(); await wait(page, 400); }
   await page.evaluate((t) => {
-    const el = t ? (document.querySelector('section.buy-together') || document.querySelector('[data-origens-reco]')) : document.querySelector('[data-origens-reco]');
+    const desk = innerWidth >= 1024;
+    const el = t ? (desk ? document.querySelector('.details-product') : (document.querySelector('section.buy-together') || document.querySelector('[data-origens-reco]'))) : (desk ? document.querySelector('.details-product > section.section-product-v2') : document.querySelector('[data-origens-reco]'));
     if (!el) return;
     const header = [...document.querySelectorAll('nav.navbar, header')].map((h) => h.getBoundingClientRect().bottom).filter((b) => b > 0 && b < 300);
     const offset = (header.length ? Math.max(...header) : 0) + 16;
@@ -145,7 +156,17 @@ async function shot(s, name, { together = false } = {}) {
   }, together);
   await wait(page, 900); // imagens lazy dos cards
   await page.evaluate(() => Promise.all([...document.querySelectorAll('[data-origens-reco] img')].map((img) => (img.complete ? null : new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 4000); })))));
-  await page.screenshot({ path: OUT + name + '.png' });
+  // Desktop: recorte de página inteira da grade do produto (imagem + bloco à esquerda, compra + "Compre Junto" à direita), para ver o vão reaproveitado.
+  const clip = await page.evaluate((t) => {
+    if (innerWidth < 1024) return null;
+    const grid = document.querySelector('.details-product'); const root = document.querySelector('[data-origens-reco]');
+    if (!grid || !root) return null;
+    const g = grid.getBoundingClientRect(); const r = root.getBoundingClientRect(); const bt = document.querySelector('section.buy-together');
+    const bottom = Math.max(r.bottom, t && bt ? bt.getBoundingClientRect().bottom : 0) + 32;
+    return { x: 0, y: Math.max(0, g.top + scrollY - 8), width: document.documentElement.clientWidth, height: Math.round(bottom - g.top + 8) };
+  }, together);
+  if (clip) await page.screenshot({ path: OUT + name + '.png', fullPage: true, clip });
+  else await page.screenshot({ path: OUT + name + '.png' });
   info('captura ' + OUT + name + '.png');
 }
 
@@ -168,7 +189,12 @@ for (const c of CASES) {
         check(label + ': cards com imagem, preço e alvo ≥ 44 px', st.items.every((i) => i.img.startsWith('https://gcp-images.majestic.ink.rsvcloud.com/') && /R\$/.test(i.price) && i.h >= 44));
         if (c.place) check(label + ': no máximo 2 da mesma cidade; Feito em/Coordenadas primeiro', st.items.length > 0 && st.items.filter((i) => i.name.startsWith(c.place + ' ·')).length <= 2 && /^same-locality/.test((st.items[0] || {}).reason || ''), st.items.map((i) => i.name + ' [' + i.reason + ']').join(' | '));
         if (c.piece) check(label + ': peça Oversized recebe a lista da estampa e nenhuma peça da mesma estampa aparece', !st.items.some((i) => /Bicho do Paraná/.test(i.name)), st.items.map((i) => i.name).join(' | '));
-        check(label + ': depois do bloco principal de compra, fora do formulário' + (st.nativeTogether ? ', logo após o "Compre Junto" nativo (mantido visível)' : ''), st.afterForm && !st.insideForm && (!st.nativeTogether || (st.afterTogether && st.nativeTogetherVisible)) && st.beforeDescription !== false, JSON.stringify({ afterForm: st.afterForm, afterTogether: st.afterTogether, nativeVisible: st.nativeTogetherVisible, beforeDescription: st.beforeDescription }));
+        if (vp.width >= 1024) {
+          check(label + ': desktop = logo abaixo da imagem, na coluna da galeria (vão reaproveitado)', st.placement === 'gallery' && st.inGallery && st.belowImage && st.fitsGap && !st.insideForm, JSON.stringify({ placement: st.placement, inGallery: st.inGallery, belowImage: st.belowImage, fitsGap: st.fitsGap }));
+          check(label + ': desktop = galeria com a MESMA altura (selo de zoom no lugar), imagem não esticada, coluna de compra e CTA no mesmo lugar, "Compre Junto" nativo visível', st.carouselSame && st.detailsSame && st.ctaSame && (!st.nativeTogether || st.nativeTogetherVisible), JSON.stringify({ carousel: st.carouselSame, details: st.detailsSame, cta: st.ctaSame }));
+        } else {
+          check(label + ': empilhado = depois do bloco principal de compra, fora do formulário' + (st.nativeTogether ? ', logo após o "Compre Junto" nativo (mantido visível)' : ''), st.placement === 'flow' && st.afterForm && !st.insideForm && (!st.nativeTogether || (st.afterTogether && st.nativeTogetherVisible)) && st.beforeDescription !== false, JSON.stringify({ placement: st.placement, afterForm: st.afterForm, afterTogether: st.afterTogether, nativeVisible: st.nativeTogetherVisible, beforeDescription: st.beforeDescription }));
+        }
         check(label + ': CTA nativo intacto e nenhum POST nosso', st.ctaVisible && s.posts === 0 && /^form-product-\d+$/.test(st.formId || '') && st.formId === 'form-product-' + c.id, st.formId);
         check(label + ': nenhum overflow horizontal atribuível ao bloco', !st.overflowOurs, JSON.stringify({ sw: st.sw, without: st.swWithout, vw: st.vw }));
         if (vp.width >= 1024) check(label + ': desktop = cards numa linha', st.oneRow, '');

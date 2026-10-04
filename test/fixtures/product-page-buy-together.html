@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head><meta charset="utf-8"><title>Florianópolis | Origem SC — Use Sul</title></head>
 <body>
-<!-- Estrutura auditada na PDP real da INK (Florianópolis | Origem SC, 2026-10-04): formulário nativo de compra, modal de tamanhos,
+<!-- Estrutura auditada na PDP real da INK (Florianópolis | Origem SC, 2026-10-04): grade .details-product (galeria | detalhes), formulário nativo de compra, modal de tamanhos,
      seção "Compre Junto" e o modal dela COM um segundo form-product-<id> (o produto sugerido pela INK), depois a descrição. -->
 <turbo-frame id="cart"></turbo-frame>
 <turbo-frame id="quick_add_frame"></turbo-frame>
 <main>
-  <div class="product-page">
-    <div class="product-page__gallery"><img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/a.webp" alt="Florianópolis | Origem SC"></div>
-    <div class="product-page__info">
+  <div class="details-product">
+    <section class="section-product-v2 relative" style="position:relative"><div class="relative w-full h-full" data-controller="ink-store--carousel"><img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/a.webp" alt="Florianópolis | Origem SC"></div></section>
+    <section class="section-details gap-6">
       <h1>Florianópolis | Origem SC</h1>
       <div class="product-data-js hide hidden"><data data-product-id="3789929" data-product-name="Florianópolis | Origem SC" data-product-value="109.9"></data></div>
       <form id="form-product-3789929" class="form-product-options gap-5" data-turbo="true" data-turbo-frame="cart" action="/usesul/cart?product_id=3789929" method="post">
@@ -39,7 +39,7 @@
         </div>
       </div>
       <div class="product-page__description"><h2>Descrição</h2><p>Camiseta 100% algodão.</p></div>
-    </div>
+    </section>
   </div>
 </main>
 </body>
