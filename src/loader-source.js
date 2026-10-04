@@ -12,12 +12,13 @@ import { TRACKING } from './loader/tracking.js';
 import { PRODUCT_DISCOVERY } from './loader/product-discovery.js';
 import { HEADER_NAV } from './loader/header-nav.js';
 import { LIST_WATCH } from './loader/list-watch.js';
+import { RECOMMENDATIONS } from './loader/recommendations.js';
 import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 import { shellPageKind, shellEnabled } from './scope.js';
 
-export const LOADER_VERSION = '4.8';
+export const LOADER_VERSION = '4.9';
 export { buildDiscoverySource };
 
 // Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano
@@ -52,6 +53,7 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   if (features.includes('product-discovery')) parts.push(PRODUCT_DISCOVERY);
   if (features.includes('header-nav')) parts.push(HEADER_NAV);
   if (features.includes('list-session')) parts.push(LIST_WATCH);
+  if (features.includes('auto-recommendations')) parts.push(RECOMMENDATIONS);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
     .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))

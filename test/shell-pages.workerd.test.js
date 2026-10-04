@@ -78,7 +78,7 @@ test('account pages keep the visitor\'s cookies and the origin\'s Set-Cookie unt
 
 test('health reports shell_pages; the loader knows the shell scope only when it is on and carries the single shared classifier', async () => {
   const on = await (await get(ON, '/__origens/health')).json();
-  assert.equal(on.shell_pages, true); assert.equal(on.version, '4.8'); assert.equal(on.scope_mode, 'product-catalog');
+  assert.equal(on.shell_pages, true); assert.equal(on.version, '4.9'); assert.equal(on.scope_mode, 'product-catalog');
   const off = await (await get({ ...ON, WIDGET_SCOPE_MODE: 'allowlist' }, '/__origens/health')).json();
   assert.equal(off.shell_pages, false);
   const loader = await (await get(ON, '/__origens/loader.js')).text();

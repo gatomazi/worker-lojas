@@ -5,6 +5,7 @@ import { createSearchGateway } from './search-gateway.js';
 import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
 import { createListSession, LIST_SESSION_PATH } from './list-session.js';
+import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommendations-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
 import { resolveStore, productPagePattern } from './stores.js';
 
@@ -177,10 +178,10 @@ async function injectLoader(request, url, mode, allowlist, features, scope, stor
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
 // Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
-export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null } = {}) {
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, recommendations = null } = {}) {
   const services = new Map();
   const servicesOf = (store) => {
-    if (!services.has(store.id)) services.set(store.id, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }) });
+    if (!services.has(store.id)) services.set(store.id, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }) });
     return services.get(store.id);
   };
   return {
@@ -244,6 +245,10 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       // Sessão de compra de "Meus Lugares": só com true + list-session; caso contrário a INK responde (404 dela).
       if (url.pathname === LIST_SESSION_PATH) {
         return mode === 'true' && features.features.includes('list-session') ? servicesOf(store).listSession.handle(request) : passThrough(request, upstream);
+      }
+      // Recomendações da página de produto: só com true + auto-recommendations; caso contrário a INK responde (404 dela).
+      if (url.pathname.startsWith(RECOMMENDATIONS_PATH)) {
+        return mode === 'true' && features.features.includes('auto-recommendations') ? servicesOf(store).recommendations.handle(request) : passThrough(request, upstream);
       }
       if (url.pathname === SEARCH_PATH) {
         return mode === 'true' && features.features.includes('city-search') ? servicesOf(store).gateway.handle(request, ctx) : passThrough(request, upstream);

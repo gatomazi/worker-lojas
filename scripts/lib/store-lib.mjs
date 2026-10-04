@@ -6,8 +6,10 @@ import { FEATURE_NAMES } from '../../src/features.js';
 
 // Só estas lojas passam por este release. A Use Sul tem o SEU release (release-navbar.sh) e NUNCA é tocada daqui; "all" não existe: um comando = um Worker.
 export const RELEASABLE = Object.freeze(['norte', 'centro']);
-// As oito features estáveis já ao ar na Sul (todas as do código; nenhuma flag nova). A ordem é a canônica de features.js.
-export const STORE_FEATURES = Object.freeze([...FEATURE_NAMES]);
+// As oito features estáveis já ao ar na Sul. A ordem é a canônica de features.js. Features em AVALIAÇÃO (OPT_IN_FEATURES) ficam de fora de propósito:
+// uma flag nova nunca entra numa loja só porque o código a conhece — liga-se à mão, loja por loja, com o seu próprio rollout (docs/ink-auto-recommendations.md).
+export const OPT_IN_FEATURES = Object.freeze(['auto-recommendations']);
+export const STORE_FEATURES = Object.freeze(FEATURE_NAMES.filter((name) => !OPT_IN_FEATURES.includes(name)));
 export const CONSERVATIVE = 'allowlist';
 export const CATALOG = 'product-catalog';
 // Caminhos que NUNCA podem ter Worker (login, carrinho, checkout, pagamento, conta, administração), com ou sem query, nas rotas de qualquer loja.
