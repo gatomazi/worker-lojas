@@ -29,7 +29,7 @@ const mf = new Miniflare({
 });
 // MOBILE=1: emula um celular (390×844, toque, DPR 3, user agent de iPhone) para ver o carrossel.
 const MOBILE = process.env.MOBILE === '1';
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: false, args: [MOBILE ? '--window-size=430,960' : '--window-size=1360,960'] });
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: false, args: [MOBILE ? '--window-size=430,960' : '--window-size=1440,900'] });
 const ctx = await browser.newContext(MOBILE
   ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }
   : { viewport: null, locale: 'pt-BR' });
