@@ -50,7 +50,8 @@ test('resolveToml swaps ONLY the KV marker for a real 32-hex id; anything else i
 });
 
 test('releaseVars/deployArgs: eight features, two phases, own allowlist of real products; the args bind file, --name and STORE_ID to the same store', () => {
-  assert.equal(STORE_FEATURES.length, 8); assert.deepEqual(STORE_FEATURES, FEATURE_NAMES);
+  assert.equal(STORE_FEATURES.length, 8); assert.deepEqual(STORE_FEATURES, FEATURE_NAMES.filter((f) => f !== 'auto-recommendations'));
+  assert.ok(!STORE_FEATURES.includes('auto-recommendations'), 'a feature under evaluation never rides along with a store release');
   for (const id of RELEASABLE) {
     const rel = releaseStore(id);
     const a = releaseVars(rel, CONSERVATIVE, SAMPLES); const b = releaseVars(rel, CATALOG, SAMPLES);

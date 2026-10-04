@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Florianópolis | Origem SC — Use Sul</title></head>
+<body>
+<!-- Estrutura auditada na PDP real da INK (Florianópolis | Origem SC, 2026-10-04): formulário nativo de compra, modal de tamanhos,
+     seção "Compre Junto" e o modal dela COM um segundo form-product-<id> (o produto sugerido pela INK), depois a descrição. -->
+<turbo-frame id="cart"></turbo-frame>
+<turbo-frame id="quick_add_frame"></turbo-frame>
+<main>
+  <div class="product-page">
+    <div class="product-page__gallery"><img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/a.webp" alt="Florianópolis | Origem SC"></div>
+    <div class="product-page__info">
+      <h1>Florianópolis | Origem SC</h1>
+      <div class="product-data-js hide hidden"><data data-product-id="3789929" data-product-name="Florianópolis | Origem SC" data-product-value="109.9"></data></div>
+      <form id="form-product-3789929" class="form-product-options gap-5" data-turbo="true" data-turbo-frame="cart" action="/usesul/cart?product_id=3789929" method="post">
+        <input type="hidden" name="authenticity_token" value="csrf-token-fixture">
+        <turbo-frame id="product_options_frame">
+          <div class="form-product-options__select-type">
+            <input type="radio" id="3789929-model-Masculino" name="model" value="Masculino"><label for="3789929-model-Masculino">Masculino</label>
+            <input type="radio" id="3789929-size-M" name="size" value="M"><label for="3789929-size-M">M</label>
+          </div>
+          <div class="form-product-options__add-to-cart"><button type="submit" id="add-to-cart-desk" class="form-product-options__add-to-cart-btn">Adicionar ao Carrinho</button></div>
+          <div class="form-product-options__add-to-cart-mobile"><button type="submit" id="add-to-cart-mob">Adicionar ao Carrinho</button></div>
+        </turbo-frame>
+      </form>
+      <div class="modal-size-product"><div class="modal-size-product__title">Clássica (Masculina)</div></div>
+      <section class="buy-together">
+        <span class="buy-together__head">Compre Junto</span>
+        <div class="buy-together__details">
+          <img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/b.webp" alt="Florianópolis | Coordenadas">
+          <strong class="buy-together__details-name">Florianópolis | Coordenadas</strong>
+          <a href="#modal-buy-together" class="buy-together__details-text-button">Ver detalhes</a>
+        </div>
+      </section>
+      <div class="modal-buy-together">
+        <div class="modal-buy-together__content">
+          <div class="product-data-js hide hidden"><data data-product-id="3791940" data-product-name="Florianópolis | Coordenadas" data-product-value="109.9"></data></div>
+          <form id="form-product-3791940" class="form-product-options gap-5" data-turbo-frame="cart" action="/usesul/cart?product_id=3791940" method="post"><button type="submit">Adicionar ao Carrinho</button></form>
+        </div>
+      </div>
+      <div class="product-page__description"><h2>Descrição</h2><p>Camiseta 100% algodão.</p></div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
