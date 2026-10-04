@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 import { shellPageKind } from '../src/scope.js';
 import { STORES } from '../src/stores.js';
+import { LOADER_VERSION } from '../src/loader-source.js';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
@@ -17,7 +18,7 @@ const { workerModules } = await import('../test/helpers.js');
 const LOCAL_SF = (process.env.RECO_STOREFRONT || 'http://127.0.0.1:3107').replace(/\/$/, '');
 const OUT = ((process.env.QA_EVIDENCE_DIR || new URL('../docs/evidence/ink-auto-recommendations/', import.meta.url).pathname) + '/').replace(/\/+$/, '/');
 mkdirSync(OUT, { recursive: true });
-const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,auto-recommendations';
+const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations';
 const results = []; const failures = [];
 const check = (n, ok, d = '') => { results.push(!!ok); if (!ok) failures.push(n); console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? '  — ' + String(d).slice(0, 300) : '')); };
 const info = (n) => console.log('INFO ' + n);
@@ -30,7 +31,8 @@ const CASES = [
   { store: 'sul', kind: 'editorial', path: '/usesul/product/bah-dizeres', id: '3859884', title: 'Bah | Dizeres (Fala Daqui)', shot: 'pdp-editorial' },
   { store: 'sul', kind: 'editorial', path: '/usesul/product/serra-catarinense', id: '4932916', title: 'Serra Catarinense (Do Nosso Jeito)' },
   { store: 'sul', kind: 'editorial', path: '/usesul/product/pai-paranaense-churrasqueiro-lenda', id: '3822253', title: 'Pai Paranaense Churrasqueiro (Lenda)' },
-  { store: 'sul', kind: 'editorial', path: '/usesul/product/paranaense-bicho-do-parana-757ac4ce-0d5d-4c6c-839f-828be380e0d5', id: '5071864', title: 'Paranaense | Bicho do Paraná — peça Oversized (mesmo cluster)', piece: true },
+  // Peça OCULTA (visible_in_store: false) do garment index: a Oversized de Florianópolis | Origem recebe a lista da estampa e nunca outra peça dela.
+  { store: 'sul', kind: 'city', path: '/usesul/product/florianopolis-origem-sc-9e0d5460-942b-41dc-b229-3facca5ff8c1', id: '3832737', title: 'Florianópolis · Origem — peça Oversized oculta (mesmo cluster)', place: 'Florianópolis', piece: /Florianópolis · Ponto de Origem/ },
   { store: 'sul', kind: 'none', path: '/usesul/product/amigas-la-de-caibate', id: '4430200', title: 'Amigas lá de Caibaté (encomenda pessoal, sem contexto)' },
   { store: 'centro', kind: 'city', path: '/usecentro/product/goiania-origem-go', id: '3915458', title: 'Goiânia · Origem (Centro-Oeste)', place: 'Goiânia' }
 ];
@@ -178,7 +180,7 @@ for (const c of CASES) {
       await open(s, c.path);
       const st = await state(s.page);
       const label = `${c.title} @${vp.width}`;
-      check(label + ': loader 4.9 com auto-recommendations', st.loader === '4.9' && st.features.includes('auto-recommendations'), st.loader + ' ' + st.features.join(','));
+      check(label + ': loader ' + LOADER_VERSION + ' com auto-recommendations', st.loader === LOADER_VERSION && st.features.includes('auto-recommendations'), st.loader + ' ' + st.features.join(','));
       check(label + ': exatamente 1 pedido de recomendações', s.reco.length === 1 && s.reco[0] === 'GET /__origens/recommendations/' + c.id, s.reco.join(' | '));
       if (c.kind === 'none') {
         check(label + ': sem contexto => nenhum bloco (PDP normal)', st.blocks === 0, JSON.stringify(st.items));
@@ -188,7 +190,7 @@ for (const c of CASES) {
         check(label + ': links reais da loja, sem o produto atual, sem duplicata', st.items.every((i) => i.href.startsWith(host) && i.id !== c.id) && new Set(st.items.map((i) => i.id)).size === st.items.length);
         check(label + ': cards com imagem, preço e alvo ≥ 44 px', st.items.every((i) => i.img.startsWith('https://gcp-images.majestic.ink.rsvcloud.com/') && /R\$/.test(i.price) && i.h >= 44));
         if (c.place) check(label + ': no máximo 2 da mesma cidade; Feito em/Coordenadas primeiro', st.items.length > 0 && st.items.filter((i) => i.name.startsWith(c.place + ' ·')).length <= 2 && /^same-locality/.test((st.items[0] || {}).reason || ''), st.items.map((i) => i.name + ' [' + i.reason + ']').join(' | '));
-        if (c.piece) check(label + ': peça Oversized recebe a lista da estampa e nenhuma peça da mesma estampa aparece', !st.items.some((i) => /Bicho do Paraná/.test(i.name)), st.items.map((i) => i.name).join(' | '));
+        if (c.piece) check(label + ': peça Oversized recebe a lista da estampa e nenhuma peça da mesma estampa aparece', !st.items.some((i) => c.piece.test(i.name)), st.items.map((i) => i.name).join(' | '));
         if (vp.width >= 1024) {
           check(label + ': desktop = logo abaixo da imagem, na coluna da galeria (vão reaproveitado)', st.placement === 'gallery' && st.inGallery && st.belowImage && st.fitsGap && !st.insideForm, JSON.stringify({ placement: st.placement, inGallery: st.inGallery, belowImage: st.belowImage, fitsGap: st.fitsGap }));
           check(label + ': desktop = galeria com a MESMA altura (selo de zoom no lugar), imagem não esticada, coluna de compra e CTA no mesmo lugar, "Compre Junto" nativo visível', st.carouselSame && st.detailsSame && st.ctaSame && (!st.nativeTogether || st.nativeTogetherVisible), JSON.stringify({ carousel: st.carouselSame, details: st.detailsSame, cta: st.ctaSame }));
