@@ -18,7 +18,7 @@ const start = process.argv[3] || (storeId === 'sul' ? '/usesul/product/florianop
 const upstream = new Map(); // url -> { html, status }
 const mf = new Miniflare({
   ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS', 'NORTE_CART_REFS', 'CENTRO_CART_REFS'],
-  bindings: { STORE_ID: storeId, ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,auto-recommendations' },
+  bindings: { STORE_ID: storeId, ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations' },
   outboundService: async (req) => {
     const url = new URL(req.url);
     if (url.host === 'useorigens.com.br' && url.pathname.startsWith('/api/recommendations/')) return fetch(LOCAL_SF + url.pathname, { headers: { accept: 'application/json' } });

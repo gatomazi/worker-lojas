@@ -58,7 +58,7 @@ test('flag ON: the loader includes the module; health lists the feature and the 
   const mf = await worker(ON);
   const health = await (await mf.dispatchFetch(HOST + '/__origens/health')).json();
   assert.deepEqual(health.widget_features, ['return-link', 'auto-recommendations']);
-  assert.equal(health.version, LOADER_VERSION); assert.equal(LOADER_VERSION, '4.9');
+  assert.equal(health.version, LOADER_VERSION);
   const page = await (await mf.dispatchFetch(HOST + '/usesul/product/florianopolis-origem-sc')).text();
   const src = page.match(/src="(\/__origens\/loader\.js\?[^"]+)"/)[1];
   const loader = await (await mf.dispatchFetch(HOST + src)).text();

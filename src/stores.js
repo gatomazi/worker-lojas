@@ -6,6 +6,7 @@
 //   inkHost/inkBase host público e prefixo dos caminhos da loja na INK (produto: <inkBase>/product/<slug>; coleções: <inkBase>/collections/<slug>)
 //   storefront     origem canônica do storefront (logo, cidades e busca textual)
 //   navbarApi      configuração pública enxuta do CMS (grupos `top` e `more` de coleções + estados fixos), lida SOMENTE pelo Worker no servidor
+//   promotionsApi  cupons e promoções publicados no CMS (contrato v1), lidos SOMENTE pelo Worker no servidor
 //   citiesApi      índice público de cidades (busca "cidade ou estado"), lido SOMENTE pelo Worker no servidor
 //   kvBinding      binding do KV do espelho do carrinho: um namespace por loja, nunca compartilhado
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
@@ -21,6 +22,7 @@ export const STORES = Object.freeze({
     storefront: 'https://useorigens.com.br',
     storefrontBase: '/sul',
     navbarApi: '/api/navbar/sul',
+    promotionsApi: '/api/promotions/sul',
     citiesApi: '/api/cidades/sul',
     // "Meus Lugares" (ver docs/buy-session-contract.md): o Worker só faz GET <buySessionApi>/<id>, nunca minta nem interpreta o id.
     buySessionApi: '/api/buy-session',
@@ -40,6 +42,7 @@ export const STORES = Object.freeze({
     storefront: 'https://useorigens.com.br',
     storefrontBase: '/norte',
     navbarApi: '/api/navbar/norte',
+    promotionsApi: '/api/promotions/norte',
     citiesApi: '/api/cidades/norte',
     buySessionApi: '/api/buy-session',
     kvBinding: 'NORTE_CART_REFS',
@@ -58,6 +61,7 @@ export const STORES = Object.freeze({
     storefront: 'https://useorigens.com.br',
     storefrontBase: '/centro-oeste',
     navbarApi: '/api/navbar/centro-oeste',
+    promotionsApi: '/api/promotions/centro-oeste',
     citiesApi: '/api/cidades/centro-oeste',
     buySessionApi: '/api/buy-session',
     kvBinding: 'CENTRO_CART_REFS',
