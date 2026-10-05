@@ -2,7 +2,7 @@
 // Prévia INTERATIVA (local): abre um Chrome visível com as PDPs REAIS da INK passando pelo Worker LOCAL (Miniflare) com auto-recommendations ligada.
 // /api/recommendations/** vai ao storefront LOCAL (RECO_STOREFRONT); navbar/cidades ao storefront de produção (GET públicos). Nada é publicado.
 //   PW_PATH=<dir com playwright-core> RECO_STOREFRONT=http://127.0.0.1:3107 node scripts/preview-recommendations.mjs [sul|norte|centro] [caminho]
-// Feche a janela para encerrar. Navegue à vontade dentro da loja (Turbo incluído); NÃO finalize pedidos.
+// PREVIEW_FEATURES=<lista> troca as features ligadas (ex.: acrescentar ,pdp-share,size-guide). Feche a janela para encerrar. Navegue à vontade dentro da loja (Turbo incluído); NÃO finalize pedidos.
 import { createRequire } from 'node:module';
 import { shellPageKind } from '../src/scope.js';
 import { STORES } from '../src/stores.js';
@@ -18,7 +18,7 @@ const start = process.argv[3] || (storeId === 'sul' ? '/usesul/product/florianop
 const upstream = new Map(); // url -> { html, status }
 const mf = new Miniflare({
   ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS', 'NORTE_CART_REFS', 'CENTRO_CART_REFS'],
-  bindings: { STORE_ID: storeId, ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations' },
+  bindings: { STORE_ID: storeId, ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: process.env.PREVIEW_FEATURES || 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations' },
   outboundService: async (req) => {
     const url = new URL(req.url);
     if (url.host === 'useorigens.com.br' && url.pathname.startsWith('/api/recommendations/')) return fetch(LOCAL_SF + url.pathname, { headers: { accept: 'application/json' } });

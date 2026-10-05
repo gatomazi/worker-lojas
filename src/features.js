@@ -5,7 +5,9 @@
 // As features NÃO ampliam páginas: quem autoriza páginas continua sendo só WIDGET_ALLOWLIST (Worker e loader).
 // auto-recommendations: bloco "Você também pode gostar" na página de produto (lista pré-calculada, /__origens/recommendations/<id>). Desligada = nenhum
 // pedido e nenhum DOM: nem o módulo entra no loader.
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations'];
+// pdp-share: botão "Compartilhar" abaixo do título da página de produto. size-guide: o link nativo "Confira suas medidas" vira o botão "Guia de medidas"
+// (mesmo nó, mesmo modal oficial da INK). Desligadas = nem o módulo entra no loader.
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {
