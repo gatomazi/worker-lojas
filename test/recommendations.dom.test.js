@@ -158,6 +158,24 @@ test('resizing between two columns and stacked moves the SAME block (no new requ
   assert.equal(t.fetchCalls.length, 1);
 });
 
+test('desktop with a gap just short of the block: settles in the flow position, no gallery <-> flow loop (PDP real em 1920)', async () => {
+  const t = setup();
+  // Vão real sem o bloco: 355 px (< 341 + 32). Em fluxo o bloco alonga a coluna de detalhes em 365 px; antes isso contava como vão e ele subia.
+  const box = (left, width, top, height) => ({ left, width, top, height, right: left + width, bottom: top + height, x: left, y: top });
+  const details = t.doc.querySelector('section.section-details');
+  t.doc.querySelector('section.section-product-v2').getBoundingClientRect = () => box(202, 740, 176, 740);
+  details.getBoundingClientRect = () => box(966, 740, 176, 740 + 355 + (details.querySelector('[data-origens-reco]') ? 365 : 0));
+  blockHeight(t, 341);
+  await tick();
+  const root = block(t.doc)[0];
+  const moves = [];
+  new t.w.MutationObserver(() => moves.push(root.getAttribute('data-placement'))).observe(root, { attributes: true, attributeFilter: ['data-placement'] });
+  for (let i = 0; i < 5; i++) { t.w.dispatchEvent(new t.w.Event('resize')); await tick(60); }
+  assert.equal(root.getAttribute('data-placement'), 'flow');
+  assert.ok(details.contains(root));
+  assert.deepEqual(moves, [], 'never moves back to the gallery');
+});
+
 test('desktop without enough empty space under the image (short purchase column): falls back to the flow position, never overlaps', async () => {
   const t = setup();
   layout(t, true, 700); blockHeight(t); // vão de 138 px < 340 + 32

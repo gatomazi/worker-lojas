@@ -55,17 +55,27 @@ export const RECOMMENDATIONS = String.raw`
   // (~1000 px medidos em 1280 na PDP real). O bloco ocupa esse vão, logo abaixo da imagem, SEM mudar a altura da seção da galeria: fica dentro dela
   // com position:absolute; top:100% (a INK posiciona o selo "Clique para dar zoom" pela base da seção; se a seção crescesse, o selo desceria
   // para cima dos cards). Só quando as duas colunas estão de fato lado a lado (medido) e o bloco CABE no vão; senão, posição em fluxo abaixo.
-  function recoGallerySlot() {
+  // O vão é medido SEM o bloco: em fluxo ele está dentro da coluna de detalhes e a alonga; contar essa altura como vão fazia o bloco "caber",
+  // subir para a galeria, a coluna encolher, não caber mais e descer de novo, em laço (PDP real em 1920: vão de 355 px, bloco de 341 + 32).
+  function recoGallerySlot(root) {
     const gallery = document.querySelector('.details-product > section.section-product-v2');
     const details = document.querySelector('.details-product > section.section-details');
     if (!gallery || !details || getComputedStyle(gallery).position !== 'relative') return null;
     const g = gallery.getBoundingClientRect();
     const d = details.getBoundingClientRect();
-    return g.width > 0 && d.width > 0 && g.right <= d.left + 1 ? { gallery, details, room: d.bottom - g.bottom } : null;
+    if (!(g.width > 0 && d.width > 0 && g.right <= d.left + 1)) return null;
+    return { gallery, details, room: d.bottom - g.bottom - (root && details.contains(root) ? recoFootprint(root) : 0) };
+  }
+  // Altura que o bloco ocupa em fluxo (caixa + margens + o gap do pai). Medir a mais só deixa o bloco em fluxo; medir a menos traria o laço de volta.
+  function recoFootprint(root) {
+    const num = (v) => parseFloat(v) || 0;
+    const cs = getComputedStyle(root);
+    const parent = root.parentElement ? getComputedStyle(root.parentElement) : null;
+    return root.offsetHeight + num(cs.marginTop) + num(cs.marginBottom) + (parent ? num(parent.rowGap) : 0);
   }
   // Coloca (ou move) o bloco no lugar certo para o layout ATUAL. Devolve false quando não há lugar seguro.
   function recoPlace(root) {
-    const slot = recoGallerySlot();
+    const slot = recoGallerySlot(root);
     if (slot) {
       // Mede onde o bloco JÁ está (as duas colunas têm a mesma largura no desktop); só no primeiro desenho ele entra na galeria para ser medido.
       // Decidir antes de mover evita o vaivém galeria <-> fluxo (cada movimento dispara o MutationObserver do runtime).
