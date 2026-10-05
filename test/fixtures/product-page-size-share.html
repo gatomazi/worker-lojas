@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Sanitized from the real PDP www.usesul.com.br/usesul/product/paranaense-pe-vermelho (2026-10-05): two title headers (phone: before the gallery,
+     lg:hidden; desktop: inside section.section-details), the product data node, the native form whose lazy turbo-frame brings the size link
+     ("Confira suas medidas", a#open-modal-size with a Stimulus data-action) right before the CTA, and the native size modal. Scripts removed. Like the real page, there is NO <main>: the scope is div.details-product. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Camiseta Paranaense | Pé Vermelho | Use Sul</title>
+<meta property="og:title" content="Camiseta Paranaense | Pé Vermelho | Use Sul">
+<meta property="og:image" content="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/7c7a24a5e4fd98ee00619c99fc3dff62.webp">
+<link rel="canonical" href="https://www.usesul.com.br/usesul/product/paranaense-pe-vermelho">
+</head>
+<body>
+<turbo-frame id="cart"></turbo-frame>
+<turbo-frame id="quick_add_frame"></turbo-frame>
+  <div class="details-product">
+    <header class="flex flex-col gap-2 mb-6 lg:hidden">
+      <h1 class="font-medium text-2xl leading-6">Paranaense | Pé Vermelho</h1>
+      <a href="#reviews_container" data-turbo="false"><span>(142 avaliações)</span></a>
+    </header>
+    <section class="section-product-v2 relative"><div data-controller="ink-store--carousel"><img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_v2/main_image/7c7a24a5e4fd98ee00619c99fc3dff62.webp" alt=""></div></section>
+    <section class="section-details gap-6">
+      <header class="lg:flex lg:flex-col gap-2 hidden">
+        <h1 class="font-medium text-2xl leading-6">Paranaense | Pé Vermelho</h1>
+        <a href="#reviews_container" data-turbo="false"><span>(142 avaliações)</span></a>
+      </header>
+      <div class="product-data-js hidden"><data data-product-id="5072062" data-product-name="Paranaense | Pé Vermelho" data-product-value="109.9"></data></div>
+      <form id="form-product-5072062" class="form-product-options gap-5" data-turbo="true" data-turbo-frame="cart" action="/usesul/cart?product_id=5072062" method="post">
+        <turbo-frame id="product_variants_options_frame" src="/usesul/products/5072062/product_variants">
+          <div class="form-product-options__select-type flex flex-col gap-4">
+            <div class="flex flex-col items-start gap-1">
+              <p><strong>Modelo</strong></p>
+              <span><input class="sr-only" type="radio" name="model" value="Masculino" id="5072062-model-Masculino" required><label for="5072062-model-Masculino">Masculino</label></span>
+              <span><input class="sr-only" type="radio" name="model" value="Feminino" id="5072062-model-Feminino" required><label for="5072062-model-Feminino">Feminino</label></span>
+            </div>
+            <div class="flex flex-col items-start gap-1">
+              <p><strong>Tamanho</strong></p>
+              <span class="form-product-options__select-type-size-item"><input class="sr-only" type="radio" name="size" value="M" id="5072062-size-M" required><label for="5072062-size-M">M</label></span>
+            </div>
+            <a class="form-product-options__size-modal-link text-blue-600" data-turbo="false" id="open-modal-size" href="#modal-product"
+              data-action="click->ink-store--product-page#openModalOfSizes" form="form-product-5072062">
+              <img src="https://gcp-heroku.majestic.ink.rsvcloud.com/assets/site/tamanhos/sewing-tape-measure-c112f4fbd9b68e4d78ea9e7b4e6cbb34b5b5b949a9fb9635f9aaadeb7caf459b.svg" alt="Fita metrica">
+              Confira suas medidas
+            </a>
+          </div>
+          <div class="form-product-options__add-to-cart flex flex-col w-full gap-6">
+            <button id="add-to-cart-desk" class="form-product-options__add-to-cart-btn add-to-cart-js"><span name="add-to-cart-text">Adicionar ao Carrinho</span></button>
+          </div>
+          <div class="form-product-options__add-to-cart-mobile"><button type="submit" id="add-to-cart-mob">Adicionar ao Carrinho</button></div>
+        </turbo-frame>
+      </form>
+      <!-- Modal Structure -->
+      <div class="modal-size-product z-40" id="modal-size-product-5072062" data-controller="ink-store--product-page" data-close-modal="true">
+        <div class="modal-size-product__content">
+          <div class="modal-size-product__content-sizes-desk">
+            <div class="modal-size-product__title">Clássica | Unissex</div>
+            <img loading="lazy" width="920" height="1050" src="https://gcp-images.majestic.ink.rsvcloud.com/images/size_table/84fe6b2adfc72123a5bc913f13e5b756.webp">
+            <div class="modal-size-product__title">Baby Look | Feminina</div>
+            <img loading="lazy" width="920" height="1050" src="https://gcp-images.majestic.ink.rsvcloud.com/images/size_table/250d955bb3d4db4a1d213e34cadf56fc.webp">
+          </div>
+        </div>
+      </div>
+      <div class="product-page__description"><p>Descrição.</p></div>
+    </section>
+  </div>
+</body>
+</html>

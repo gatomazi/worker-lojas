@@ -11,6 +11,7 @@
 //   kvBinding      binding do KV do espelho do carrinho: um namespace por loja, nunca compartilhado
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
 //   shellPages     home/listagem/coleções/sobre/conta recebem a navbar? (só onde as rotas da zona foram validadas para isso: Sul, Norte e Centro-Oeste)
+//   theme          cor primária da região, a MESMA do storefront (src/lib/theme/region-theme.ts no useorigens): fixa aqui, nunca vinda de parâmetro
 export const STORES = Object.freeze({
   sul: Object.freeze({
     id: 'sul',
@@ -29,6 +30,7 @@ export const STORES = Object.freeze({
     kvBinding: 'CART_REFS',
     ga: 'G-8GYTEJ1F77',
     shellPages: true,
+    theme: Object.freeze({ primary: '#4d543d' }),
     ufs: Object.freeze(['PR', 'SC', 'RS']),
     stateNames: Object.freeze({ PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul' })
   }),
@@ -48,6 +50,7 @@ export const STORES = Object.freeze({
     kvBinding: 'NORTE_CART_REFS',
     ga: 'G-BC2SQTM7PL',
     shellPages: true,
+    theme: Object.freeze({ primary: '#234b50' }),
     ufs: Object.freeze(['AC', 'AM', 'AP', 'PA', 'RO', 'RR', 'TO']),
     stateNames: Object.freeze({ AC: 'Acre', AM: 'Amazonas', AP: 'Amapá', PA: 'Pará', RO: 'Rondônia', RR: 'Roraima', TO: 'Tocantins' })
   }),
@@ -67,6 +70,7 @@ export const STORES = Object.freeze({
     kvBinding: 'CENTRO_CART_REFS',
     ga: 'G-XVDJYYC7YM',
     shellPages: true,
+    theme: Object.freeze({ primary: '#8c3b1f' }),
     ufs: Object.freeze(['DF', 'GO', 'MS', 'MT']),
     stateNames: Object.freeze({ DF: 'Distrito Federal', GO: 'Goiás', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso' })
   })
@@ -103,5 +107,6 @@ export const clientStore = (store = ACTIVE_STORE) => ({
   home: store.storefront + store.storefrontBase,
   cities: store.storefront + store.storefrontBase + '#estados',
   search: store.storefront + store.storefrontBase + '/busca',
-  ga: store.ga
+  ga: store.ga,
+  theme: { primary: store.theme.primary }
 });
