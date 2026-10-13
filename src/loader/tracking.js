@@ -46,6 +46,8 @@ export const TRACKING = String.raw`
   }
   function entryPointOf(link) {
     if (link.id === 'use-origens-return-link') return 'ink_product_return';
+    // Links do guia da página de produto (pdp-guide) para o storefront: a mesma origem do bloco que ele substitui.
+    if (link.closest('[data-origens-guide], #o-guide')) return 'ink_product_detail';
     return entryPointOfRoot(link.closest('[data-origens-discovery]'));
   }
   function isStorefrontLink(link) {
