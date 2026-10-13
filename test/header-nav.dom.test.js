@@ -95,12 +95,12 @@ test('header-nav is a known feature; the bundle contains the module (and the FAB
   assert.ok(src.includes('"search":"https://useorigens.com.br/sul/busca"') && src.includes('"inkBase":"/usesul"') && src.includes('"origin":"https://useorigens.com.br"'));
 });
 
-test('desktop order: Regiões ▾, ALL the Topo collections in CMS order, Demais categorias ▾, Cidades, lupa; native account and cart untouched', async () => {
+test('desktop order: Estados ▾ (was Regiões), ALL the Topo collections in CMS order, Categorias ▾ (was Demais categorias), Cidades, lupa; native account and cart untouched', async () => {
   const t = setup(); await tick(300);
   const desk = t.q('[data-origens-nav="desktop"]');
   assert.ok(desk); assert.equal(t.all('[data-origens-nav="desktop"]').length, 1); assert.equal(t.all('#o-nav-search').length, 1);
   const full = desk.querySelector('.o-nav-full');
-  assert.deepEqual(texts([...full.children].map((c) => (c.matches('.o-dd') ? c.querySelector('button') : c))), ['Regiões', 'Novidades', 'Do Nosso Jeito', 'Feito Para Você', 'Demais categorias']);
+  assert.deepEqual(texts([...full.children].map((c) => (c.matches('.o-dd') ? c.querySelector('button') : c))), ['Estados', 'Novidades', 'Do Nosso Jeito', 'Feito Para Você', 'Categorias']);
   const topLinks = [...full.querySelectorAll(':scope > a')].map((a) => [a.textContent, a.getAttribute('href')]);
   assert.deepEqual(topLinks, [['Novidades', '/usesul/collections/novidades'], ['Do Nosso Jeito', '/usesul/collections/do-nosso-jeito'], ['Feito Para Você', '/usesul/collections/feito-para-voce']]);
   assert.deepEqual(texts(dd(t, 'demais').querySelectorAll('a')), ['Seu Lugar', 'Fala Daqui', 'Da Nossa Terra', 'Kits']);
@@ -130,10 +130,10 @@ test('there is no editorial limit or special slot: twelve Topo collections and t
 test('an empty Demais categorias group hides its button (desktop and mobile); an empty Topo still leaves Regiões, Cidades and the search', async () => {
   const noMore = setup({ config: cfg(['Novidades']) }); await tick(300);
   assert.equal(dd(noMore, 'demais'), null); assert.equal(noMore.q('[data-dd="demais"]'), null);
-  assert.ok(!texts(noMore.all('[data-origens-nav="menu"] .o-acc-btn')).includes('Demais categorias'));
+  assert.ok(!texts(noMore.all('[data-origens-nav="menu"] .o-acc-btn')).includes('Categorias'));
   const none = setup({ config: cfg([], []) }); await tick(300);
   assert.ok(none.q('[data-origens-nav="desktop"]'));
-  assert.deepEqual([...none.all('[data-origens-nav="desktop"] .o-nav-full > *')].map((c) => c.querySelector('button').textContent.trim()), ['Regiões']);
+  assert.deepEqual([...none.all('[data-origens-nav="desktop"] .o-nav-full > *')].map((c) => c.querySelector('button').textContent.trim()), ['Estados']);
   assert.equal(none.q('[data-origens-nav="menu"] .o-nav-title'), null, 'no "Coleções" heading without collections');
   assert.ok(none.q('[data-origens-nav="menu"] a.o-cta'));
 });
@@ -188,7 +188,7 @@ test('without width for everything only the PRESENTATION changes: one compact Me
   const desk = t.q('[data-origens-nav="desktop"]');
   assert.ok(desk.hasAttribute('data-compact'), 'compact when the links do not fit');
   const menu = t.q('[data-origens-nav="desktop"] .o-nav-compact [data-dd="menu"] .o-dd-panel');
-  assert.deepEqual(texts(menu.querySelectorAll('.o-dd-h')), ['Regiões', 'Coleções', 'Demais categorias']);
+  assert.deepEqual(texts(menu.querySelectorAll('.o-dd-h')), ['Estados', 'Coleções', 'Categorias']);
   assert.equal(menu.querySelectorAll('a').length, 4 + 3 + 4, 'states + Ver estados, all Topo, all Demais');
   // the data is intact: the full layout still carries every Topo link and the dropdown, and nothing moved between groups
   assert.equal(t.all('.o-nav-full > a').length, 3); assert.equal(dd(t, 'demais').querySelectorAll('a').length, 4);
@@ -303,11 +303,11 @@ test('mobile drawer: Cidades CTA first, Regiões accordion (closed), ALL Topo li
   assert.equal(menu.parentElement.id, 'navbar-list-mobile'); assert.equal(menu, menu.parentElement.firstElementChild, 'first thing in the native side menu');
   const kids = [...menu.children];
   assert.equal(kids[0].textContent, 'Encontrar minha cidade'); assert.equal(kids[0].getAttribute('href'), 'https://useorigens.com.br/sul#estados'); assert.match(kids[0].className, /o-cta/);
-  assert.equal(kids[1].querySelector('button').textContent.trim(), 'Regiões'); assert.equal(kids[1].querySelector('button').getAttribute('aria-expanded'), 'false'); assert.equal(kids[1].querySelector('.o-acc-list').hidden, true);
+  assert.equal(kids[1].querySelector('button').textContent.trim(), 'Estados'); assert.equal(kids[1].querySelector('button').getAttribute('aria-expanded'), 'false'); assert.equal(kids[1].querySelector('.o-acc-list').hidden, true);
   assert.equal(kids[2].textContent, 'Coleções');
   assert.deepEqual(texts(kids.slice(3, 6)), ['Novidades', 'Do Nosso Jeito', 'Feito Para Você']);
   const demais = kids[6];
-  assert.equal(demais.querySelector('button').textContent.trim(), 'Demais categorias'); assert.equal(demais.querySelector('.o-acc-list').hidden, true, 'closed by default');
+  assert.equal(demais.querySelector('button').textContent.trim(), 'Categorias'); assert.equal(demais.querySelector('.o-acc-list').hidden, true, 'closed by default');
   assert.deepEqual(texts(demais.querySelectorAll('.o-acc-list a')), ['Seu Lugar', 'Fala Daqui', 'Da Nossa Terra', 'Kits']);
   assert.deepEqual(texts(kids[1].querySelectorAll('.o-acc-list a')), ['Paraná', 'Santa Catarina', 'Rio Grande do Sul', 'Ver estados']);
   const btn = demais.querySelector('button'); const list = demais.querySelector('.o-acc-list');
@@ -622,4 +622,18 @@ test('Ajuda tab: leaves cleanly with the loader (Turbo away from the product pag
   assert.equal(btn.style.width, ''); assert.equal(btn.style.height, ''); assert.equal(btn.style.padding, ''); assert.equal(btn.style.borderRadius, '');
   assert.equal(btn.hasAttribute('aria-label'), false); assert.equal(btn.hasAttribute('aria-haspopup'), false); assert.equal(btn.hasAttribute('aria-controls'), false); assert.equal(btn.hasAttribute('aria-expanded'), false);
   assert.equal(btn.hasAttribute('data-origens-ajuda'), false);
+});
+
+test('collection pages of the site: an entry with `page` links to the storefront page (our link: cart bridge) and the CMS label renames "Categorias"; without them the INK links and the default label stay', async () => {
+  const page = 'https://useorigens.com.br/sul/colecoes/';
+  const config = { v: 2, states: STATES, top: [{ id: 1, title: 'Novidades', slug: 'novidades', order: 1, page: page + 'novidades' }, { id: 2, title: 'Só INK', slug: 'so-ink', order: 2 }], more: [{ id: 3, title: 'Seu Lugar', slug: 'seu-lugar', order: 1, page: page + 'seu-lugar' }, { id: 4, title: 'Outra', slug: 'outra', order: 2, page: 'https://evil.example/sul/colecoes/outra' }], moreLabel: 'Coleções da loja' };
+  const t = setup({ config }); await tick(300);
+  const full = t.q('[data-origens-nav="desktop"] .o-nav-full');
+  assert.deepEqual([...full.querySelectorAll(':scope > a')].map((a) => [a.textContent, a.getAttribute('href'), a.getAttribute('data-origens-nav')]), [['Novidades', page + 'novidades', 'link'], ['Só INK', '/usesul/collections/so-ink', null]]);
+  assert.equal(full.querySelector('[data-dd="demais"] button').textContent.trim(), 'Coleções da loja');
+  assert.deepEqual([...dd(t, 'demais').querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]), [['Seu Lugar', page + 'seu-lugar'], ['Outra', '/usesul/collections/outra']], 'a page outside the storefront of this region is ignored (INK link instead)');
+  assert.deepEqual(texts(t.q('[data-origens-nav="desktop"] .o-nav-compact [data-dd="menu"] .o-dd-panel').querySelectorAll('.o-dd-h')), ['Estados', 'Coleções', 'Coleções da loja']);
+  const menu = t.q('[data-origens-nav="menu"]');
+  assert.equal([...menu.children][5].querySelector('button').textContent.trim(), 'Coleções da loja');
+  assert.equal(menu.querySelector('a[href="' + page + 'novidades"]').getAttribute('data-origens-nav'), 'link');
 });

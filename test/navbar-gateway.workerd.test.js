@@ -116,3 +116,15 @@ test('normalizeNavbar: strict v2 shape; free groups (no limit of one/five), in t
   assert.deepEqual(normalizeNavbar({ v: 1, region: 'sul', collections: [{ name: 'Seu Lugar', slug: 'seu-lugar' }] }), { v: 2, states: [], top: [{ id: null, title: 'Seu Lugar', slug: 'seu-lugar', order: 1 }], more: [] });
   assert.equal(normalizeNavbar({ v: 2, region: 'sul', states: STATES, top: [], more: [] }).top.length, 0, 'empty groups are a valid configuration');
 });
+
+test('contract: a collection url that is the storefront page of this region becomes `page` (origin normalized, www or not); moreLabel passes through cleaned; INK urls and anything else as before', () => {
+  const ours = (slug, host = 'www.useorigens.com.br') => ({ ...entry(7, 'Da Nossa Terra', slug, 1), url: 'https://' + host + '/sul/colecoes/' + slug });
+  const r = normalizeNavbar({ ...GOOD, top: [ours('da-nossa-terra')], more: [ours('seu-lugar', 'useorigens.com.br')], moreLabel: '  Categorias  ' });
+  assert.deepEqual(r.top, [{ id: 7, title: 'Da Nossa Terra', slug: 'da-nossa-terra', order: 1, page: 'https://useorigens.com.br/sul/colecoes/da-nossa-terra' }]);
+  assert.equal(r.more[0].page, 'https://useorigens.com.br/sul/colecoes/seu-lugar'); assert.equal(r.moreLabel, 'Categorias');
+  assert.equal(normalizeNavbar({ ...GOOD, moreLabel: '' }).moreLabel, undefined);
+  assert.equal(normalizeNavbar({ ...GOOD, top: [{ ...entry(1, 'X', 'x', 1), url: 'https://useorigens.com.br/norte/colecoes/x' }] }), null, 'another region: refused');
+  assert.equal(normalizeNavbar({ ...GOOD, top: [{ ...entry(1, 'X', 'x', 1), url: 'https://useorigens.com.br/sul/colecoes/outro' }] }), null, 'another slug: refused');
+  assert.equal(normalizeNavbar({ ...GOOD, top: [{ ...entry(1, 'X', 'x', 1), url: 'https://useorigens.com.br/sul/colecoes/x?a=1' }] }), null, 'query: refused');
+  assert.deepEqual(normalizeNavbar(GOOD), CLEAN, 'INK urls: unchanged contract');
+});

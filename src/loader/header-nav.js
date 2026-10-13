@@ -25,6 +25,10 @@ export const HEADER_NAV = String.raw`
   let navConfig = null;
   let navLoading = null;
   let navFailed = false;
+  // Rótulos iguais aos do cabeçalho do site: "Estados" (os estados da região) e "Categorias" (as coleções; o CMS pode renomear o bloco).
+  const NAV_STATES_LABEL = 'Estados';
+  const NAV_MORE_LABEL = 'Categorias';
+  const NAV_PAGE = new RegExp('^' + NAV.origin.replace(/[.]/g, '\\.') + NAV.base + '/colecoes/[a-z0-9][a-z0-9-]{0,80}$');
 
   function navText(value, max) {
     const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
@@ -38,7 +42,9 @@ export const HEADER_NAV = String.raw`
       const title = navText(item.title, 60);
       if (!title) return null;
       if (seen.has(item.slug)) continue;
-      seen.add(item.slug); out.push({ title: title, slug: item.slug });
+      // page: a página da coleção no storefront desta região (origem e base fixas; nada de outra região ou host). Sem ela, o link é o da INK pelo slug.
+      const page = typeof item.page === 'string' && NAV_PAGE.test(item.page) ? item.page : null;
+      seen.add(item.slug); out.push({ title: title, slug: item.slug, page: page });
     }
     return out;
   }
@@ -53,7 +59,8 @@ export const HEADER_NAV = String.raw`
       if (!s || typeof s.uf !== 'string' || !/^[A-Z]{2}$/.test(s.uf) || !name || s.path !== NAV.base + '/' + s.uf.toLowerCase()) return null;
       states.push({ uf: s.uf, name: name, path: s.path });
     }
-    return { top: top, more: more, states: states };
+    const moreLabel = navText(data.moreLabel, 30) || NAV_MORE_LABEL;
+    return { top: top, more: more, states: states, moreLabel: moreLabel };
   }
   function navReadCache() {
     try {
@@ -109,6 +116,8 @@ export const HEADER_NAV = String.raw`
   // Destino de saída para o storefront: link real, marcado como NOSSO (cart-mirror decora com cart_ref no clique).
   function navOut(href, cls, text) { return navEl('a', { href: href, class: cls, 'data-origens-nav': 'link' }, text); }
   const navCollectionHref = (slug) => NAV.inkBase + '/collections/' + slug;
+  // Coleção: a página dela no storefront quando a região tem uma (saída NOSSA: leva o carrinho junto, como logo e Cidades); senão a página da INK.
+  const navCollectionLink = (item) => (item.page ? navOut(item.page, '', item.title) : navEl('a', { href: navCollectionHref(item.slug) }, item.title));
   const navStateHref = (state) => NAV.origin + state.path;
 
   const NAV_CSS = [
@@ -278,7 +287,7 @@ export const HEADER_NAV = String.raw`
         dropdowns.push(dd);
         return root;
       };
-      const linkList = (panel, items, hrefOf) => { for (const item of items) panel.appendChild(navEl('a', { href: hrefOf(item) }, item.title)); };
+      const linkList = (panel, items) => { for (const item of items) panel.appendChild(navCollectionLink(item)); };
       const stateLinks = (panel) => {
         for (const state of config.states) panel.appendChild(navOut(navStateHref(state), '', state.name));
         panel.appendChild(navOut(NAV.cities, '', 'Ver estados'));
@@ -325,16 +334,16 @@ export const HEADER_NAV = String.raw`
         const links = navEl('nav', { class: 'o-nav-links', 'aria-label': 'Principal' });
         // Layout completo: Regiões ▾, coleções do Topo, Demais categorias ▾ (só se houver), Cidades.
         const full = navEl('div', { class: 'o-nav-full' });
-        full.appendChild(makeDropdown('regioes', 'Regiões', stateLinks));
-        for (const item of config.top) full.appendChild(navEl('a', { href: navCollectionHref(item.slug) }, item.title));
-        if (config.more.length > 0) full.appendChild(makeDropdown('demais', 'Demais categorias', (panel) => linkList(panel, config.more, (i) => navCollectionHref(i.slug))));
+        full.appendChild(makeDropdown('regioes', NAV_STATES_LABEL, stateLinks));
+        for (const item of config.top) full.appendChild(navCollectionLink(item));
+        if (config.more.length > 0) full.appendChild(makeDropdown('demais', config.moreLabel, (panel) => linkList(panel, config.more)));
         links.appendChild(full);
         // Layout compacto (mesmos dados, uma só apresentação): Menu ▾ com Regiões, Coleções e Demais categorias.
         const compact = navEl('div', { class: 'o-nav-compact' });
         compact.appendChild(makeDropdown('menu', 'Menu', (panel) => {
-          panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Regiões')); stateLinks(panel);
-          if (config.top.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Coleções')); linkList(panel, config.top, (i) => navCollectionHref(i.slug)); }
-          if (config.more.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Demais categorias')); linkList(panel, config.more, (i) => navCollectionHref(i.slug)); }
+          panel.appendChild(navEl('p', { class: 'o-dd-h' }, NAV_STATES_LABEL)); stateLinks(panel);
+          if (config.top.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Coleções')); linkList(panel, config.top); }
+          if (config.more.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, config.moreLabel)); linkList(panel, config.more); }
         }));
         links.appendChild(compact);
         links.appendChild(navOut(NAV.cities, '', 'Cidades'));
@@ -376,12 +385,12 @@ export const HEADER_NAV = String.raw`
             wrap.append(button, list);
             return wrap;
           };
-          section.appendChild(accordion('regioes', 'Regiões', (list) => { for (const state of config.states) list.appendChild(navOut(navStateHref(state), '', state.name)); list.appendChild(navOut(NAV.cities, '', 'Ver estados')); }));
+          section.appendChild(accordion('regioes', NAV_STATES_LABEL, (list) => { for (const state of config.states) list.appendChild(navOut(navStateHref(state), '', state.name)); list.appendChild(navOut(NAV.cities, '', 'Ver estados')); }));
           if (config.top.length > 0) {
             section.appendChild(navEl('p', { class: 'o-nav-title' }, 'Coleções'));
-            for (const item of config.top) section.appendChild(navEl('a', { href: navCollectionHref(item.slug) }, item.title));
+            for (const item of config.top) section.appendChild(navCollectionLink(item));
           }
-          if (config.more.length > 0) section.appendChild(accordion('demais', 'Demais categorias', (list) => linkList(list, config.more, (i) => navCollectionHref(i.slug))));
+          if (config.more.length > 0) section.appendChild(accordion('demais', config.moreLabel, (list) => linkList(list, config.more)));
           parts.menu.insertBefore(section, parts.menu.firstChild);
           // "Dashboard" sem destino válido (bugado): some da vista; Meus pedidos, Sair, Entrar, Rastreio, Trocar pedido e WhatsApp nativos ficam.
           for (const a of parts.menu.querySelectorAll('li a')) {
