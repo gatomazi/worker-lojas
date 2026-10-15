@@ -20,7 +20,7 @@ Estado: **Fase 2C (allowlist), nada publicado**. Sem deploy, sem rota em produç
 
 ## Flags
 
-`WIDGET_FEATURES`: módulos do loader por deploy (`return-link`, `post-add-discovery`, `city-search`); ausente = `return-link`; nome desconhecido = nenhum módulo. Arquitetura em [`docs/architecture-loader.md`](docs/architecture-loader.md).
+`WIDGET_FEATURES`: módulos do loader por deploy (`return-link`, `post-add-discovery`, `city-search`, `cart-discovery`, `cart-mirror`, `product-discovery`, `header-nav`, `list-session`, `promo-fab`, `auto-recommendations`, `pdp-share`, `size-guide`, `pdp-guide`); ausente = `return-link`; nome desconhecido = nenhum módulo. Arquitetura em [`docs/architecture-loader.md`](docs/architecture-loader.md); guia da página de produto em [`docs/pdp-guide.md`](docs/pdp-guide.md).
 
 `ENABLE_WIDGET`: `"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (nada é reescrito; só loga o caminho) · `"true"`.
 

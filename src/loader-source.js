@@ -15,12 +15,13 @@ import { LIST_WATCH } from './loader/list-watch.js';
 import { PROMO_FAB } from './loader/promo-fab.js';
 import { RECOMMENDATIONS } from './loader/recommendations.js';
 import { PDP_EVENTS, PDP_SHARE, SIZE_GUIDE } from './loader/pdp-extras.js';
+import { PDP_GUIDE } from './loader/pdp-guide.js';
 import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
 import { shellPageKind, shellEnabled } from './scope.js';
 
-export const LOADER_VERSION = '5.1';
+export const LOADER_VERSION = '5.2';
 export { buildDiscoverySource };
 
 // Hash de CONTEÚDO (cyrb53, 53 bits): o nome do arquivo muda quando o conteúdo muda, então o navegador pode guardá-lo por um ano
@@ -46,13 +47,15 @@ export const discoveryQuery = (features) => memoize('d:' + features.join(','), (
 export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES, scopeMode = 'allowlist', store = ACTIVE_STORE) {
   const parts = [RUNTIME_HEAD];
   // Medição dos cliques nos nossos links: só quando algum módulo que cria links para o storefront está ligado.
-  if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(TRACKING);
+  if (features.includes('return-link') || features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery') || features.includes('pdp-guide')) parts.push(TRACKING);
   if (features.includes('return-link')) parts.push(RETURN_LINK);
   if (features.includes('post-add-discovery') || features.includes('cart-discovery') || features.includes('product-discovery')) parts.push(DISCOVERY_LOADER);
   if (features.includes('post-add-discovery')) parts.push(DRAWER_WATCH);
   if (features.includes('cart-discovery')) parts.push(CART_WATCH);
   if (features.includes('cart-mirror')) parts.push(CART_MIRROR);
-  if (features.includes('product-discovery')) parts.push(PRODUCT_DISCOVERY);
+  // Página de produto: o guia (pdp-guide) substitui o bloco "Continue explorando" (product-discovery); nunca os dois. O discovery.js dos drawers não muda.
+  if (features.includes('pdp-guide')) parts.push(PDP_GUIDE);
+  else if (features.includes('product-discovery')) parts.push(PRODUCT_DISCOVERY);
   if (features.includes('header-nav')) parts.push(HEADER_NAV);
   if (features.includes('list-session')) parts.push(LIST_WATCH);
   // Botão de cupons (CMS do storefront): produto e, com header-nav no escopo de catálogo, também as páginas de casca.

@@ -94,11 +94,11 @@ export const RECOMMENDATIONS = String.raw`
   }
 
   // Layout empilhado: depois do bloco principal de compra, logo após o "Compre junto" nativo quando existe (os dois lado a lado para comparação),
-  // senão após o nosso "Continue explorando", senão após o formulário. Sempre FORA do <form> e do turbo-frame que a INK recarrega.
+  // senão após o nosso "Continue explorando" (ou o convite do guia, que o substitui), senão após o formulário. Sempre FORA do <form> e do turbo-frame que a INK recarrega.
   function recoAnchor() {
     const together = document.querySelector('section.buy-together');
     if (together && together.parentElement && !together.closest('.modal-buy-together, form')) return together;
-    const discovery = document.querySelector('[data-origens-discovery="product"]');
+    const discovery = document.querySelector('[data-origens-discovery="product"], [data-origens-guide="invite"], [data-origens-guide="reopen"]');
     if (discovery && discovery.parentElement) return discovery;
     const form = recoMainForm();
     return form && form.parentElement ? form : null;

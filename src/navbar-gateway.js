@@ -24,14 +24,23 @@ const cleanText = (value, max) => {
   return text.length >= 1 && text.length <= max && !CONTROL.test(text) ? text : null;
 };
 
-// Uma entrada de coleção. `url`, quando presente, TEM de ser a página pública da coleção na INK desta loja (senão o payload inteiro é recusado).
+// Uma entrada de coleção. `url`, quando presente, TEM de ser a página pública da coleção na INK desta loja OU a página da coleção no storefront desta
+// região (`<storefront>/<região>/colecoes/<slug>`, com ou sem www; o CMS manda essa quando a região tem a página): qualquer outra coisa recusa o payload
+// inteiro. A página do storefront sai como `page`, já na origem que o loader usa; sem `page` o loader monta o link da INK pelo slug, como sempre.
+const storefrontHosts = (store) => { const h = new URL(store.storefront).hostname; return [h, h.startsWith('www.') ? h.slice(4) : 'www.' + h]; };
 function normalizeEntry(item, index, store) {
   if (!item || typeof item !== 'object') return null;
   const title = cleanText(item.title !== undefined ? item.title : item.name, 60);
   if (!title || typeof item.slug !== 'string' || !SLUG.test(item.slug)) return null;
-  if (item.url !== undefined && item.url !== 'https://' + store.inkHost + store.inkBase + '/collections/' + item.slug) return null;
+  let page = null;
+  if (item.url !== undefined) {
+    const pagePath = store.storefrontBase + '/colecoes/' + item.slug;
+    const ours = storefrontHosts(store).some((h) => item.url === 'https://' + h + pagePath);
+    if (ours) page = store.storefront + pagePath;
+    else if (item.url !== 'https://' + store.inkHost + store.inkBase + '/collections/' + item.slug) return null;
+  }
   const id = Number.isInteger(item.id) && item.id > 0 ? item.id : null;
-  return { id, title, slug: item.slug, order: index + 1 };
+  return { id, title, slug: item.slug, order: index + 1, ...(page ? { page } : {}) };
 }
 
 function normalizeGroup(list, store) {
@@ -70,7 +79,9 @@ export function normalizeNavbar(data, store = ACTIVE_STORE) {
   const dedupe = (list) => { const seen = new Set(); return list.filter((e) => (seen.has(e.slug) ? false : (seen.add(e.slug), true))).map((e, i) => ({ ...e, order: i + 1 })); };
   top = dedupe(top); more = dedupe(more);
   if (more.some((e) => top.some((t) => t.slug === e.slug))) return null;
-  return { v: 2, states, top, more };
+  // Rótulo do grupo "Categorias" (o nome que o dono deu ao bloco no CMS); ausente = o loader usa o padrão do site.
+  const moreLabel = data.v === 2 ? cleanText(data.moreLabel, 30) : null;
+  return { v: 2, states, top, more, ...(moreLabel ? { moreLabel } : {}) };
 }
 
 export function createNavbarGateway({ upstream = (request, init) => fetch(request, init), store = ACTIVE_STORE } = {}) {

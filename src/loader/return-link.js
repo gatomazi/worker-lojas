@@ -20,6 +20,8 @@ export const RETURN_LINK = String.raw`
       if (document.getElementById('use-origens-return-link')) return;
       // Com product-discovery ligada o bloco de descoberta substitui este link (nunca os dois); ele só volta como plano B quando o
       // módulo de descoberta não pôde ser carregado.
+      // Com pdp-guide ligada o guia ocupa o lugar deste link (sem plano B: o guia é parte do próprio loader).
+      if (FEATURES.includes('pdp-guide')) return;
       const replaced = FEATURES.includes('product-discovery');
       if (replaced && !(typeof productFallback !== 'undefined' && productFallback)) return;
       const anchor = findAnchor();
