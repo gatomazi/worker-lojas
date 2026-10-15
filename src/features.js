@@ -6,11 +6,12 @@
 // auto-recommendations: bloco "Você também pode gostar" na página de produto (lista pré-calculada, /__origens/recommendations/<id>). Desligada = nenhum
 // pedido e nenhum DOM: nem o módulo entra no loader.
 // pdp-share: botão "Compartilhar" abaixo do título da página de produto. size-guide: o link nativo "Confira suas medidas" vira o botão "Guia de medidas"
-// (mesmo nó, mesmo modal oficial da INK). Desligadas = nem o módulo entra no loader.
+// (mesmo nó, mesmo modal oficial da INK). size-fit: "Informar medidas" ao lado do link de medidas (compara com uma peça que a pessoa já usa e
+// marca o tamanho no seletor da INK só depois do toque). Desligadas = nem o módulo entra no loader.
 // pdp-guide: ajuda guiada "Procurando sua cidade ou outra estampa?" na página de produto (painel com busca de cidade, estampas da cidade e coleções da região,
 // dados de /__origens/guia). Com ela ligada, o bloco "Continue explorando" (product-discovery) NÃO é montado: um recurso só por função. Desligada = nem o
 // módulo nem o gateway entram; o bloco anterior volta como estava (rollback simples).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide'];
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

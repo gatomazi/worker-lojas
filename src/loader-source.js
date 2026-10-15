@@ -16,6 +16,7 @@ import { PROMO_FAB } from './loader/promo-fab.js';
 import { RECOMMENDATIONS } from './loader/recommendations.js';
 import { PDP_EVENTS, PDP_SHARE, SIZE_GUIDE } from './loader/pdp-extras.js';
 import { PDP_GUIDE } from './loader/pdp-guide.js';
+import { SIZE_FIT_TABLES, SIZE_FIT_CALC, SIZE_FIT } from './loader/size-fit.js';
 import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
@@ -61,10 +62,11 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   // Botão de cupons (CMS do storefront): produto e, com header-nav no escopo de catálogo, também as páginas de casca.
   if (features.includes('promo-fab')) parts.push(PROMO_FAB);
   if (features.includes('auto-recommendations')) parts.push(RECOMMENDATIONS);
-  // Página de produto: "Compartilhar" e o "Guia de medidas" (o link nativo da INK, só reestilizado). Cada um atrás da sua flag.
-  if (features.includes('pdp-share') || features.includes('size-guide')) parts.push(PDP_EVENTS);
+  // Página de produto: "Compartilhar", o "Guia de medidas" (o link nativo da INK, só reestilizado) e "Informar medidas". Cada um atrás da sua flag.
+  if (features.includes('pdp-share') || features.includes('size-guide') || features.includes('size-fit')) parts.push(PDP_EVENTS);
   if (features.includes('pdp-share')) parts.push(PDP_SHARE);
   if (features.includes('size-guide')) parts.push(SIZE_GUIDE);
+  if (features.includes('size-fit')) parts.push(SIZE_FIT_TABLES, SIZE_FIT_CALC, SIZE_FIT);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
     .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))
