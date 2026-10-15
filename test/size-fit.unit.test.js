@@ -78,3 +78,12 @@ test('out of range is said plainly (beyond the table tolerance)', () => {
   assert.match(small.outOfRange, /tão estreito.*P, tem 52 cm/);
   assert.equal(calc.fitCompare(table('camiseta-classica'), { width: '73' }).outOfRange, null, 'within ±2 cm of 4G');
 });
+
+test('width larger than length is flagged as probably swapped; a regata measured 70 x 50 is out of range, not a confident size', () => {
+  const regata = table('regata');
+  const r = calc.fitCompare(regata, { width: '70', length: '50' });
+  assert.equal(r.swapped, true);
+  assert.ok(r.outOfRange, '70 cm is wider than any regata size');
+  assert.equal(calc.fitCompare(regata, { width: '55', length: '75' }).swapped, false);
+  assert.equal(calc.fitCompare(regata, { width: '55' }).swapped, false, 'no length, nothing to compare');
+});

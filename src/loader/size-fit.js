@@ -100,7 +100,9 @@ export const SIZE_FIT_CALC = String.raw`
     if (W > biggest.width + table.tol) outOfRange = 'Nenhum tamanho desta peça chega a ' + fitCm(W) + ' de largura. O maior, ' + biggest.size + ', tem ' + fitCm(biggest.width) + '.';
     else if (W < smallest.width - table.tol) outOfRange = 'Nenhum tamanho desta peça é tão estreito. O menor, ' + smallest.size + ', tem ' + fitCm(smallest.width) + '.';
     const tie = !!alt && Math.abs(alt.dWidth) === Math.abs(main.dWidth) && (alt.dLength || 0) === (main.dLength || 0);
-    return { ok: true, width: W, length: L, main, alt, tie, outOfRange };
+    // Largura maior que o comprimento não existe numa peça: quase sempre os dois campos foram preenchidos trocados.
+    const swapped = L !== null && W > L;
+    return { ok: true, width: W, length: L, main, alt, tie, outOfRange, swapped };
   }
   function fitCm(n) { return String(n).replace('.', ',') + ' cm'; }
   function fitDiff(d) {
@@ -133,6 +135,7 @@ export const SIZE_FIT = String.raw`
   const FIT_TINT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.primary)) ? STORE.theme.primary : '#1f2328';
   const FIT_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8.5 3.5 4 6l1.6 4H8v10.5h8V10h2.4L20 6l-4.5-2.5c-.6 1.6-2 2.5-3.5 2.5s-2.9-.9-3.5-2.5Z"/><path d="M10 13.5h4M10 16h4"/></svg>';
   const FIT_CLOSE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  const FIT_TANK = '<svg viewBox="0 0 240 200" role="img" aria-label="Regata esticada: a largura é medida de uma axila à outra; o comprimento, do ombro até a barra."><path d="M78 12 L100 12 Q120 46 140 12 L162 12 L170 62 Q150 82 170 104 L176 192 L64 192 L70 104 Q90 82 70 62 Z" fill="#ececea" stroke="#1f2328" stroke-width="2.5" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="2.5" fill="currentColor"><line x1="72" y1="112" x2="168" y2="112"/><path d="M70 112 l9 -6 v12 z M170 112 l-9 -6 v12 z" stroke="none"/><line x1="92" y1="20" x2="92" y2="186" stroke-dasharray="5 5"/><path d="M92 18 l-6 9 h12 z M92 188 l-6 -9 h12 z" stroke="none"/></g><text x="120" y="132" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">largura</text><text x="98" y="164" font-size="11.5" font-weight="600" fill="#57606a">comprimento</text></svg>';
   const FIT_SHIRT = '<svg viewBox="0 0 240 200" role="img" aria-label="Peça esticada: a largura é medida de uma axila à outra; o comprimento, do ombro até a barra."><path d="M84 14 Q120 36 156 14 L198 27 L232 64 L199 86 L186 74 L186 192 L54 192 L54 74 L41 86 L8 64 L42 27 Z" fill="#ececea" stroke="#1f2328" stroke-width="2.5" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="2.5" fill="currentColor"><line x1="60" y1="84" x2="180" y2="84"/><path d="M58 84 l9 -6 v12 z M182 84 l-9 -6 v12 z" stroke="none"/><line x1="96" y1="22" x2="96" y2="186" stroke-dasharray="5 5"/><path d="M96 20 l-6 9 h12 z M96 188 l-6 -9 h12 z" stroke="none"/></g><text x="120" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">largura</text><text x="104" y="150" font-size="13" font-weight="600" fill="#57606a">comprimento</text></svg>';
   // A linha junta o link de medidas da INK (já como "Guia de medidas" se size-guide estiver ligado) e o nosso botão: lado a lado, mesma altura.
   const FIT_CSS = [
@@ -349,7 +352,7 @@ export const SIZE_FIT = String.raw`
     if (fit.swap) parts.push(fitEl('p', { class: 'o-fit-swap', role: 'status' }, [fit.swap]));
     parts.push(fitEl('p', { class: 'o-fit-lead' }, ['Meça uma ' + (table.noun === 'moletom' ? 'peça' : table.noun) + ' que já veste bem em você.']));
     const fig = fitEl('figure', {});
-    fig.innerHTML = FIT_SHIRT;
+    fig.innerHTML = table.id === 'regata' ? FIT_TANK : FIT_SHIRT;
     fig.append(fitEl('figcaption', {}, ['Estique a peça numa mesa e meça a frente, de uma axila à outra.']));
     parts.push(fig);
 
@@ -398,24 +401,28 @@ export const SIZE_FIT = String.raw`
     const options = [r.main, r.alt].filter(Boolean);
     const box = fitEl('div', { class: 'o-fit-result', 'aria-live': 'polite' });
     const verdict = fitEl('p', { class: 'o-fit-verdict', tabindex: '-1' });
-    if (r.tie && r.alt) verdict.append('Os tamanhos ', fitEl('strong', {}, [r.main.size]), ' e ', fitEl('strong', {}, [r.alt.size]), ' ficam igualmente próximos da peça que você mediu.');
+    if (r.outOfRange) verdict.append('Nenhum tamanho desta peça tem a medida que você informou. O mais próximo, ', fitEl('strong', {}, [r.main.size]), ', fica ' + (r.main.dWidth > 0 ? 'maior' : 'menor') + ' que a sua peça.');
+    else if (r.tie && r.alt) verdict.append('Os tamanhos ', fitEl('strong', {}, [r.main.size]), ' e ', fitEl('strong', {}, [r.alt.size]), ' ficam igualmente próximos da peça que você mediu.');
     else verdict.append('O tamanho ', fitEl('strong', {}, [r.main.size]), ' tem as medidas mais próximas da peça que você mediu.');
     box.append(verdict);
+    if (r.swapped) box.append(fitEl('p', { class: 'o-fit-alert' }, ['A largura (' + fitCm(r.width) + ') ficou maior que o comprimento (' + fitCm(r.length) + '). Será que os campos estão trocados? Largura é de axila a axila; comprimento, do ombro até a barra.']));
     const head = fitEl('tr', {}, [fitEl('th', { scope: 'col' }, ['Medida']), fitEl('th', { scope: 'col' }, ['A sua'])].concat(options.map((o) => fitEl('th', { scope: 'col' }, [o.size]))));
     const rowW = fitEl('tr', {}, [fitEl('th', { scope: 'row' }, ['Largura']), fitEl('td', {}, [fitCm(r.width)])].concat(options.map((o) => fitEl('td', {}, [fitCm(o.width), fitEl('small', {}, [fitDiff(o.dWidth)])]))));
     const tbody = fitEl('tbody', {}, [rowW]);
     if (r.length !== null) tbody.append(fitEl('tr', {}, [fitEl('th', { scope: 'row' }, ['Comprimento']), fitEl('td', {}, [fitCm(r.length)])].concat(options.map((o) => fitEl('td', {}, [o.length === null ? '—' : fitCm(o.length), fitEl('small', {}, [o.dLength === null ? '' : fitDiff(o.dLength)])])))));
     box.append(fitEl('table', {}, [fitEl('thead', {}, [head]), tbody]));
-    if (r.alt) {
+    if (r.alt && !r.outOfRange) {
       const roomier = r.alt.width > r.main.width ? r.alt : r.main;
       box.append(fitEl('p', {}, [r.tie ? 'Se você gosta de mais folga, fique com o ' + roomier.size + '.' : 'O ' + r.alt.size + ' também fica perto. Se você gosta de mais folga, fique com o ' + roomier.size + '.']));
     }
-    if (r.outOfRange) box.append(fitEl('p', { class: 'o-fit-alert' }, [r.outOfRange]));
+    if (r.outOfRange) box.append(fitEl('p', { class: 'o-fit-alert' }, [r.outOfRange + ' Confira se mediu de axila a axila, com a peça esticada, e compare com a tabela completa.']));
+    else if (r.main.dLength !== null && Math.abs(r.main.dLength) > 4) box.append(fitEl('p', { class: 'o-fit-alert' }, ['O comprimento do ' + r.main.size + ' (' + fitCm(r.main.length) + ') fica ' + fitDiff(r.main.dLength) + ' que o da sua peça. Veja se esse caimento serve para você.']));
     if (table.note) box.append(fitEl('p', { class: 'o-fit-alert' }, [table.note]));
     box.append(fitEl('p', { class: 'o-fit-note' }, ['Comparação entre medidas de peças, com a tolerância de ±' + table.tol + ' cm da tabela oficial. Não é garantia de caimento.']));
     const actions = fitEl('div', { class: 'o-fit-actions' });
     const status = fitEl('p', { class: 'o-fit-status', role: 'status' });
-    options.forEach((o, i) => {
+    // Fora da faixa da tabela: nada de "Usar tamanho" (marcaria um tamanho que a própria tabela diz que não serve); só a escolha na página.
+    (r.outOfRange ? [] : options).forEach((o, i) => {
       const b = fitEl('button', { type: 'button', class: i === 0 ? 'o-fit-cta' : 'o-fit-cta o-fit-sec' }, ['Usar tamanho ' + o.size]);
       b.addEventListener('click', () => {
         if (!fitAvailable().includes(o.size)) { status.textContent = 'O ' + o.size + ' não está disponível nesta cor e modelo. Escolha outro tamanho no seletor da página.'; return; }

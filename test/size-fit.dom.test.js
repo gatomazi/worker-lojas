@@ -97,7 +97,7 @@ test('size-fit: validation errors are tied to their fields; switching the model 
   assert.equal(width.getAttribute('aria-invalid'), 'true');
   assert.match(dialog(t.doc).querySelector('#o-fit-width-err').textContent, /milímetros/);
   await compare(t, '45');
-  assert.match(dialog(t.doc).querySelector('.o-fit-verdict').textContent, /tamanho P/);
+  assert.match(dialog(t.doc).querySelector('.o-fit-verdict').textContent, /Nenhum tamanho desta peça tem a medida que você informou\. O mais próximo, P,/);
   radio(t.doc, 'style', 'Feminino').click(); await tick(20);
   const d = dialog(t.doc);
   assert.match(d.querySelector('.o-fit-swap').textContent, /Você trocou para Baby Look \| Feminina\. A comparação foi refeita com a tabela Camiseta baby look/);
@@ -162,4 +162,25 @@ test('size-fit analytics: open, result and use go through INK gtag only; low car
   assert.deepEqual(t.events[2][2], { send_to: GA, region: 'sul', surface: 'ink', transport_type: 'beacon', size: 'M', fit_table: 'camiseta-classica' });
   const json = JSON.stringify(t.events);
   assert.ok(!json.includes('http') && !json.includes('54'), 'no URL and no body measurement in any event');
+});
+
+test('size-fit: regata measured with width and length swapped says so, recommends no size, offers no "Usar tamanho", and draws a tank top', async () => {
+  const hashes = ['6b3b2c6187a441e2d0ef45c2b2e1b108', '862f7f37432bde2214a2f0509c5e5e02'];
+  let n = 0;
+  const html = FIXTURE.replace(/size_table\/[0-9a-f]{32}/g, () => 'size_table/' + hashes[n++ % 2]);
+  const t = setup({ html });
+  await tick();
+  trigger(t.doc).click(); await tick(20);
+  const d = dialog(t.doc);
+  assert.match(d.textContent, /Comparando com: Regata/);
+  assert.match(d.querySelector('figure svg').getAttribute('aria-label'), /^Regata esticada/, 'tank top drawing, not the t-shirt with sleeves');
+  await compare(t, '70', '50');
+  assert.match(d.querySelector('.o-fit-verdict').textContent, /Nenhum tamanho desta peça tem a medida que você informou/);
+  assert.doesNotMatch(d.querySelector('.o-fit-verdict').textContent, /tem as medidas mais próximas/);
+  assert.match(d.querySelector('.o-fit-result').textContent, /Será que os campos estão trocados/);
+  assert.equal(d.querySelectorAll('.o-fit-actions .o-fit-cta').length, 0, 'no size is offered when none fits');
+  assert.equal(Array.from(t.doc.querySelectorAll('input[name="size"]')).some((i) => i.checked), false);
+  await compare(t, '50', '75');
+  assert.match(d.querySelector('.o-fit-verdict').textContent, /tamanho P/);
+  assert.doesNotMatch(d.querySelector('.o-fit-result').textContent, /trocados/);
 });
