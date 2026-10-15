@@ -7,7 +7,7 @@ import { parseFeatures } from '../src/features.js';
 // Contrato v1 do tema da compra, CSS por superfície e as telas do checkout que podem recebê-lo. Puro (sem rede).
 export const GOOD = {
   v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: false },
-  tokens: { action: '#000000', onAction: '#FFFFFF', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
+  tokens: { action: '#000000', onAction: '#FFFFFF', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
 };
 // Separa uma lista de seletores pelas vírgulas de NÍVEL SUPERIOR (as de dentro de :is()/:where()/:not() não contam).
 const splitSelectors = (list) => { const out = []; let depth = 0; let cur = ''; for (const ch of list) { if (ch === '(') depth++; if (ch === ')') depth--; if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
@@ -53,7 +53,8 @@ test('features: the three theme flags parse; unknown theme name still discards t
 test('CSS: every rule is scoped to the themed <html> (or is the font @import / an @media of scoped rules); a surface carries only its own rules', () => {
   const t = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }));
   const css = buildThemeCss(t, SURFACES);
-  const body = css.replace(/^\/\*[^*]*\*\//, '').replace(/^@import url\("[^"]+"\);/, '');
+  // @keyframes o-benefit é global por natureza (nome nosso, prefixado); o resto precisa do escopo.
+  const body = css.replace(/^\/\*[^*]*\*\//, '').replace(/^@import url\("[^"]+"\);/, '').replace(/@keyframes o-[a-z-]+\{(?:[^{}]*\{[^}]*\})*\}/g, '');
   // Quebra no nível superior: cada regra (ou bloco @media) tem que começar pelo escopo.
   let depth = 0; let start = 0; const top = [];
   for (let i = 0; i < body.length; i++) { if (body[i] === '{') depth++; else if (body[i] === '}') { depth--; if (depth === 0) { top.push(body.slice(start, i + 1)); start = i + 1; } } }
@@ -71,22 +72,38 @@ test('CSS: every rule is scoped to the themed <html> (or is the font @import / a
   assert.equal(buildThemeCss(null, ['pdp']), '');
 });
 
-test('CSS: never hides or reveals INK content (no display:none/visibility on native nodes except the mobile bar while the main CTA is visible) and no colour comes from outside the tokens', () => {
+test('CSS: never hides INK purchase content; display/visibility only where listed; no generated text; tokens as variables', () => {
   const t = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }));
   const css = buildThemeCss(t, SURFACES);
-  assert.ok(!/display:\s*none/.test(css), 'display:none');
-  // `display` só onde a INK nunca alterna visibilidade (o "Continuar Comprando" do carrinho vazio, um <div> sempre visível): a INK esconde botões por classe.
-  const withDisplay = (css.match(/[^{}]+\{[^}]*display:[^}]*\}/g) || []).map((r) => r.slice(0, r.indexOf('{')));
-  assert.deepEqual(withDisplay, ['html[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]']);
-  const vis = css.match(/[^}]*visibility:hidden[^}]*}/g) || [];
-  assert.equal(vis.length, 1);
-  assert.ok(vis[0].includes('.form-product-options__add-to-cart-mobile') && vis[0].includes(':is(.o-cta-inview,.o-typing)'));
+  const selectorsWith = (re) => (css.replace(/@keyframes o-[a-z-]+\{(?:[^{}]*\{[^}]*\})*\}/g, '').match(new RegExp('[^{}]+\\{[^}]*' + re + '[^}]*\\}', 'g')) || []).map((r) => { const head = r.slice(0, r.lastIndexOf('{')); return head.slice(head.lastIndexOf('{') + 1); }); // tira o @media em volta
+  // `display` só onde a INK nunca alterna visibilidade (grades dos seletores, o "Continuar Comprando" do carrinho vazio, o link da marca no checkout). Os dois
+  // `display:none`: a frase da INK que repete o nosso "Seu carrinho está vazio" (só quando o nosso bloco existe) e a setinha do nosso "Guia de medidas".
+  assert.deepEqual(selectorsWith('display:').sort(), [
+    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]',
+    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'html[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
+    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
+    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
+    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-size'
+  ].sort());
+  assert.deepEqual(selectorsWith('display:\\s*none').sort(), [
+    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
+  ].sort());
+  // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com o contador no lugar), flutuantes durante a escolha.
+  const vis = selectorsWith('visibility:hidden');
+  assert.equal(vis.length, 3);
+  assert.ok(vis.some((v) => v.includes(':is(.o-cta-inview,.o-typing)') && v.includes('.form-product-options__add-to-cart-mobile')));
+  assert.ok(vis.some((v) => v.includes('.o-gal-count') && v.includes('ul.absolute.z-30')));
+  assert.ok(vis.some((v) => v.includes('.o-choosing') && v.includes('ink-store--help-button')));
   assert.ok(!/[;{]content:/.test(css), 'no generated text');
-  // Tokens viram variáveis; o resto do CSS só usa var(--o-*) e um punhado de cores fixas neutras (overlay e hover).
-  assert.ok(css.includes('--o-action:#000000') && css.includes('--o-selected:#4d543d'));
+  assert.ok(css.includes('--o-action:#000000') && css.includes('--o-selected:#4d543d') && css.includes('--o-photo:#e5e5e5'));
   const ink = normalizeTheme(clone({ surfaces: { pdp: true, cart: false, checkout: false } }, { font: 'ink' }));
   assert.ok(!buildThemeCss(ink, ['pdp']).includes('@import'), 'native font = no font request');
-  assert.ok(buildThemeCss(t, ['pdp']).startsWith('/*') && buildThemeCss(t, ['pdp']).includes('@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk'));
+  assert.ok(buildThemeCss(t, ['pdp']).startsWith('/*') && buildThemeCss(t, ['pdp']).includes('@import url("https://fonts.googleapis.com/css2?family=Big+Shoulders+Display'));
+  // Faixa superior: a animação nossa só entra com exatamente três mensagens e com os keyframes no próprio CSS.
+  assert.ok(css.includes('@keyframes o-benefit') && css.includes('.header-benefits:has(> span:nth-child(3):last-child) > span'));
+  assert.ok(!buildThemeCss(t, ['cart']).includes('@keyframes'), 'cart alone has no strip');
 });
 
 test('themeQuery: changes with the published tokens and with the surfaces; parseSurfaceParam keeps only known names in canonical order', () => {

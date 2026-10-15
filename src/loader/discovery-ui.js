@@ -366,6 +366,18 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   }
   function unmount() { unmountKind('post-add'); }
 
+  // Tema da compra ligado no carrinho (theme-cart: o Worker põe "cart" em <html data-origens-theme>)? Muda só a posição e o texto do bloco, nunca a INK.
+  const themedCart = () => document.documentElement.matches('[data-origens-theme~="cart"]');
+  // Carrinho VAZIO com o tema: o bloco É a abertura do estado vazio ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase
+  // da INK que repete a mesma intenção sai pelo CSS do tema. Sem o "sem perder seu carrinho" (não há carrinho a perder).
+  function emptyCartCopy(root) {
+    root.setAttribute('data-origens-empty', '');
+    const title = root.querySelector('.o-title'); if (title) title.textContent = 'Seu carrinho está vazio';
+    const lead = root.querySelector('.o-lead'); if (lead) lead.remove();
+    const toggle = root.querySelector('.o-toggle'); if (toggle) toggle.textContent = 'Encontrar minha cidade';
+    const cta = root.querySelector('.o-cta'); if (cta) cta.textContent = 'Explorar estampas';
+  }
+
   // ---- carrinho: dentro da área ROLÁVEL (.cart-drawer__main) ou do estado vazio (.empty-cart); nunca no rodapé
   function mountCart(ctx) {
     if (!CART || !ctx || !ctx.drawer) return;
@@ -385,10 +397,14 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
         slot.appendChild(root);
         // Poucos itens: o bloco fica no FIM da lista (abaixo dos itens). 3 ou mais: no TOPO e em versão densa, senão ficaria
         // centenas de pixels abaixo da dobra (medido: 8 linhas = ~940 px). Em ambos os casos vive na área rolável, nunca no rodapé.
-        if (list.querySelectorAll('li.main-list__item').length >= 3) { list.insertBefore(slot, list.firstChild); root.classList.add('o-dense'); }
+        // Com o tema da compra: SEMPRE no fim, depois dos itens, e compacto — os produtos e a finalização vêm primeiro (o rodapé com o total e
+        // "Finalizar compra" é fixo no drawer; o bloco nunca o empurra).
+        if (themedCart()) { list.appendChild(slot); root.classList.add('o-dense'); }
+        else if (list.querySelectorAll('li.main-list__item').length >= 3) { list.insertBefore(slot, list.firstChild); root.classList.add('o-dense'); }
         else list.appendChild(slot);
         return slot;
       }
+      if (themedCart()) emptyCartCopy(root);
       const sold = empty.querySelector('#most_sold_frame');
       if (sold) sold.insertAdjacentElement('beforebegin', root); else empty.insertAdjacentElement('afterbegin', root);
       return true;

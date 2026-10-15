@@ -144,6 +144,15 @@ class ThemeLinkInjector {
   constructor(tag) { this.tag = tag; }
   element(head) { head.onEndTag((end) => { end.before(this.tag, { html: true }); }); }
 }
+// Assinatura no cabeçalho do checkout: o nome ao lado do símbolo (o logo da loja), como no storefront. Texto fixo, decorativo (o link já tem o nome no alt).
+class CheckoutBrand {
+  constructor() { this.done = false; }
+  element(link) {
+    if (this.done) return;
+    this.done = true;
+    link.append('<span data-origens-brand aria-hidden="true">Use Origens</span>', { html: true });
+  }
+}
 const withTheme = (rewriter, pageTheme) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
   .on('html', new ThemeHtmlMarker(pageTheme.surfaces.join(' ')))
   .on('head', new ThemeLinkInjector(themeLinkTag(pageTheme.theme, pageTheme.surfaces))));
@@ -229,6 +238,7 @@ async function injectCheckoutTheme(request, upstream, themeSource, features) {
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
   const transformed = new HTMLRewriter()
     .on('html', new ThemeHtmlMarker('checkout'))
+    .on('nav.bg-store-primary a[href]', new CheckoutBrand())
     .on('head', new ThemeLinkInjector(themeLinkTag(theme, ['checkout'])))
     .transform(response);
   const headers = new Headers(response.headers);

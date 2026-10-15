@@ -11,8 +11,8 @@ const UUID = '1bea2f5a-90df-4f1e-bf1d-fb7dcfea246b';
 const CONTACT = '/usesul/checkout/contact_and_shipping_details/' + UUID;
 const PAYMENT = '/usesul/checkout/payment_methods/' + UUID;
 const PRODUCT_HTML = readFileSync(new URL('./fixtures/product-page-theme.html', import.meta.url), 'utf8');
-const CHECKOUT_HTML = '<!doctype html><html lang="pt-BR"><head><title>Checkout</title></head><body><nav class="bg-store-primary"></nav><div data-controller="ink-store--checkout"><form id="formPaymentMethods" action="/usesul/checkout/process_payment?cart_uuid=' + UUID + '" method="post"><input type="radio" id="pix" name="cart[payment_type]" value="pix"></form></div></body></html>';
-const TOKENS = { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' };
+const CHECKOUT_HTML = '<!doctype html><html lang="pt-BR"><head><title>Checkout</title></head><body><nav class="bg-store-primary"><a href="/usesul"><img alt="Use Sul" src="/logo.png"></a></nav><div data-controller="ink-store--checkout"><form id="formPaymentMethods" action="/usesul/checkout/process_payment?cart_uuid=' + UUID + '" method="post"><input type="radio" id="pix" name="cart[payment_type]" value="pix"></form></div></body></html>';
+const TOKENS = { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' };
 const themeOf = (surfaces) => ({ v: 1, region: 'sul', surfaces: { pdp: false, cart: false, checkout: false, ...surfaces }, tokens: TOKENS });
 
 const calls = [];
@@ -100,7 +100,8 @@ test('checkout screens: ONLY the attribute and the CSS link (no loader, no scrip
     assert.match(html, /<html lang="pt-BR" data-origens-theme="checkout">/, path);
     assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=checkout&/);
     assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on checkout');
-    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], ''), CHECKOUT_HTML, 'nothing else changed');
+    assert.match(html, /<a href="\/usesul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, inside the same link');
+    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', ''), CHECKOUT_HTML, 'nothing else changed');
     assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
     assert.equal(res.headers.get('cache-control'), 'private, no-store');
   }

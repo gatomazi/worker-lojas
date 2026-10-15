@@ -8,6 +8,10 @@
 //   2b. (theme-pdp) No celular a INK deixa os botões de compra inertes (pointer-events-none) até a variante estar completa: um toque na barra não fazia
 //      nada. Agora o toque (que cai no contêiner da barra) leva a tela e o foco até a PRIMEIRA escolha que falta (modelo, cor ou tamanho) e a destaca.
 //      Nada é escolhido por nós: nenhuma variante presumida, nenhum item criado.
+//   2c. (theme-pdp) Galeria: contador "1 / 17" no lugar da fileira de pontos. O estado vem dos próprios pontos da INK (exatamente um com a classe de ativo);
+//      se não der para saber qual está ativo, o contador não aparece e os pontos ficam visíveis. Observa só os atributos da lista de pontos.
+//   2d. (theme-pdp) No celular, enquanto as escolhas e o CTA estão na tela, os flutuantes (Ajuda, WhatsApp, cupons) saem do caminho (classe o-choosing);
+//      voltam ao rolar para fora. IntersectionObserver só nesses dois blocos.
 //   3. (theme-cart) Esc fecha o carrinho aberto disparando o clique no "X" nativo (#cart-drawer-close, ação ink-store--drawer#closeDrawer); o foco volta
 //      ao botão do carrinho que estava focado antes.
 export const THEME_UI = String.raw`
@@ -18,6 +22,9 @@ export const THEME_UI = String.raw`
   let themeObserver = null;
   let themeListening = false;
   let themeOpener = null;
+  let themeGallery = null; // { dots, count, observer }
+  let themeChoosing = null; // { targets, observer }
+  const THEME_NARROW = window.matchMedia ? window.matchMedia('(max-width: 1023px)') : null;
 
   function themeSyncAttribute() {
     const link = document.querySelector('link[data-origens-theme-css]');
@@ -42,6 +49,62 @@ export const THEME_UI = String.raw`
       for (const entry of entries) THEME_ROOT.classList.toggle('o-cta-inview', entry.isIntersecting);
     });
     themeObserver.observe(cta);
+  }
+  // Ponto ativo: o único cuja lista de classes difere das demais (a INK marca o ativo com outra cor de fundo). Nenhum ou vários = desconhecido (null).
+  function themeActiveDot(dots) {
+    const count = new Map();
+    for (const d of dots) count.set(d.className, (count.get(d.className) || 0) + 1);
+    const odd = dots.filter((d) => count.get(d.className) === 1);
+    return dots.length >= 2 && count.size === 2 && odd.length === 1 ? dots.indexOf(odd[0]) : null;
+  }
+  function themeStopGallery() {
+    if (!themeGallery) return;
+    themeGallery.observer.disconnect();
+    themeGallery.count.remove();
+    themeGallery = null;
+    THEME_ROOT.classList.remove('o-gal-count');
+  }
+  function themeWatchGallery() {
+    const list = document.querySelector('.section-product-v2 ul.absolute.z-30');
+    const host = document.querySelector('.section-product-v2 [data-controller="ink-store--carousel"]');
+    if (themeGallery && themeGallery.list === list && document.contains(themeGallery.count)) return;
+    themeStopGallery();
+    if (!list || !host) return;
+    const count = document.createElement('span');
+    count.className = 'o-gal-count';
+    count.setAttribute('aria-hidden', 'true');
+    const update = () => {
+      const dots = [...list.querySelectorAll('button[id^="dot-image-"]')];
+      const i = themeActiveDot(dots);
+      if (i === null) { count.hidden = true; THEME_ROOT.classList.remove('o-gal-count'); return; }
+      count.hidden = false;
+      count.textContent = (i + 1) + ' / ' + dots.length;
+      THEME_ROOT.classList.add('o-gal-count');
+    };
+    const observer = new MutationObserver(update);
+    observer.observe(list, { attributes: true, attributeFilter: ['class'], subtree: true });
+    host.appendChild(count);
+    themeGallery = { list, count, observer };
+    update();
+  }
+  function themeStopChoosing() {
+    if (!themeChoosing) return;
+    themeChoosing.observer.disconnect();
+    themeChoosing = null;
+    THEME_ROOT.classList.remove('o-choosing');
+  }
+  function themeWatchChoosing() {
+    const targets = [document.querySelector('form[id^="form-product-"] .form-product-options__select-type'), document.querySelector('form[id^="form-product-"] .form-product-options__add-to-cart')].filter(Boolean);
+    if (themeChoosing && targets.length === themeChoosing.targets.length && targets.every((t, i) => t === themeChoosing.targets[i])) return;
+    themeStopChoosing();
+    if (!targets.length || typeof IntersectionObserver !== 'function') return;
+    const seen = new Map();
+    const observer = new IntersectionObserver((entries) => {
+      for (const e of entries) seen.set(e.target, e.isIntersecting);
+      THEME_ROOT.classList.toggle('o-choosing', !!(THEME_NARROW && THEME_NARROW.matches) && [...seen.values()].some(Boolean));
+    });
+    for (const t of targets) observer.observe(t);
+    themeChoosing = { targets, observer };
   }
   const themeTextField = (el) => !!el && el.matches && el.matches('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),textarea,select');
   function themeFocusIn(event) {
@@ -101,12 +164,14 @@ export const THEME_UI = String.raw`
     mount() {
       themeSyncAttribute();
       themeListen(true);
-      if (THEME_PDP && allowedNow()) themeWatchCta();
-      else themeStopCta();
+      if (THEME_PDP && allowedNow()) { themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); }
+      else { themeStopCta(); themeStopGallery(); themeStopChoosing(); }
     },
     unmount() {
       themeListen(false);
       themeStopCta();
+      themeStopGallery();
+      themeStopChoosing();
       themeOpener = null;
       THEME_ROOT.classList.remove('o-typing');
     }

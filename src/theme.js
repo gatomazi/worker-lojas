@@ -7,7 +7,8 @@
 // sem cabeçalhos do visitante), valida estritamente e só então monta o CSS. Duas chaves por superfície: a feature do deploy (teto técnico) E o
 // interruptor do painel (decisão do dono). Sem configuração válida = nenhuma injeção (a INK fica nativa), nunca um tema inventado.
 // Contrato v1: { v:1, region, surfaces:{ pdp, cart, checkout }, tokens:{ action, onAction, selected, onSelected, ground, surface, paper, ink,
-//   inkSoft, inkMute, line, radius:0|8, font:'origens'|'ink' } } — cores só #rrggbb (nenhum texto livre vira CSS).
+//   inkSoft, inkMute, line, photo, radius:0|8, font:'origens'|'ink' } } — cores só #rrggbb (nenhum texto livre vira CSS). `photo` = o cinza das fotos da INK
+//   (fundo da galeria e das miniaturas), separado do fundo da página (`ground`).
 import { ACTIVE_STORE } from './stores.js';
 import { contentHash } from './loader-source.js';
 
@@ -16,10 +17,10 @@ export const THEME_VERSION = '1';
 export const SURFACES = Object.freeze(['pdp', 'cart', 'checkout']);
 export const SURFACE_FEATURE = Object.freeze({ pdp: 'theme-pdp', cart: 'theme-cart', checkout: 'theme-checkout' });
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const COLOR_KEYS = ['action', 'onAction', 'selected', 'onSelected', 'ground', 'surface', 'paper', 'ink', 'inkSoft', 'inkMute', 'line'];
+const COLOR_KEYS = ['action', 'onAction', 'selected', 'onSelected', 'ground', 'surface', 'paper', 'photo', 'ink', 'inkSoft', 'inkMute', 'line'];
 const FONTS = Object.freeze({
   // Hanken Grotesk é a fonte da PDP do storefront; a INK já carrega Poppins do Google Fonts, então a origem não é nova para a página.
-  origens: { stack: '"Hanken Grotesk",Poppins,system-ui,-apple-system,"Segoe UI",sans-serif', import: 'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap' },
+  origens: { stack: '"Hanken Grotesk",Poppins,system-ui,-apple-system,"Segoe UI",sans-serif', import: 'https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap' },
   ink: { stack: 'Poppins,system-ui,-apple-system,"Segoe UI",sans-serif', import: null }
 });
 const FETCH_TIMEOUT_MS = 1500; // o HTML espera a configuração (em paralelo com a INK): curto, e falha = página nativa
@@ -107,219 +108,315 @@ export function checkoutPageKind(pathname, base) {
 
 // ── CSS ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Tudo sob html[data-origens-theme~="<superfície>"] (o Worker põe o atributo no <html> da resposta): nada vale fora das páginas tematizadas, e cada
-// superfície desliga sozinha. Só propriedades visuais: nenhuma regra muda `display` de algo que a INK mostra/esconde (classes `hidden`, modais,
-// campos do cartão), nenhuma esconde conteúdo (preço, cupom, frete, totais, termos). Seletores da INK conferidos no DOM real em 15/10/2026.
+// superfície desliga sozinha. Nenhuma regra muda `display` de algo que a INK mostra/esconde (classes `hidden`, modais, campos do cartão) — os únicos
+// `display` são em contêineres que a INK nunca alterna (grades dos seletores, link da marca no checkout), listados no teste — e nada de preço, cupom, frete,
+// totais ou termos é escondido. Reordenação só com `order` dentro do MESMO pai flex: o DOM (formulários, labels, inputs, frames) não muda.
+// Rodada 2 (composição): a camiseta como protagonista (galeria fixa no computador, de ponta a ponta no celular), uma coluna de compra na ordem da decisão
+// (título › preço › modelo/cor/tamanho › medidas › quantidade e CTA › prazo e confiança › outros tipos), controles com linha fina e o escolhido forte.
+// Seletores da INK conferidos no DOM real em 15/10/2026.
 
 const P = 'html[data-origens-theme~="pdp"]';
 const C = 'html[data-origens-theme~="cart"]';
 const K = 'html[data-origens-theme~="checkout"]';
+const ANY = 'html[data-origens-theme]';
 
 function tokensCss(tokens) {
   const font = FONTS[tokens.font];
-  return 'html[data-origens-theme]{' + [
+  return ANY + '{' + [
     '--o-action:' + tokens.action, '--o-on-action:' + tokens.onAction, '--o-selected:' + tokens.selected, '--o-on-selected:' + tokens.onSelected,
-    '--o-ground:' + tokens.ground, '--o-surface:' + tokens.surface, '--o-paper:' + tokens.paper, '--o-ink:' + tokens.ink, '--o-ink-soft:' + tokens.inkSoft,
+    '--o-ground:' + tokens.ground, '--o-surface:' + tokens.surface, '--o-paper:' + tokens.paper, '--o-photo:' + tokens.photo, '--o-ink:' + tokens.ink, '--o-ink-soft:' + tokens.inkSoft,
     '--o-ink-mute:' + tokens.inkMute, '--o-line:' + tokens.line, '--o-radius:' + tokens.radius + 'px', '--o-font:' + font.stack,
-    '--o-ok:#1f6f43', '--o-error:#b42318', '--o-ease:cubic-bezier(.22,1,.36,1)'
+    // Linha fina dos estados normais: a tinta a 16% (mais leve que --o-line, que fica para campos). Navegador sem color-mix usa --o-line.
+    '--o-line-soft:var(--o-line)', '--o-line-soft:color-mix(in srgb,var(--o-ink) 16%,transparent)',
+    '--o-ok:#1f6f43', '--o-error:#b42318', '--o-ease:cubic-bezier(.22,1,.36,1)', '--o-word:"Big Shoulders Display","Arial Narrow",Impact,sans-serif'
   ].join(';') + '}';
 }
 
-// Botões: retos como os do storefront (.btn), maiúsculas, 52 px. `B` = ação principal; `G` = secundária (contorno).
-// Nunca `display`: a INK esconde/mostra botões com classes (`hidden md:block`, barra do celular); trocar o display traria de volta um botão escondido.
-const btn = (sel) => sel + '{align-items:center;justify-content:center;gap:10px;min-height:52px;height:auto;padding:0 28px;border:2px solid var(--o-action)!important;border-radius:var(--o-radius)!important;background:var(--o-action)!important;color:var(--o-on-action)!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
-  '@media (hover:hover){' + sel.split(',').map((s) => s + ':hover').join(',') + '{background:transparent!important;color:var(--o-action)!important}}' +
-  sel.split(',').map((s) => s + ':focus-visible').join(',') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
-const ghost = (sel) => sel + '{align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:2px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important}' +
-  '@media (hover:hover){' + sel.split(',').map((s) => s + ':hover').join(',') + '{background:var(--o-ink)!important;color:var(--o-surface)!important}}' +
-  sel.split(',').map((s) => s + ':focus-visible').join(',') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
-// Campo de texto/seleção: reto, fundo branco, 48 px, 16 px (o iOS não dá zoom), foco visível. Só aparência: valor, máscara e validação são da INK.
+// Botão principal: reto como o .btn do storefront, 54 px, maiúsculas. Nunca `display` (a INK esconde/mostra botões com classes).
+// Os seletores passados aqui não usam vírgula dentro de :is() (a lista é separada por vírgula para gerar :hover/:focus).
+const each = (sel, suffix) => sel.split(',').map((s) => s + suffix).join(',');
+const btn = (sel) => sel + '{align-items:center;justify-content:center;gap:10px;min-height:54px;height:auto;padding:0 24px;border:2px solid var(--o-action)!important;border-radius:var(--o-radius)!important;background:var(--o-action)!important;color:var(--o-on-action)!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
+  '@media (hover:hover){' + each(sel, ':hover') + '{background:transparent!important;color:var(--o-action)!important}}' +
+  each(sel, ':focus-visible') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
+// Ação secundária: linha fina, sem maiúsculas pesadas.
+const ghost = (sel) => sel + '{align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;box-shadow:none!important}' +
+  '@media (hover:hover){' + each(sel, ':hover') + '{background:var(--o-paper)!important}}' +
+  each(sel, ':focus-visible') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
+// Campo: reto, branco, 48 px, 16 px (o iOS não dá zoom), foco visível. Valor, máscara e validação são da INK.
 const field = (sel) => sel + '{min-height:48px;border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;background-color:var(--o-surface)!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:16px!important;box-shadow:none!important}' +
-  sel.split(',').map((s) => s + ':focus').join(',') + '{border-color:var(--o-ink)!important;outline:2px solid var(--o-ink)!important;outline-offset:0;box-shadow:none!important}';
+  each(sel, ':focus') + '{border-color:var(--o-ink)!important;outline:2px solid var(--o-ink)!important;outline-offset:0;box-shadow:none!important}';
+// Rótulo de grupo (Modelo, Cor, Tamanho, Quantidade…): discreto; o que pesa é a escolha.
+const groupLabel = 'font-size:14px;font-weight:600;letter-spacing:0;color:var(--o-ink)';
+
+// Faixa superior da INK (produto, casca e checkout): três mensagens com animações de 16 s que se CRUZAM (duas visíveis e sobrepostas em ~25% do ciclo,
+// medido). Com exatamente três mensagens, a mesma duração com um terço para cada uma e a seguinte só entra depois que a anterior saiu. Outro número de
+// mensagens = a animação da INK, intocada.
+function stripCss(scope) {
+  const bar = scope + ' .header-benefits:has(> span:nth-child(3):last-child) > span';
+  return bar + '{animation:o-benefit 16s ease-in-out infinite!important}' +
+    bar + ':nth-child(2){animation-delay:-10.667s!important}' + bar + ':nth-child(3){animation-delay:-5.333s!important}' +
+    '@media (prefers-reduced-motion:reduce){' + bar + '{animation-duration:30s!important}}';
+}
+const STRIP_KEYFRAMES = '@keyframes o-benefit{0%{opacity:0;visibility:hidden}2.5%{opacity:1;visibility:visible}30.8%{opacity:1;visibility:visible}33.3%{opacity:0;visibility:hidden}100%{opacity:0;visibility:hidden}}';
+
+// Cabeçalho (nosso header-nav sobre o da INK): no celular, símbolo + "USE ORIGENS" como no storefront, numa faixa mais baixa.
+function headerCss() {
+  return [
+    ANY + ' .o-nav-word{font-family:var(--o-word);font-weight:800}',
+    '@media (max-width:1023px){' + P + ' .navbar__top .o-nav-word{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;font-size:22px;line-height:1;letter-spacing:.02em}' +
+      P + ' .navbar__top .o-nav-logo{gap:8px;min-height:44px}' + P + ' .navbar__top .o-nav-logo img{height:34px}}'
+  ].join('');
+}
 
 function pdpCss() {
   const F = P + ' form[id^="form-product-"]';
+  const T = F + ' .form-product-options__select-type';
   return [
-    // Página: o cinza da vitrine (é o mesmo cinza das fotos da INK: a camiseta "senta" na página, sem caixa), a fonte da vitrine.
+    stripCss(P), headerCss(),
     P + ' body{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
     P + ' body :is(button,input,select,textarea){font-family:inherit}',
     P + ' .details-product{letter-spacing:normal}',
-    // Duas colunas na proporção da PDP do storefront (1,15 : 1, 64 px entre elas). Só a grade: a ordem dos nós é a da INK.
-    '@media (min-width:1024px){' + P + ' .details-product{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:64px}}',
-    // Migalha: como a do storefront (sublinhada, 15 px).
-    P + ' .details-product nav[aria-label="Breadcrumb"] :is(a,span,li){font-size:15px;color:var(--o-ink-soft)}',
-    P + ' .details-product nav[aria-label="Breadcrumb"] a{text-decoration:underline;text-decoration-color:var(--o-line);text-underline-offset:3px}',
-    P + ' .details-product nav[aria-label="Breadcrumb"] li:last-child span{color:var(--o-ink)}',
-    // Título (há dois h1 na INK: o do celular e o do computador; os dois recebem o mesmo estilo).
-    P + ' .details-product h1{font-family:var(--o-font);font-weight:800;font-size:clamp(28px,3.4vw,44px);line-height:1.04;letter-spacing:-.02em;color:var(--o-ink);text-wrap:balance}',
-    // Galeria: fundo do cinza da vitrine; setas e pontos discretos (as interações e a troca de imagem por variante são as da INK).
-    P + ' .section-product-v2 ul.aspect-square,' + P + ' .section-product-v2 ul.aspect-square li{background:var(--o-ground)}',
-    P + ' .section-product-v2 button[aria-label="Imagem anterior"],' + P + ' .section-product-v2 button[aria-label="Proxima imagem"]{background:var(--o-surface)!important;color:var(--o-ink)!important;border:1px solid var(--o-line);border-radius:var(--o-radius)!important;box-shadow:none}',
+    // ── Composição ── Computador: galeria larga e FIXA enquanto a coluna de compra rola (a imagem fica à vista durante a escolha); colunas alinhadas pelo
+    // topo. (No celular a galeria mantém a largura da coluna: o carrossel da INK fixa a largura das imagens em pixels.) (As recomendações, com a galeria fixa, passam a vir depois da compra: recommendations.js só usa o vão da
+    // galeria quando ela é `relative`.)
+    '@media (min-width:1024px){' +
+      P + ' .details-product{grid-template-columns:minmax(0,1.3fr) minmax(360px,1fr);column-gap:56px;align-items:start}' +
+      P + ' .details-product > .section-product-v2{position:sticky;top:120px;align-self:start}' +
+      P + ' .details-product > .section-details{padding-top:4px}' +
+    '}',
+    // Migalha e título: discretos e legíveis (o título deixa de ser o elemento mais pesado da página).
+    P + ' .details-product nav[aria-label="Breadcrumb"] :is(a,span,li){font-size:13px;color:var(--o-ink-mute)}',
+    P + ' .details-product nav[aria-label="Breadcrumb"] a{text-decoration:underline;text-decoration-color:var(--o-line-soft);text-underline-offset:3px}',
+    P + ' .details-product nav[aria-label="Breadcrumb"] li:last-child span{color:var(--o-ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}',
+    '@media (max-width:1023px){' + P + ' .details-product > div:first-child{margin:12px 0 4px!important}}',
+    P + ' .details-product h1{font-family:var(--o-font);font-weight:700;font-size:clamp(24px,2.3vw,34px);line-height:1.12;letter-spacing:-.015em;color:var(--o-ink);text-wrap:balance}',
+    // Título, compartilhar e avaliações: título numa linha, as duas ações secundárias juntas na linha de baixo (antes: três linhas empilhadas).
+    P + ' .details-product > header,' + P + ' .section-details > header{flex-direction:row!important;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:2px;margin-bottom:14px!important}',
+    P + ' .details-product > header h1,' + P + ' .section-details > header h1{flex:1 0 100%;margin-bottom:4px}',
+    P + ' .details-product > header > a,' + P + ' .section-details > header > a{font-size:14px}',
+    P + ' :is(.details-product,.section-details) > header .star-rating{transform:scale(.8);transform-origin:left center}',
+    P + ' :is(.details-product,.section-details) > header .text-yellow-400{font-size:14px!important;color:var(--o-ink-mute)!important;font-weight:500!important}',
+    // Galeria: o cinza das fotos atrás da camiseta; setas discretas; contador "1 / 17" no lugar da fileira de pontos quando o loader o põe (theme-ui).
+    P + ' .section-product-v2 ul.aspect-square,' + P + ' .section-product-v2 ul.aspect-square li{background:var(--o-photo)}',
+    P + ' .section-product-v2 button[aria-label="Imagem anterior"],' + P + ' .section-product-v2 button[aria-label="Proxima imagem"]{width:40px!important;height:40px!important;background:rgba(255,255,255,.88)!important;color:var(--o-ink)!important;border:0;border-radius:999px!important;box-shadow:0 1px 2px rgba(0,0,0,.12)}',
     P + ' .section-product-v2 button[aria-label="Imagem anterior"] svg,' + P + ' .section-product-v2 button[aria-label="Proxima imagem"] svg{color:var(--o-ink);fill:currentColor}',
-    // Pontos da galeria: menores e mais juntos (17 pontos de 12 px com 12 px de espaço passavam de 390 px e davam rolagem horizontal no celular).
     P + ' .section-product-v2 ul.absolute.z-30{max-width:calc(100% - 16px)}',
     P + ' .section-product-v2 ul.absolute.z-30 > li + li{margin-left:6px!important}',
     P + ' .section-product-v2 button[id^="dot-image-"]{width:8px!important;height:8px!important}',
-    // Recomendações nativas sob a galeria (seção absoluta com fundo branco): no cinza da página.
+    P + '.o-gal-count .section-product-v2 ul.absolute.z-30{visibility:hidden}',
+    P + ' .o-gal-count{position:absolute;z-index:31;right:12px;bottom:12px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.9);color:var(--o-ink);font:600 13px/1.4 var(--o-font);font-variant-numeric:tabular-nums;pointer-events:none}',
+    P + ' #zoom-image-tooltip{width:auto!important;height:40px!important;padding:0 16px;border-radius:999px!important;background:rgba(0,0,0,.6)!important;font-size:14px}',
     P + ' .section-product-v2 > section{background:var(--o-ground)!important}',
-    // Preço: o mesmo peso e escala do preço do storefront (t-h2). Parcelas e descontos são os textos da INK, só em tinta.
-    F + ' .text-4xl{font-family:var(--o-font);font-weight:800;font-size:clamp(34px,4vw,48px);line-height:1.05;letter-spacing:-.028em;color:var(--o-ink)}',
-    F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-weight:500}',
-    F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:700}',
+    // ── Coluna de compra: a ordem da decisão (só `order` no flex do próprio formulário). ──
+    F + '{gap:22px!important}',
+    F + ' > .flex.flex-col.items-start.gap-1{order:1}',
+    F + ' > #product_variants_options_frame{order:2}',
+    F + ' > #delivery_estimates_frame{order:3}',
+    F + ' > #product_promotions_frame{order:4}',
+    F + ' > [data-controller="ink-store--modal"]{order:5}',
+    // Preço e condições.
+    F + ' .text-4xl{font-family:var(--o-font);font-weight:700;font-size:clamp(28px,2.6vw,36px);line-height:1.05;letter-spacing:-.02em;color:var(--o-ink)}',
+    F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-size:15px;font-weight:400}',
+    F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:600}',
     F + ' del,' + F + ' .line-through{color:var(--o-ink-mute)}',
-    // Prazo de entrega e cupons: perto da compra (já estão), com a aparência da vitrine.
-    P + ' #cheapest-estimate-button{min-height:44px;color:var(--o-ink)!important;font-weight:600;text-decoration:underline;text-underline-offset:3px}',
+    // Escolhas: uma coluna (modelo › cor › tamanho › medidas › quantidade), cada grupo com rótulo discreto e o mesmo espaço entre grupos.
+    T + '{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:20px!important;margin-bottom:4px!important}',
+    T + ' > div:has(.form-product-options__select-type-model){order:1}',
+    T + ' > div:has(> .form-product-options__select-type-colors){order:2}',
+    T + ' > div:has(> .form-product-options__select-type-size){order:3}',
+    T + ' > div:has(#open-modal-size){order:4;margin-top:-10px}',
+    T + ' > div:has(> div.inline-flex){order:5}',
+    T + ' p strong,' + T + ' p{' + groupLabel + '}',
+    // Chips de modelo e tamanho: linha fina e fundo claro no normal; o escolhido na cor da região (cheio); indisponível tracejado e apagado.
+    T + ' .form-product-options__select-type-model{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}',
+    T + ' .form-product-options__select-type-model-item{width:100%}',
+    T + ' .form-product-options__select-type-size{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:8px;width:100%}',
+    T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item,.form-product-options__select-type-size-item-disabled) label{width:100%!important;min-width:0!important;min-height:46px;height:auto!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-size:15px!important;font-weight:500;letter-spacing:0;transition:border-color .16s var(--o-ease),background-color .16s var(--o-ease),color .16s var(--o-ease)}',
+    '@media (hover:hover){' + T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) label:hover{border-color:var(--o-ink)!important}}',
+    T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) input:checked + label{background:var(--o-selected)!important;border-color:var(--o-selected)!important;color:var(--o-on-selected)!important;font-weight:600}',
+    T + ' .form-product-options__select-type-size-item-disabled label{border-style:dashed!important;border-color:var(--o-line)!important;color:var(--o-ink-mute)!important;background:var(--o-paper)!important}',
+    T + ' .form-product-options__select-type-size-item-disabled:after{background-color:var(--o-line);height:70%;top:15%}',
+    T + ' input[type="radio"]:focus-visible + label{outline:2px solid var(--o-ink)!important;outline-offset:2px}',
+    // Cores: o anel de seleção em tinta, separado da bolinha (legível em cor clara e escura).
+    T + ' .form-product-options__select-type-colors{gap:8px!important;flex-wrap:wrap}',
+    T + ' .form-product-options__select-type-colors-item input:checked + label{border-color:var(--o-surface)!important;box-shadow:0 0 0 2px var(--o-ink)}',
+    // Medidas: "Guia de medidas" e "Informar medidas" como links de ação lado a lado (antes: dois botões largos que truncavam no celular).
+    T + ' [data-origens-fit-row]{gap:4px 24px!important;flex-wrap:wrap;justify-content:flex-start!important;margin-bottom:0!important}',
+    T + ' #open-modal-size,' + T + ' button[data-origens-fit]{min-height:44px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:600!important;width:auto!important;flex:0 0 auto!important;gap:8px!important}',
+    T + ' #open-modal-size .o-size-label,' + T + ' button[data-origens-fit] > span{text-decoration:underline!important;text-underline-offset:4px;text-decoration-color:var(--o-line)!important}',
+    T + ' #open-modal-size .o-size-chevron{display:none}',
+    // Quantidade discreta.
+    T + ' .inline-flex.items-center.px-3.border-solid{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;min-height:44px;background:var(--o-surface)}',
+    // CTA: largura total da coluna; mesmo botão, mesmo clique e mesma validação da INK.
+    btn(F + ' #add-to-cart-desk,' + F + ' #add-to-cart-mob'),
+    F + ' #add-to-cart-desk{width:100%;max-width:none}',
+    F + ' .form-product-options__add-to-cart{gap:16px!important}',
+    // Confiança logo abaixo do CTA: texto em tinta, ícone em verde AA, pagamento menor.
+    F + ' .form-product-options__add-to-cart :is(.text-green-500,.text-green-600,.text-green-700){color:var(--o-ink)!important;font-weight:600}',
+    F + ' .form-product-options__add-to-cart svg{color:var(--o-ok)}',
+    F + ' .form-product-options__add-to-cart .gap-8{gap:14px!important}',
+    F + ' .form-product-options__add-to-cart :is(p,span){font-size:14px}',
+    F + ' .form-product-options__add-to-cart ul img{height:24px!important;width:auto!important}',
+    // Prazo e cupons: perto da compra, como linhas discretas.
+    P + ' #cheapest-estimate-button{min-height:44px;color:var(--o-ink)!important;font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--o-line)}',
     P + ' #cheapest-estimate-button :is(span,svg){color:var(--o-ink)!important}',
     P + ' #cheapest-estimate-button svg path{fill:var(--o-ink)}',
-    P + ' #product_promotions_frame > div.border{border-color:var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    P + ' #product_promotions_frame > div.border{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-paper);padding:12px 14px!important}',
+    P + ' #product_promotions_frame > div.border :is(span,a){font-size:14px!important}',
     P + ' #product_promotions_frame a.text-blue-600{color:var(--o-ink)!important}',
-    // "Também disponível em": chips do storefront.
-    F + ' [data-controller="ink-store--modal"] .no-scrollbar button{min-height:44px;border:2px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-size:15px;font-weight:600;box-shadow:none!important}',
-    // Seletores (modelo, tamanho): chips de 44 px, borda de 2 px; selecionado na cor da região; indisponível apagado e riscado (o risco é o da INK).
-    F + ' .form-product-options__select-type p strong{font-size:15px;font-weight:700;color:var(--o-ink)}',
-    F + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) label{min-height:44px;height:auto!important;border:2px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-size:15px!important;font-weight:600;letter-spacing:0;transition:background-color .16s var(--o-ease),color .16s var(--o-ease)}',
-    F + ' .form-product-options__select-type-size-item label{min-width:48px}',
-    '@media (hover:hover){' + F + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) label:hover{background:rgba(0,0,0,.06)!important}}',
-    F + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) input:checked + label{background:var(--o-selected)!important;border-color:var(--o-selected)!important;color:var(--o-on-selected)!important}',
-    F + ' .form-product-options__select-type-size-item-disabled label{border-color:var(--o-line)!important;color:var(--o-ink-mute)!important;background:transparent!important}',
-    F + ' .form-product-options__select-type-size-item-disabled:after{background-color:var(--o-line)}',
-    // Foco de teclado nos rádios (são sr-only: o foco aparece no rótulo) e nas cores.
-    F + ' input[type="radio"]:focus-visible + label{outline:2px solid var(--o-ink)!important;outline-offset:3px}',
-    F + ' .form-product-options__select-type-colors-item input:checked + label{border-color:var(--o-ink)!important}',
-    // Quantidade.
-    F + ' .inline-flex.items-center.px-3.border-solid{border-color:var(--o-ink)!important;border-radius:var(--o-radius)!important;min-height:44px}',
-    // Guia de medidas (o link nativo, já reestilizado pelo size-guide) e "Informar medidas": mesmo canto e mesma linha da vitrine.
-    F + ' #open-modal-size,' + F + ' [data-origens-size-fit],' + F + ' button[data-origens-fit]{border-radius:var(--o-radius)!important}',
-    // CTA "Adicionar ao Carrinho": o botão da vitrine. Mesmo botão, mesmo clique, mesma validação da INK.
-    btn(F + ' #add-to-cart-desk,' + F + ' #add-to-cart-mob'),
-    F + ' #add-to-cart-desk{width:100%;max-width:420px}',
-    F + ' :is(#add-to-cart-desk,#add-to-cart-mob)[disabled]{opacity:.55;cursor:progress}',
-    // Barra fixa do celular (nativa): largura da tela (a nativa tinha 3 px a mais), área segura, e some enquanto o botão principal está à vista
-    // (classe posta pelo loader com IntersectionObserver; sem JS ela simplesmente fica, como na INK).
-    F + ' .form-product-options__add-to-cart-mobile{left:0;right:0;width:auto!important;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--o-ground);border-top:1px solid var(--o-line);transition:transform .2s var(--o-ease),visibility .2s}',
+    // "Também disponível em": outros tipos de peça, depois da compra e com peso secundário.
+    F + ' > [data-controller="ink-store--modal"] > span{font-size:13px!important;font-weight:600!important;letter-spacing:.04em;text-transform:uppercase;color:var(--o-ink-mute)}',
+    F + ' > [data-controller="ink-store--modal"] .no-scrollbar button{min-height:44px;padding:0 14px!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:500!important;box-shadow:none!important}',
+    // Barra fixa do celular (nativa): só quando o CTA principal está fora da tela; some com teclado, escolha em andamento e painéis (classes do theme-ui).
+    F + ' .form-product-options__add-to-cart-mobile{left:0;right:0;width:auto!important;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--o-surface);border-top:1px solid var(--o-line-soft);transition:transform .2s var(--o-ease),visibility .2s}',
     F + ' #add-to-cart-mob{width:100%;min-height:52px}',
+    P + ':is(.o-cta-inview,.o-typing) form[id^="form-product-"] .form-product-options__add-to-cart-mobile{transform:translateY(110%);visibility:hidden}',
     F + ' .o-need-choice{outline:2px solid var(--o-error);outline-offset:6px;transition:outline-color .3s}',
     F + ' .o-need-choice p strong{color:var(--o-error)}',
-    P + ':is(.o-cta-inview,.o-typing) form[id^="form-product-"] .form-product-options__add-to-cart-mobile{transform:translateY(110%);visibility:hidden}',
-    // Abas de descrição: continuam abas (acessíveis: role=tablist/tab da INK), com a linha da vitrine; o conteúdo sai do cinza para o branco.
-    P + ' #mytab button{min-height:44px;color:var(--o-ink-soft);font-weight:600}',
+    // Flutuantes (Ajuda da INK, WhatsApp e cupons nossos): no celular saem do caminho enquanto as escolhas e o CTA estão na tela (classe do theme-ui);
+    // voltam ao rolar para fora. O menu lateral continua com o atendimento.
+    '@media (max-width:1023px){' + P + '.o-choosing :is([data-controller~="ink-store--help-button"],#o-wa-fab,#o-promo){opacity:0!important;visibility:hidden!important;pointer-events:none!important}' +
+      P + ' :is([data-controller~="ink-store--help-button"],#o-wa-fab,#o-promo){transition:opacity .2s var(--o-ease),visibility .2s}}',
+    // Abas de descrição: continuam abas (role=tablist da INK), com a linha da vitrine.
+    P + ' #mytab button{min-height:44px;color:var(--o-ink-mute);font-weight:600}',
     P + ' #mytab button[aria-selected="true"]{color:var(--o-ink)!important;border-color:var(--o-ink)!important}',
-    P + ' #product_details [role="tabpanel"]{background:var(--o-surface)!important;border-radius:var(--o-radius)!important}',
-    P + ' #product_details [role="tabpanel"] :is(p,div){color:var(--o-ink-soft)!important;font-weight:400!important;line-height:1.55}',
-    // Módulos nossos na PDP (guia, recomendações, retorno): mesma linguagem da vitrine (cantos, cores, fundo).
-    P + ' [data-origens-guide="invite"]{background:var(--o-surface)!important;border-color:var(--o-line)!important;border-radius:var(--o-radius)!important;--o-tint:var(--o-ink)}',
-    P + ' [data-origens-guide] .o-g-btn{border:2px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-weight:600}',
+    P + ' #product_details [role="tabpanel"]{background:transparent!important;border-radius:0!important;padding-left:0!important;padding-right:0!important}',
+    P + ' #product_details [role="tabpanel"] :is(p,div){color:var(--o-ink-soft)!important;font-weight:400!important;line-height:1.6}',
+    // Módulos nossos na PDP (guia, recomendações): mesma linguagem leve.
+    P + ' [data-origens-guide="invite"]{background:var(--o-paper)!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;--o-tint:var(--o-ink)}',
+    P + ' [data-origens-guide] .o-g-title{font-size:15px!important;font-weight:600!important}',
+    P + ' [data-origens-guide] .o-g-btn{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-weight:500}',
     P + ' [data-origens-guide] .o-g-btn.o-g-more{border-style:solid!important}',
-    P + ' .o-reco-card{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;background:transparent!important}',
-    P + ' .o-reco-media,' + P + ' .o-reco-media img{border-radius:var(--o-radius)!important;background:var(--o-ground)!important}',
-    P + ' .o-reco-name{font-weight:600!important;color:var(--o-ink)!important}',
-    P + ' .o-reco-price{font-weight:600!important;color:var(--o-ink)!important}',
+    P + ' .o-reco-card{border-radius:var(--o-radius)!important;border-color:var(--o-line-soft)!important;background:var(--o-surface)!important}',
+    P + ' .o-reco-media,' + P + ' .o-reco-media img{border-radius:var(--o-radius)!important;background:var(--o-photo)!important}',
+    P + ' .o-reco-name,' + P + ' .o-reco-price{font-weight:500!important;color:var(--o-ink)!important}',
     P + ' .o-reco-cta{color:var(--o-ink)!important;text-decoration:underline;text-underline-offset:3px}',
-    P + ' .o-reco-title{font-weight:800!important;letter-spacing:-.01em;color:var(--o-ink)!important}'
+    P + ' .o-reco-title{font-weight:700!important;letter-spacing:-.01em;color:var(--o-ink)!important}'
   ].join('');
 }
 
 function cartCss() {
   const D = C + ' .cart-drawer';
   return [
-    // Painel: fonte e cores da vitrine, sem o espaçamento entre letras da INK; no computador um pouco mais largo (440 px).
+    // Painel: compra em primeiro plano. Cabeçalho enxuto; itens separados por linha fina; rodapé com o resumo e UMA ação principal.
     D + '{font-family:var(--o-font);letter-spacing:normal;color:var(--o-ink);background:var(--o-surface)}',
     D + ' :is(button,input,select,textarea){font-family:inherit;letter-spacing:normal}',
     '@media (min-width:768px){' + D + '{width:440px}}',
-    D + '__header{border-bottom:1px solid var(--o-line)}',
-    D + '__header .top-header > span{font-size:17px;font-weight:800;color:var(--o-ink)}',
-    D + '__header .top-header > span .text-gray-500{color:var(--o-ink-mute)!important;font-weight:500}',
-    D + '__header #cart-drawer-close{min-width:44px;min-height:44px;padding:10px;box-sizing:content-box}',
-    // Itens: imagem no cinza da vitrine, nome, variante completa, preço e quantidade legíveis; botões de quantidade/remover com área de toque de 44 px.
+    D + '__header{border-bottom:1px solid var(--o-line-soft)}',
+    D + '__header .top-header{min-height:56px;align-items:center;padding:8px 12px 8px 20px!important}',
+    D + '__header .top-header > span{font-size:18px;font-weight:700;color:var(--o-ink)}',
+    D + '__header .top-header > span .text-gray-500{color:var(--o-ink-mute)!important;font-weight:400;font-size:14px!important}',
+    D + '__header #cart-drawer-close{width:28px!important;height:28px!important;min-width:28px;cursor:pointer;color:var(--o-ink)}',
     D + '__main{background:var(--o-surface)!important}',
-    D + '__main .main-list__item{border-bottom:1px solid var(--o-line)}',
-    D + '__main .main-list__item > img{background:var(--o-ground);border-radius:var(--o-radius)}',
+    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding-top:14px;padding-bottom:14px}',
+    D + '__main .main-list__item > img{width:88px!important;height:88px!important;max-width:88px;flex:0 0 88px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
     D + '__main .main-list__item .item-wrapper .item-header{font-size:15px;font-weight:600;color:var(--o-ink)}',
     D + '__main .main-list__item .item-wrapper .item-details > span,' + D + '__main .main-list__item .item-wrapper .item-details p{color:var(--o-ink-mute);font-size:14px}',
-    D + '__main .main-list__item .item-wrapper .item-details .price span{color:var(--o-ink);font-weight:700}',
+    D + '__main .main-list__item .item-wrapper .item-details > p:first-child{color:var(--o-ink);font-weight:600;font-size:15px}',
+    D + '__main .main-list__item .item-wrapper .item-details .price span{color:var(--o-ink);font-weight:600}',
     D + '__main .main-list__item .item-wrapper .item-details .price del{color:var(--o-ink-mute)}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:44px!important;height:44px!important}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:700;color:var(--o-ink)}',
-    // Rodapé: cupom, CEP, descontos, subtotal e total da INK, só com outra aparência; total em destaque; "Finalizar compra" = botão da vitrine.
-    D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line);padding-bottom:env(safe-area-inset-bottom)}',
-    D + '__footer .footer-details ul > li{font-size:15px;font-weight:500;color:var(--o-ink-soft)}',
-    D + '__footer .footer-details ul > li:last-child{font-size:18px;font-weight:800;color:var(--o-ink)}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity{border:1px solid var(--o-line-soft);border-radius:var(--o-radius);width:fit-content!important;max-width:100%}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:40px!important;height:40px!important}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
+    // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
+    D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line-soft);padding:12px 20px calc(16px + env(safe-area-inset-bottom))!important}',
+    D + '__footer .footer-details{margin:8px 0 12px!important;gap:6px}',
+    D + '__footer .footer-details ul > li{font-size:14px;font-weight:400;color:var(--o-ink-soft)}',
+    D + '__footer .footer-details ul > li:last-child{font-size:20px;font-weight:700;color:var(--o-ink);padding-top:6px}',
     D + '__footer :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
-    D + '__footer__cep input,' + D + '__footer__coupon input{border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;min-height:44px;font-size:16px!important;color:var(--o-ink)}',
+    D + '__footer__cep,' + D + '__footer__coupon{min-height:44px}',
+    D + '__footer__cep input,' + D + '__footer__coupon input{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;min-height:40px;font-size:16px!important;color:var(--o-ink)}',
     D + '__footer__cep input:focus,' + D + '__footer__coupon input:focus{border-color:var(--o-ink)!important;outline:2px solid var(--o-ink);outline-offset:0}',
     D + '__footer__cep .btn-apply,' + D + '__footer__coupon .btn-apply{min-width:44px;min-height:44px}',
-    D + '__footer__cep label,' + D + '__footer__coupon label,' + D + '__footer__cep span,' + D + '__footer__coupon span{color:var(--o-ink);font-weight:600}',
+    D + '__footer__cep label,' + D + '__footer__coupon label,' + D + '__footer__cep span,' + D + '__footer__coupon span{color:var(--o-ink-soft);font-weight:500;font-size:14px}',
     btn(D + ' #checkout-btn,' + D + '__footer__submit'),
     D + ' #checkout-btn{width:100%}',
     ghost(D + '__footer__keep-shopping'),
-    // Carrinho vazio: mensagem simples e volta à loja (o "Continuar Comprando" nativo vira botão secundário). Sem produto inventado.
-    D + ' .empty-cart{background:var(--o-ground)!important;color:var(--o-ink-soft)!important}',
-    D + ' .empty-cart [data-action*="closeDrawer"]{display:flex;align-items:center;justify-content:center;min-height:48px;border:2px solid var(--o-ink);border-radius:var(--o-radius);background:transparent;cursor:pointer}',
-    D + ' .empty-cart [data-action*="closeDrawer"] > div{color:var(--o-ink)!important;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:14px}',
+    // Carrinho vazio: o nosso bloco abre o estado ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase da INK que repete
+    // a mesma intenção some só quando o nosso bloco existe (sem ele, a INK fica como é). Recomendações da INK abaixo; "Continuar comprando" secundário.
+    D + ' .empty-cart{background:var(--o-surface)!important;color:var(--o-ink-soft)!important;gap:20px}',
+    D + ' .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child{display:none}',
+    D + ' .empty-cart [data-action*="closeDrawer"]{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--o-ink);border-radius:var(--o-radius);background:transparent;cursor:pointer}',
+    D + ' .empty-cart [data-action*="closeDrawer"] > div{color:var(--o-ink)!important;font-weight:600;font-size:15px}',
     C + ' .cart-drawer-overlay{background:rgba(0,0,0,.45)!important}',
-    // Bloco nosso "Descubra outras estampas" (carrinho e pós-adição): a mesma linguagem (cantos, linha, botões de contorno).
-    C + ' [data-origens-discovery]{background:var(--o-surface)!important;border-color:var(--o-line)!important;border-radius:var(--o-radius)!important;color:var(--o-ink)!important}',
-    C + ' [data-origens-discovery] :is(.o-cta,.o-toggle){border:2px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-weight:700}',
+    // Bloco "Descubra outras estampas" (nosso): no carrinho preenchido vem depois dos itens e compacto (discovery-ui); no vazio é a abertura.
+    C + ' [data-origens-discovery]{background:var(--o-paper)!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;color:var(--o-ink)!important}',
+    C + ' [data-origens-discovery] .o-title{font-weight:600!important}',
+    C + ' [data-origens-discovery] .o-toggle,' + C + ' [data-origens-discovery] .o-cta{border:1px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-weight:600!important;letter-spacing:0!important}',
+    C + ' [data-origens-discovery][data-origens-empty]{background:transparent!important;border:0!important;padding:4px 20px 0!important;margin:16px 0 0!important}',
+    C + ' [data-origens-discovery][data-origens-empty] .o-title{font-size:18px!important;font-weight:700!important;margin-bottom:12px}',
+    C + ' [data-origens-discovery][data-origens-empty] .o-actions{flex-direction:column;align-items:stretch}',
+    C + ' [data-origens-discovery][data-origens-empty] .o-actions > *{flex:0 0 auto!important;width:100%}',
+    C + ' [data-origens-discovery][data-origens-empty] .o-toggle{background:var(--o-action)!important;border-color:var(--o-action)!important;color:var(--o-on-action)!important;min-height:52px}',
     C + ' [data-origens-discovery] .o-input{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;font-size:16px}',
     C + ' [data-origens-discovery] .o-item{border-radius:var(--o-radius)!important}',
-    // Confirmação pós-adição (modal nativo): mesma linguagem do carrinho; "Ver carrinho" = ação principal, "Continuar comprando" = secundária.
+    // Confirmação pós-adição (modal nativo): mesma linguagem; "Ver carrinho" = ação principal, "Continuar comprando" = secundária.
     C + ' #modal-wrapper{font-family:var(--o-font);letter-spacing:normal;color:var(--o-ink)}',
     C + ' #modal-wrapper :is(button,input){font-family:inherit;letter-spacing:normal}',
-    C + ' #modal-wrapper :is(h2,h3){font-weight:800;color:var(--o-ink)}',
+    C + ' #modal-wrapper :is(h2,h3){font-weight:700;color:var(--o-ink)}',
     btn(C + ' #modal-wrapper .checkout-btn'),
     ghost(C + ' #modal-wrapper #continue-shopping-button'),
-    C + ' #modal-wrapper :is(.checkout-btn,#continue-shopping-button){width:100%}'
+    C + ' #modal-wrapper .checkout-btn,' + C + ' #modal-wrapper #continue-shopping-button{width:100%}'
   ].join('');
 }
 
 function checkoutCss() {
   const L = K + ' [data-controller="ink-store--checkout"]';
+  const PAY = L + ' > section.md\\:col-span-7';
   return [
-    // Mesma fonte e cores; o cabeçalho compacto (marca, sem menu) é o da própria INK e fica como está.
+    stripCss(K),
     K + ' body{font-family:var(--o-font);color:var(--o-ink);background:var(--o-surface)}',
     K + ' body :is(button,input,select,textarea){font-family:inherit}',
-    // A INK fixa Inter no container do checkout e no resumo: a fonte da vitrine em tudo, menos nos ícones (Font Awesome usa <i>).
     K + ' :is([data-controller="ink-store--checkout"],turbo-frame#cart_summary),' + K + ' :is([data-controller="ink-store--checkout"],turbo-frame#cart_summary) :where(*:not(i):not(svg):not(svg *)){font-family:var(--o-font)!important}',
-    // Títulos e rótulos.
-    L + ' section > .w-full.flex.flex-col.items-start > p.text-2xl{font-weight:800;font-size:clamp(26px,3vw,34px);letter-spacing:-.02em;color:var(--o-ink)}',
+    // Cabeçalho compacto com a assinatura: símbolo da INK (o logo da loja) + "USE ORIGENS" (posto pelo Worker no HTML, sem script). Sem menu.
+    K + ' nav.bg-store-primary a:has([data-origens-brand]){display:flex;align-items:center;gap:10px;text-decoration:none}',
+    K + ' nav.bg-store-primary a img{height:40px!important;width:auto}',
+    K + ' [data-origens-brand]{font-family:var(--o-word);font-weight:800;font-size:24px;line-height:1;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap}',
+    // Duas colunas com largura máxima e respiro; resumo como uma superfície própria, fixo enquanto o formulário rola SÓ em telas altas o bastante.
+    '@media (min-width:768px){' + L + '{max-width:1180px;margin-inline:auto!important;column-gap:48px;padding:0 24px}' +
+      K + ' turbo-frame#cart_summary > section{border-radius:var(--o-radius);padding:24px!important;margin-top:24px;height:auto!important}}',
+    '@media (min-width:768px) and (min-height:760px){' + K + ' turbo-frame#cart_summary > section{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto}}',
+    // Títulos de grupo: identificação, entrega, formas de entrega; mesmos pesos e espaços.
+    L + ' section > .w-full.flex.flex-col.items-start > p.text-2xl{font-weight:700;font-size:clamp(24px,2.6vw,32px);letter-spacing:-.015em;color:var(--o-ink)}',
     L + ' section > .w-full.flex.flex-col.items-start > p.text-sm{color:var(--o-ink-mute)}',
-    L + ' h3.text-lg{font-size:19px;font-weight:800;color:var(--o-ink)}',
-    L + ' label{color:var(--o-ink);font-weight:600}',
-    // Campos (identificação, CEP, endereço de entrega e de cobrança, cartão quando a INK o mostra): só aparência.
+    L + ' h3.text-lg{font-size:18px;font-weight:700;color:var(--o-ink);padding-top:12px;border-top:1px solid var(--o-line-soft)}',
+    L + ' label{color:var(--o-ink);font-weight:500}',
     field(L + ' input:is([type="text"],[type="email"],[type="tel"]),' + L + ' select'),
-    // Rádios e caixas de seleção da INK (plugin de formulários: a cor marcada é currentColor): tinta em vez de azul.
     L + ' input:is([type="checkbox"],[type="radio"]){color:var(--o-ink)!important;accent-color:var(--o-ink);border-color:var(--o-ink-mute)!important}',
     L + ' input[type="checkbox"]{width:20px;height:20px}',
     L + ' input:is([type="checkbox"],[type="radio"]):focus-visible{outline:2px solid var(--o-ink);outline-offset:2px;box-shadow:none!important}',
-    L + ' #formPaymentMethods label{background-color:transparent!important}',
-    // Erros da INK: vermelho com contraste AA, e a borda do campo acompanha (o texto da mensagem é o da INK).
-    // As mensagens de campo da INK são os <small> posicionados sob o campo (-bottom-5); ela os mostra por CSS (peer-invalid) ou tirando `hidden`.
     L + ' small[class*="-bottom-5"]{color:var(--o-error)!important;font-weight:600}',
     L + ' .field_with_errors :is(input,select),' + L + ' :is(input,select)[aria-invalid="true"]{border-color:var(--o-error)!important}',
     L + ' #contentAlert{color:var(--o-error)!important}',
     L + ' a.underline{color:var(--o-ink)}',
-    // Opções de frete e de pagamento: cartões com borda; o escolhido ganha borda de 2 px (o rádio continua o nativo, com o mesmo clique).
-    L + ' .shipping-types__item,' + L + ' #formPaymentMethods > ul > li{border:1px solid var(--o-line);border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    // Opções de frete e pagamento: linhas de escolha com borda fina; a escolhida com borda forte e fundo claro. Campos revelados (cartão, cobrança) iguais.
+    L + ' .shipping-types__item,' + L + ' #formPaymentMethods > ul > li{border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;background:var(--o-surface)}',
     L + ' .shipping-types__item{padding:12px 14px;min-height:56px}',
-    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border:2px solid var(--o-ink)}',
+    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border:2px solid var(--o-ink);background:var(--o-paper)}',
     L + ' #formPaymentMethods > ul{gap:8px;border:0!important;border-radius:0!important}',
     L + ' #formPaymentMethods > ul > li > label{min-height:56px}',
-    // A faixa "pagamento protegido" fica proporcional: neutra e menor que as opções e o botão (o texto é o da INK, nada é alegado por nós).
-    L + ' section > div[role="alert"].p-4.text-sm.rounded-lg{background:var(--o-paper)!important;border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;padding:10px 14px}',
-    L + ' section > div[role="alert"].p-4.text-sm.rounded-lg h3{font-size:15px}',
-    L + ' section > div[role="alert"].p-4.text-sm.rounded-lg :is(span,h3){color:var(--o-ink)!important}',
-    L + ' section > div[role="alert"].p-4.text-sm.rounded-lg .mt-2{margin:4px 0 0}',
-    // Botões de seguir (contato → pagamento) e "Finalizar compra": o botão da vitrine. Mesmo nó, mesmo clique, mesma validação.
+    L + ' #formPaymentMethods label{background-color:transparent!important}',
+    L + ' #content-credit_card,' + L + ' #content-pix{padding:4px 16px 16px!important;background:transparent!important}',
+    L + ' #content-pix .bg-orange-50{background:var(--o-surface)!important;border:1px solid var(--o-line-soft);border-radius:var(--o-radius)}',
+    // A faixa "pagamento protegido" desce para DEPOIS das opções e do botão (mesmo pai flex): a decisão vem primeiro, a garantia fica perto do botão.
+    PAY + '{gap:20px}',
+    PAY + ' > section{order:2}',
+    PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg{order:3;background:transparent!important;border:0!important;padding:0!important}',
+    PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg h3{font-size:14px;font-weight:600}',
+    PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg :is(span,h3){color:var(--o-ink-soft)!important}',
+    PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg .mt-2{margin:2px 0 0!important}',
+    // Botões de seguir e "Finalizar compra" (que já processa o pagamento: não há revisão depois). Na barra do celular, uma linha só.
     btn(L + ' button.bg-green-500,' + L + ' button[type="submit"][data-action*="validateAndSubmit"],' + L + ' a.bg-green-500'),
-    // Resumo: itens, subtotal, desconto, entrega e total da INK; total em destaque, desconto em verde com contraste AA.
+    L + ' button.bg-green-500.md\\:hidden{white-space:nowrap;padding:0 16px;letter-spacing:.02em;font-size:14px}',
+    // Resumo: itens, subtotal, desconto, prazo, frete e total; total em destaque, desconto em verde AA.
     K + ' turbo-frame#cart_summary > section{background:var(--o-paper)!important}',
-    K + ' turbo-frame#cart_summary img{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;background:var(--o-ground)}',
+    K + ' turbo-frame#cart_summary img{border-radius:var(--o-radius)!important;border-color:var(--o-line-soft)!important;background:var(--o-photo)}',
     K + ' turbo-frame#cart_summary h3{font-weight:600;color:var(--o-ink)}',
-    K + ' turbo-frame#cart_summary p.font-medium{font-weight:800;color:var(--o-ink)}',
+    K + ' turbo-frame#cart_summary p.font-medium.text-gray-900{font-weight:700;color:var(--o-ink)}',
     K + ' turbo-frame#cart_summary :is(.text-green-500,.text-green-600),' + L + ' :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
-    K + ' #prices_summary .text-base.md\\:text-lg,' + K + ' #prices_summary .text-base{font-weight:800;color:var(--o-ink)}',
-    // Resumo do celular (barra "Total · Finalizar compra" e cartão do endereço): mesmas cores.
+    K + ' #prices_summary div.text-base.md\\:text-lg{font-weight:700;color:var(--o-ink)}',
     L + ' a[aria-label="Editar endereço de entrega"]{color:var(--o-ink);min-height:44px;font-weight:600}',
-    L + ' .md\\:hidden.flex.flex-col{border-color:var(--o-line)!important;border-radius:var(--o-radius)!important}'
+    L + ' .md\\:hidden.flex.flex-col{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}'
   ].join('');
 }
 
@@ -332,7 +429,7 @@ export function buildThemeCss(theme, surfaces) {
   const font = FONTS[theme.tokens.font];
   return '/* Use Origens · tema da compra na INK v' + THEME_VERSION + ' (' + list.join(',') + ') */' +
     (font.import ? '@import url("' + font.import + '");' : '') +
-    tokensCss(theme.tokens) + list.map((s) => SURFACE_CSS[s]()).join('');
+    tokensCss(theme.tokens) + ((list.includes('pdp') || list.includes('checkout')) ? STRIP_KEYFRAMES : '') + list.map((s) => SURFACE_CSS[s]()).join('');
 }
 
 // URL do CSS: superfícies + hash do conteúdo (mudou o tema publicado ou o código = URL nova; o navegador guarda por um ano).

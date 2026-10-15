@@ -32,16 +32,18 @@ const live = (t) => t.observers.filter((o) => o.alive);
 test('theme-pdp: the mobile bar hides while #add-to-cart-desk is on screen (one observer, on that button only) and comes back when it leaves', async () => {
   const t = setup();
   await tick();
-  assert.equal(live(t).length, 1);
-  assert.deepEqual(live(t)[0].targets, [t.doc.getElementById('add-to-cart-desk')]);
-  live(t)[0].cb([{ isIntersecting: true }]);
+  // Dois observadores: o do CTA (barra fixa) e o das escolhas (flutuantes no celular).
+  assert.equal(live(t).length, 2);
+  const cta = live(t).find((o) => o.targets.length === 1 && o.targets[0] === t.doc.getElementById('add-to-cart-desk'));
+  assert.ok(cta);
+  cta.cb([{ isIntersecting: true }]);
   assert.ok(root(t).classList.contains('o-cta-inview'));
-  live(t)[0].cb([{ isIntersecting: false }]);
+  cta.cb([{ isIntersecting: false }]);
   assert.ok(!root(t).classList.contains('o-cta-inview'));
   // Muitas mutações (re-render do frame) não multiplicam observadores nem listeners.
   for (let i = 0; i < 20; i++) t.doc.body.appendChild(t.doc.createElement('i'));
   await tick();
-  assert.equal(live(t).length, 1);
+  assert.equal(live(t).length, 2);
 });
 
 test('theme-pdp: a text field with focus (keyboard open) hides the bar; radios do not', async () => {

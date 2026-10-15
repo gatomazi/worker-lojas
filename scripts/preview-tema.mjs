@@ -13,90 +13,26 @@
 //     --headed    abre duas janelas (computador e celular) para navegar à mão; Ctrl+C encerra
 //     --allow-cart  libera os POSTs do CARRINHO (adicionar/quantidade/remover) — só para uso manual; o checkout continua bloqueado
 // TRAVA: qualquer requisição não-GET para <loja>/checkout é ABORTADA no navegador (nunca chega à INK: nada de pedido, pagamento ou cobrança).
-import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { shellPageKind } from '../src/scope.js';
-import { STORES } from '../src/stores.js';
-import { checkoutPageKind } from '../src/theme.js';
-const require = createRequire((process.env.PW_PATH || '.') + '/');
-const { chromium } = require('playwright-core');
-const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
-const { workerModules } = await import('../test/helpers.js');
+import { createHarness, REFERENCE_THEME, DEFAULT_PDP, VIEWPORTS } from './lib/tema-harness.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
 const flag = (n) => argv.includes(n);
-const store = STORES.sul;
-const HOST = 'https://' + store.inkHost;
-export const REFERENCE_THEME = {
-  v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: true },
-  tokens: { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
-};
 const config = opt('--config') ? JSON.parse(readFileSync(opt('--config'), 'utf8')) : REFERENCE_THEME;
 const OFF = flag('--off');
 const UUID = opt('--checkout');
 if (UUID && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(UUID)) { console.error('--checkout espera o uuid do carrinho'); process.exit(2); }
 const SHOTS = opt('--shots');
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-const PDP = process.env.PREVIEW_PDP || '/usesul/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4';
-const LIVE = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
-const FEATURES = OFF ? LIVE : LIVE + ',theme-pdp,theme-cart,theme-checkout';
-
-const upstream = { html: '', status: 200, headers: {} };
-const mf = new Miniflare({
-  ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS', 'NORTE_CART_REFS', 'CENTRO_CART_REFS'],
-  bindings: { STORE_ID: 'sul', ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: FEATURES },
-  outboundService: async (req) => {
-    const url = new URL(req.url);
-    if (url.host === 'useorigens.com.br' && url.pathname === store.inkThemeApi) return Response.json(config);
-    if (url.host === 'useorigens.com.br') return fetch(req.url, { headers: { accept: 'application/json' } });
-    return new Response(upstream.html, { status: upstream.status, headers: { 'content-type': 'text/html; charset=utf-8', ...upstream.headers } });
-  }
-});
-
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: !flag('--headed') });
-const blocked = [];
-async function session({ name, width, height }) {
-  const mobile = width < 600;
-  const ctx = await browser.newContext({ viewport: { width, height }, locale: 'pt-BR', deviceScaleFactor: mobile ? 2 : 1, isMobile: mobile, hasTouch: mobile });
-  await ctx.route(/googletagmanager|google-analytics|facebook|connect\.facebook|newrelic|nr-data|tiktok|doubleclick|clarity\.ms|hotjar|kdt|konduto/, (r) => r.abort());
-  // TRAVA do checkout (sempre) e do carrinho (salvo --allow-cart): não-GET para a INK nunca sai do navegador.
-  await ctx.route((u) => u.host === store.inkHost && !u.pathname.startsWith('/cdn-cgi/') && !u.pathname.startsWith('/__origens/'), async (route) => {
-    const req = route.request();
-    if (req.method() === 'GET' || req.method() === 'HEAD') return route.fallback();
-    const path = new URL(req.url()).pathname;
-    if (path.includes('/checkout') || !flag('--allow-cart')) { blocked.push(name + ' ' + req.method() + ' ' + path.replace(/[0-9a-f-]{36}/g, '<uuid>').replace(/\d{5,}/g, '<id>')); return route.abort(); }
-    return route.fallback();
-  });
-  await ctx.route('**/__origens/**', async (route) => {
-    const req = route.request();
-    const res = await mf.dispatchFetch(req.url(), { method: req.method(), headers: { 'content-type': req.headers()['content-type'] || '', origin: req.headers().origin || '', referer: req.headers().referer || '' }, body: ['GET', 'HEAD'].includes(req.method()) ? undefined : req.postData() });
-    await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
-  });
-  const productRe = new RegExp('^' + store.inkBase + '/product/[^/]+$');
-  await ctx.route((u) => u.host === store.inkHost && (productRe.test(u.pathname) || shellPageKind(u.pathname, store.inkBase) !== null || checkoutPageKind(u.pathname, store.inkBase) !== null), async (route) => {
-    const req = route.request();
-    if (req.resourceType() !== 'document' || req.method() !== 'GET') return route.fallback();
-    const res = await route.fetch({ maxRedirects: 0, timeout: 60000 });
-    if (res.status() >= 300 && res.status() < 400) return route.fulfill({ response: res });
-    upstream.html = await res.text(); upstream.status = res.status();
-    const out = await mf.dispatchFetch(req.url(), { headers: { accept: 'text/html' } });
-    const headers = { ...res.headers() }; delete headers['content-length']; delete headers['content-encoding']; delete headers.etag;
-    await route.fulfill({ status: out.status, headers, body: await out.text() });
-  });
-  const page = await ctx.newPage();
-  return { ctx, page, mobile, name };
-}
-
-const VIEWPORTS = [{ name: 'desktop', width: 1440, height: 900 }, { name: 'mobile', width: 390, height: 844 }];
-const acceptCookies = (page) => page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /aceitar cookies/i.test(x.textContent || '')); if (b) b.click(); });
-// Campos e blocos com dados pessoais do checkout: mascarados em TODA captura (inclusive "antes").
-const PII = ['[data-controller="ink-store--checkout"] input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"])', '[data-controller="ink-store--checkout"] select', '.md\\:hidden.flex.flex-col .text-sm.font-normal', '.md\\:hidden.flex.flex-col .text-lg', '.md\\:flex.md\\:flex-col.items-center small', '.md\\:hidden.flex.md\\:flex-col small', '#saved_address_offer', 'turbo-frame#cart_summary + * small'];
-// Cartão "Endereço de entrega" (computador e celular) e a linha "Entrega para <CEP>" do resumo: inteiros.
-const pii = (page) => [...PII.map((s) => page.locator(s)), page.locator('div:has(> div > a[aria-label="Editar endereço de entrega"]), div:has(> a[aria-label="Editar endereço de entrega"])'), page.locator('li', { hasText: /Entrega para/ })];
+const PDP = process.env.PREVIEW_PDP || DEFAULT_PDP;
+const H = await createHarness({ config, off: OFF, headed: flag('--headed'), allowCart: flag('--allow-cart') });
+const { session, blocked, HOST, store, acceptCookies } = H;
+const browser = { close: () => H.close() };
+const mf = { dispose: async () => {} };
 async function shot(page, file, full = false) {
   if (!SHOTS) return;
-  await page.screenshot({ path: SHOTS + '/' + file, fullPage: full, mask: pii(page), maskColor: '#ff5fa2' });
+  await H.shot(page, SHOTS + '/' + file, full);
 }
 
 if (flag('--headed')) {
@@ -200,7 +136,7 @@ if (flag('--qa')) {
         if (themed) {
           check(`${width}px checkout ${label}: tema só CSS (sem loader)`, c.attr === 'checkout' && c.loaders === 0, JSON.stringify({ attr: c.attr, loaders: c.loaders }));
           if (c.fields) check(`${width}px checkout ${label}: campos ≥ 44 px`, c.minField >= 44, `${c.fields} campos, menor ${c.minField}`);
-          check(`${width}px checkout ${label}: botão de seguir ≥ 44 px`, c.btn.length > 0 && Math.min(...c.btn) >= 44, JSON.stringify(c.btn));
+          check(`${width}px checkout ${label}: botão de seguir ≥ 44 px e numa linha só (≤ 60 px)`, c.btn.length > 0 && Math.min(...c.btn) >= 44 && Math.max(...c.btn) <= 60, JSON.stringify(c.btn));
         }
       }
     }
