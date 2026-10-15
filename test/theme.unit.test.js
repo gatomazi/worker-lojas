@@ -117,7 +117,7 @@ test('themeQuery: changes with the published tokens and with the surfaces; parse
 });
 
 test('checkoutPageKind: only the two checkout SCREENS of this store (with or without the cart uuid); never the POST endpoints, other stores or look-alikes', () => {
-  const U = '1bea2f5a-90df-4f1e-bf1d-fb7dcfea246b';
+  const U = '0f0e0d0c-0b0a-4908-8706-050403020100';
   assert.equal(checkoutPageKind('/usesul/checkout/contact_and_shipping_details/' + U, '/usesul'), 'contact');
   assert.equal(checkoutPageKind('/usesul/checkout/payment_methods/' + U, '/usesul'), 'payment');
   assert.equal(checkoutPageKind('/usesul/checkout/contact_and_shipping_details', '/usesul'), 'contact');

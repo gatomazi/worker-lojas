@@ -7,7 +7,7 @@ import { workerModules } from './helpers.js';
 // Tema da compra no workerd REAL (HTMLRewriter de verdade). A INK e o storefront são stubs (outboundService).
 const HOST = 'https://www.usesul.com.br';
 const PDP = '/usesul/product/florianopolis-legado-sc';
-const UUID = '1bea2f5a-90df-4f1e-bf1d-fb7dcfea246b';
+const UUID = '0f0e0d0c-0b0a-4908-8706-050403020100';
 const CONTACT = '/usesul/checkout/contact_and_shipping_details/' + UUID;
 const PAYMENT = '/usesul/checkout/payment_methods/' + UUID;
 const PRODUCT_HTML = readFileSync(new URL('./fixtures/product-page-theme.html', import.meta.url), 'utf8');
