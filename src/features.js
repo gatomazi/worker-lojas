@@ -11,12 +11,15 @@
 // pdp-guide: ajuda guiada "Procurando sua cidade ou outra estampa?" na página de produto (painel com busca de cidade, estampas da cidade e coleções da região,
 // dados de /__origens/guia). Com ela ligada, o bloco "Continue explorando" (product-discovery) NÃO é montado: um recurso só por função. Desligada = nem o
 // módulo nem o gateway entram; o bloco anterior volta como estava (rollback simples).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit'];
+// theme-pdp, theme-cart, theme-checkout: tema da compra na INK (src/theme.js), um por superfície (PDP; carrinho e confirmação de adição; as duas telas do
+// checkout). São o TETO do deploy: cada superfície só aparece se também estiver ligada no painel (Aparência › Tema da INK). Desligadas = nem o CSS
+// nem o atributo do <html> nem a leitura da configuração.
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'theme-pdp', 'theme-cart', 'theme-checkout'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {
   if (raw === undefined || raw === null) return { status: 'default', features: [...DEFAULT_FEATURES] };
-  if (typeof raw !== 'string' || raw.length > 200) return { status: 'invalid', features: [] };
+  if (typeof raw !== 'string' || raw.length > 260) return { status: 'invalid', features: [] };
   if (raw.trim() === '') return { status: 'empty', features: [] };
   const names = raw.split(',').map((name) => name.trim());
   if (!names.every((name) => FEATURE_NAMES.includes(name))) return { status: 'invalid', features: [] };

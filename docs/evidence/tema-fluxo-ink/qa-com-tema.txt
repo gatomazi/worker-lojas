@@ -1,0 +1,68 @@
+PASS 360px PDP sem rolagem horizontal  — 360/360
+PASS 360px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"pdp cart","links":1,"loaders":1,"font":"\"Hanken Grotesk\""}
+PASS 360px CTA ≥ 44 px  — 52
+PASS 360px seletores ≥ 44 px  — 9 chips, menor 47
+PASS 360px sem erro de JS na página
+PASS 360px checkout contato/entrega sem rolagem horizontal  — 360/360
+PASS 360px checkout contato/entrega: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 360px checkout contato/entrega: campos ≥ 44 px  — 12 campos, menor 48
+PASS 360px checkout contato/entrega: botão de seguir ≥ 44 px  — [52]
+PASS 360px checkout pagamento sem rolagem horizontal  — 360/360
+PASS 360px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 360px checkout pagamento: botão de seguir ≥ 44 px  — [96]
+PASS 375px PDP sem rolagem horizontal  — 375/375
+PASS 375px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"pdp cart","links":1,"loaders":1,"font":"\"Hanken Grotesk\""}
+PASS 375px CTA ≥ 44 px  — 52
+PASS 375px seletores ≥ 44 px  — 9 chips, menor 47
+PASS 375px sem erro de JS na página
+PASS 375px checkout contato/entrega sem rolagem horizontal  — 375/375
+PASS 375px checkout contato/entrega: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 375px checkout contato/entrega: campos ≥ 44 px  — 12 campos, menor 48
+PASS 375px checkout contato/entrega: botão de seguir ≥ 44 px  — [52]
+PASS 375px checkout pagamento sem rolagem horizontal  — 375/375
+PASS 375px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 375px checkout pagamento: botão de seguir ≥ 44 px  — [52]
+PASS 390px PDP sem rolagem horizontal  — 390/390
+PASS 390px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"pdp cart","links":1,"loaders":1,"font":"\"Hanken Grotesk\""}
+PASS 390px CTA ≥ 44 px  — 52
+PASS 390px seletores ≥ 44 px  — 9 chips, menor 47
+PASS Turbo: outra PDP mantém 1 tema, 1 link, 1 guia  — {"attr":"pdp cart","links":1,"loaders":1,"guides":1,"turbo":true}
+PASS Voltar: tema persiste sem duplicar  — {"attr":"pdp cart","links":1,"guides":1}
+PASS celular: toque na barra antes de o quadro de variantes carregar rola até ele (e ele carrega)
+PASS celular: barra fixa visível com o CTA principal fora da tela  — {"visible":true,"inert":false}
+PASS celular: barra fixa some com o CTA principal à vista (um CTA só)
+PASS carrinho: abre pelo ícone e Esc fecha (controle nativo)  — {"open":true,"closed":true}
+PASS 390px sem erro de JS na página
+PASS 390px checkout contato/entrega sem rolagem horizontal  — 390/390
+PASS 390px checkout contato/entrega: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 390px checkout contato/entrega: campos ≥ 44 px  — 12 campos, menor 48
+PASS 390px checkout contato/entrega: botão de seguir ≥ 44 px  — [52]
+PASS 390px checkout pagamento sem rolagem horizontal  — 390/390
+PASS 390px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 390px checkout pagamento: botão de seguir ≥ 44 px  — [52]
+PASS 768px PDP sem rolagem horizontal  — 768/768
+PASS 768px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"pdp cart","links":1,"loaders":1,"font":"\"Hanken Grotesk\""}
+PASS 768px CTA ≥ 44 px  — 52
+PASS 768px seletores ≥ 44 px  — 9 chips, menor 47
+PASS 768px sem erro de JS na página
+PASS 768px checkout contato/entrega sem rolagem horizontal  — 768/768
+PASS 768px checkout contato/entrega: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 768px checkout contato/entrega: campos ≥ 44 px  — 12 campos, menor 48
+PASS 768px checkout contato/entrega: botão de seguir ≥ 44 px  — [52]
+PASS 768px checkout pagamento sem rolagem horizontal  — 768/768
+PASS 768px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 768px checkout pagamento: botão de seguir ≥ 44 px  — [52]
+PASS 1440px PDP sem rolagem horizontal  — 1440/1440
+PASS 1440px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"pdp cart","links":1,"loaders":1,"font":"\"Hanken Grotesk\""}
+PASS 1440px CTA ≥ 44 px  — 52
+PASS 1440px seletores ≥ 44 px  — 9 chips, menor 47
+PASS 1440px sem erro de JS na página
+PASS 1440px checkout contato/entrega sem rolagem horizontal  — 1440/1440
+PASS 1440px checkout contato/entrega: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 1440px checkout contato/entrega: campos ≥ 44 px  — 12 campos, menor 48
+PASS 1440px checkout contato/entrega: botão de seguir ≥ 44 px  — [52]
+PASS 1440px checkout pagamento sem rolagem horizontal  — 1440/1440
+PASS 1440px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
+PASS 1440px checkout pagamento: botão de seguir ≥ 44 px  — [52]
+INFO trava do checkout/carrinho: nenhuma requisição não-GET foi tentada
+66/66 PASS

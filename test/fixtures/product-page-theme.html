@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- PDP real da INK REDUZIDA (www.usesul.com.br, 15/10/2026): os nós que o tema da compra toca, com as mesmas classes, ids e atributos. -->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Florianópolis | Legado SC</title></head>
+<body class="font-poppins">
+<nav class="navbar"><button type="button" aria-label="Carrinho" id="shopping-cart-menu-desk" class="cart-shopping" data-action="click->ink-store--drawer#openDrawer">Carrinho</button></nav>
+<div class="details-product">
+  <section class="section-details gap-6">
+    <div class="container-form" data-controller="ink-store--product-page ink-store--count">
+      <form id="form-product-4407962" class="form-product-options gap-5" data-turbo="true" action="/usesul/cart?product_id=4407962" method="post">
+        <input type="hidden" name="product_variant_id" value="-1" id="product-variant-id-4407962">
+        <div class="flex flex-col items-start gap-1"><p class="text-4xl font-medium">R$ 109,90</p><p class="font-medium text-base">ou <span class="text-green-500 lg:text-green-600">5x de R$ 21,98 sem juros</span></p></div>
+        <turbo-frame id="product_variants_options_frame">
+          <div data-controller="ink-store--product--product-options">
+            <div class="form-product-options__select-type">
+              <div class="flex flex-col items-start gap-1"><p><strong>Modelo</strong></p>
+                <div class="form-product-options__select-type-model">
+                  <span class="form-product-options__select-type-model-item"><input class="sr-only" id="4407962-model-Feminino" type="radio" name="style" value="Feminino"><label for="4407962-model-Feminino">Baby Look | Feminina</label></span>
+                  <span class="form-product-options__select-type-model-item"><input class="sr-only" id="4407962-model-Masculino" type="radio" name="style" value="Masculino"><label for="4407962-model-Masculino">Clássica | Unissex</label></span>
+                </div></div>
+              <div class="flex flex-col items-start gap-1"><p><strong>Tamanho</strong></p>
+                <div class="flex flex-wrap form-product-options__select-type-size" id="size-field-4407962">
+                  <span class="form-product-options__select-type-size-item-disabled"><input class="sr-only" id="4407962-size-PP" type="radio" name="size" value="PP" disabled><label for="4407962-size-PP">PP</label></span>
+                  <span class="form-product-options__select-type-size-item"><input class="sr-only" id="4407962-size-M" type="radio" name="size" value="M"><label for="4407962-size-M">M</label></span>
+                </div></div>
+            </div>
+            <div class="form-product-options__add-to-cart flex flex-col w-full">
+              <button id="add-to-cart-desk" name="button" class="form-product-options__add-to-cart-btn add-to-cart-js button-color flex" data-action="click->product-v2--customization-form#addToCart"><span name="add-to-cart-text">Adicionar ao Carrinho</span></button>
+            </div>
+            <div class="form-product-options__add-to-cart-mobile z-[31]">
+              <button id="add-to-cart-mob" name="button" class="form-product-options__add-to-cart-btn-mobile add-to-cart-js button-color pointer-events-none opacity-60" data-action="click->product-v2--customization-form#addToCart"><span name="add-to-cart-text">Adicionar ao Carrinho</span></button>
+            </div>
+          </div>
+        </turbo-frame>
+      </form>
+    </div>
+  </section>
+</div>
+<div class="cart-drawer z-50 open"><turbo-frame id="cart"><div class="flex flex-col h-full"><header class="cart-drawer__header"><div class="top-header flex p-3"><span>Carrinho <span class="text-gray-500 font-normal text-xs">(0 produtos)</span></span><div class="flex items-center justify-end"><svg id="cart-drawer-close" data-action="click->ink-store--drawer#closeDrawer"></svg></div></div></header></div></turbo-frame></div>
+</body></html>

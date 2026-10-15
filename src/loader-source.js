@@ -17,6 +17,7 @@ import { RECOMMENDATIONS } from './loader/recommendations.js';
 import { PDP_EVENTS, PDP_SHARE, SIZE_GUIDE } from './loader/pdp-extras.js';
 import { PDP_GUIDE } from './loader/pdp-guide.js';
 import { SIZE_FIT_TABLES, SIZE_FIT_CALC, SIZE_FIT } from './loader/size-fit.js';
+import { THEME_UI } from './loader/theme-ui.js';
 import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
@@ -67,6 +68,8 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   if (features.includes('pdp-share')) parts.push(PDP_SHARE);
   if (features.includes('size-guide')) parts.push(SIZE_GUIDE);
   if (features.includes('size-fit')) parts.push(SIZE_FIT_TABLES, SIZE_FIT_CALC, SIZE_FIT);
+  // Tema da compra (theme-pdp / theme-cart): só o que o CSS não faz sozinho (barra fixa do celular, Esc no carrinho). O checkout nunca recebe o loader.
+  if (features.includes('theme-pdp') || features.includes('theme-cart')) parts.push(THEME_UI);
   parts.push(RUNTIME_TAIL);
   return parts.join('')
     .replace('__DISCOVERY_QUERY__', () => discoveryQuery(features))
