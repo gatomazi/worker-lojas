@@ -4,7 +4,7 @@
 // repassar Cookie/Authorization, timeout, limite de tamanho, validação ESTRITA de esquema e só os campos de exibição. Cache curto (30 s: uma mensagem
 // agendada entra ou sai em cerca de um minuto). Falha => 503 e o cliente simplesmente NÃO troca a faixa (a da INK segue intacta).
 // O texto já vem preenchido pelo storefront ({producao}, {faltam}); aqui nada é calculado.
-// Contrato v1: { v:1, region, messages:[{ id, text, href?, endsAt? }] }. `href` é um caminho do storefront DESTA região; sai como URL absoluta do storefront.
+// Contrato v1: { v:1, region, style?:'marquee'|'rotate', messages:[{ id, text, href?, endsAt? }] } (style ausente = 'marquee', o letreiro). `href` é um caminho do storefront DESTA região; sai como URL absoluta do storefront.
 import { ACTIVE_STORE } from './stores.js';
 
 export const TOP_BAR_PATH = '/__origens/top-bar';
@@ -51,6 +51,7 @@ function normalizeMessage(message, store, now) {
 // Aceita só o v1 DESTA região; qualquer coisa fora dele => null (a faixa da INK fica como está). Ids repetidos invalidam o payload.
 export function normalizeTopBar(data, store = ACTIVE_STORE, now = Date.now()) {
   if (!data || typeof data !== 'object' || data.v !== 1 || data.region !== store.region || !Array.isArray(data.messages) || data.messages.length > MAX_MESSAGES) return null;
+  if (data.style !== undefined && data.style !== 'marquee' && data.style !== 'rotate') return null;
   const messages = [];
   const ids = new Set();
   for (const raw of data.messages) {
@@ -60,7 +61,7 @@ export function normalizeTopBar(data, store = ACTIVE_STORE, now = Date.now()) {
     ids.add(message.id);
     messages.push(message);
   }
-  return { v: 1, messages };
+  return { v: 1, style: data.style === 'rotate' ? 'rotate' : 'marquee', messages };
 }
 
 export function createTopBarGateway({ upstream = (request, init) => fetch(request, init), store = ACTIVE_STORE } = {}) {

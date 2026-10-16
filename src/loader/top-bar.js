@@ -3,7 +3,9 @@
 //             máximo (sessionStorage), validada de novo aqui. Erro, timeout, JSON inválido ou nenhuma mensagem no ar => NADA muda: a faixa da INK (as frases
 //             nativas e a animação dela) fica exatamente como veio.
 //   Faixa:    com mensagem no ar, as frases nativas são escondidas (só CSS, o nó da INK continua lá) e as nossas entram no mesmo lugar, com a mesma cor e
-//             altura mínima. Mais de uma = revezam a cada 5 s, na ordem do CMS, paradas sob o ponteiro ou com o foco; com prefers-reduced-motion fica a 1ª.
+//             altura mínima. Estilo "marquee" (padrão, como o letreiro da Aphago): todas numa linha que corre sem parar, separadas por um ponto, com a mesma
+//             velocidade com uma ou dez mensagens; "rotate": uma de cada vez, a cada 5 s. As duas param sob o ponteiro ou com o foco; com
+//             prefers-reduced-motion nada se move (fica a 1ª).
 //             Link opcional = a página do storefront da região (o gateway já devolve a URL absoluta, aqui só se confere a origem).
 //   Turbo:    a cada navegação o Turbo troca o <body> (e o cabeçalho com ele). Com dados em cache, a faixa nova é trocada ANTES de ser pintada
 //             (turbo:before-render, no corpo novo): sem "piscar" a frase da INK entre uma página e outra.
@@ -15,6 +17,7 @@ export const TOP_BAR = String.raw`
   const BAR_FETCH_MS = 4000;
   const BAR_MAX = 10;
   const BAR_ROTATE_MS = 5000;
+  const BAR_SPEED = 45; // px/s do letreiro, o mesmo do storefront
   const BAR_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
   const BAR_CONTROL = /[\u0000-\u001f\u007f<>]/;
   const BAR_CSS = [
@@ -24,8 +27,15 @@ export const TOP_BAR = String.raw`
     '.o-top-bar a{color:inherit;text-decoration:underline;text-underline-offset:2px}',
     '.o-top-bar a:focus-visible{outline:2px solid currentColor;outline-offset:2px}',
     '.o-top-bar-in{animation:o-top-bar-in 320ms ease-out}',
+    '.o-top-bar.o-top-bar-marquee{display:block;overflow:hidden;padding:4px 0;text-align:left}',
+    '.o-top-bar-track{display:flex;width:max-content;animation:o-top-bar-scroll var(--o-top-bar-seconds,30s) linear infinite}',
+    '.o-top-bar-marquee:hover .o-top-bar-track,.o-top-bar-marquee:focus-within .o-top-bar-track{animation-play-state:paused}',
+    '.o-top-bar-group{display:flex;flex-shrink:0}',
+    '.o-top-bar-item{position:relative;white-space:nowrap;padding:0 26px}',
+    '.o-top-bar-item::before{content:"";position:absolute;left:0;top:50%;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.7;transform:translate(-50%,-50%)}',
+    '@keyframes o-top-bar-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}',
     '@keyframes o-top-bar-in{from{opacity:0}to{opacity:1}}',
-    '@media (prefers-reduced-motion:reduce){.o-top-bar-in{animation:none}}'
+    '@media (prefers-reduced-motion:reduce){.o-top-bar-in,.o-top-bar-track{animation:none}}'
   ].join('');
 
   function barText(value) {
@@ -43,6 +53,7 @@ export const TOP_BAR = String.raw`
   // O mesmo contrato que o gateway já aplicou; repetido aqui porque o sessionStorage é do visitante. Qualquer desvio => null (a faixa da INK fica).
   function barValidate(data) {
     if (!data || typeof data !== 'object' || data.v !== 1 || !Array.isArray(data.messages) || data.messages.length > BAR_MAX) return null;
+    if (data.style !== undefined && data.style !== 'marquee' && data.style !== 'rotate') return null;
     const messages = []; const ids = new Set(); const now = Date.now();
     for (const raw of data.messages) {
       if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !BAR_ID.test(raw.id) || ids.has(raw.id)) return null;
@@ -54,7 +65,7 @@ export const TOP_BAR = String.raw`
       ids.add(raw.id);
       messages.push({ id: raw.id, text: text, href: href });
     }
-    return { messages: messages };
+    return { style: data.style === 'rotate' ? 'rotate' : 'marquee', messages: messages };
   }
   function barReadCache() {
     try {
@@ -93,8 +104,7 @@ export const TOP_BAR = String.raw`
   const barReduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const barHost = (root) => root.querySelector('header .header-benefits');
 
-  // Escreve a mensagem da vez dentro da faixa "host" (do documento atual ou do corpo novo do Turbo). Idempotente: mesma mensagem = nada muda.
-  function barPaint(host, message) {
+  function barBox(host) {
     const doc = host.ownerDocument;
     let box = host.querySelector(':scope > .o-top-bar');
     if (!box) {
@@ -105,13 +115,68 @@ export const TOP_BAR = String.raw`
       host.appendChild(box);
       host.setAttribute('data-origens-top-bar', '');
     }
-    if (box.getAttribute('data-message') === message.id) return;
-    box.setAttribute('data-message', message.id);
-    const line = doc.createElement(message.href ? 'a' : 'span');
-    line.className = 'o-top-bar-in';
+    return box;
+  }
+  function barLine(doc, message, tag) {
+    // Nunca <span>: o CSS da INK (.header .header-benefits span) põe todo span da faixa em position:absolute com a animação de troca dela.
+    const line = doc.createElement(message.href ? 'a' : 'div');
+    line.className = tag;
     line.textContent = message.text;
     if (message.href) line.setAttribute('href', message.href);
-    box.replaceChildren(line);
+    return line;
+  }
+  // Uma mensagem (estilo rotate, ou movimento reduzido) dentro da faixa "host" (do documento atual ou do corpo novo do Turbo). Idempotente.
+  function barPaint(host, message) {
+    const box = barBox(host);
+    box.classList.remove('o-top-bar-marquee');
+    if (box.getAttribute('data-message') === message.id) return;
+    box.setAttribute('data-message', message.id);
+    box.replaceChildren(barLine(host.ownerDocument, message, 'o-top-bar-in'));
+  }
+  // O letreiro: dois grupos iguais lado a lado e a trilha andando metade da largura (laço sem emenda). Cada grupo repete as mensagens até cobrir a faixa e
+  // a duração acompanha a largura. Só a 1ª passagem é lida pelo leitor de tela e alcançada pelo Tab; as cópias ficam escondidas dos dois.
+  // Antes de medir (corpo novo do Turbo, ainda fora do documento) a largura de uma passagem é estimada pelo tamanho dos textos.
+  function barMarquee(host, messages) {
+    const doc = host.ownerDocument;
+    const box = barBox(host);
+    const key = 'marquee:' + messages.map((m) => m.id + '=' + m.text).join('|');
+    const items = box.querySelectorAll('.o-top-bar-group:first-child > .o-top-bar-item');
+    const measured = box.getAttribute('data-message') === key && items.length >= messages.length
+      ? [...items].slice(0, messages.length).reduce((n, el) => n + el.offsetWidth, 0) : 0;
+    const unit = measured || messages.reduce((n, m) => n + m.text.length * 7 + 52, 0);
+    const width = host.clientWidth || window.innerWidth || 1280;
+    const repeats = Math.max(1, Math.ceil(width / unit));
+    const seconds = Math.max(8, Math.round((unit * repeats) / BAR_SPEED));
+    if (box.getAttribute('data-message') === key && box.getAttribute('data-repeats') === String(repeats)) { box.style.setProperty('--o-top-bar-seconds', seconds + 's'); return; }
+    box.classList.add('o-top-bar-marquee');
+    box.setAttribute('data-message', key);
+    box.setAttribute('data-repeats', String(repeats));
+    box.style.setProperty('--o-top-bar-seconds', seconds + 's');
+    const track = doc.createElement('div');
+    track.className = 'o-top-bar-track';
+    for (let copy = 0; copy < 2; copy++) {
+      const group = doc.createElement('div');
+      group.className = 'o-top-bar-group';
+      if (copy > 0) group.setAttribute('aria-hidden', 'true');
+      for (let r = 0; r < repeats; r++) {
+        for (const message of messages) {
+          const item = doc.createElement('div');
+          item.className = 'o-top-bar-item';
+          const line = barLine(doc, message, '');
+          if (copy > 0 || r > 0) { item.setAttribute('aria-hidden', 'true'); if (message.href) line.setAttribute('tabindex', '-1'); }
+          item.appendChild(line);
+          group.appendChild(item);
+        }
+      }
+      track.appendChild(group);
+    }
+    box.replaceChildren(track);
+  }
+  // A faixa conforme o estilo publicado; movimento reduzido = a 1ª mensagem, parada.
+  function barRender(host) {
+    const data = barState.data;
+    if (data.style === 'marquee' && !barReduced()) barMarquee(host, data.messages);
+    else barPaint(host, barCurrent());
   }
   function barClear(root) {
     const host = barHost(root);
@@ -134,7 +199,7 @@ export const TOP_BAR = String.raw`
       const target = barState.visit || window.location.pathname;
       if (!body || !barState.data || barState.data.messages.length === 0 || (!pathAllowed(target) && !shellPath(target))) return;
       const host = barHost(body);
-      if (host) barPaint(host, barCurrent());
+      if (host) barRender(host);
     } catch (_) { /* nunca quebra a navegação da INK */ }
   });
 
@@ -162,7 +227,9 @@ export const TOP_BAR = String.raw`
     paint() {
       const host = barHost(document);
       if (!host) return;
-      barPaint(host, barCurrent());
+      barRender(host);
+      // Depois do layout, o letreiro mede a largura real de uma passagem e acerta repetições e duração.
+      if (barState.data.style === 'marquee' && !barReduced()) requestAnimationFrame(() => { const now = barHost(document); if (now) barRender(now); });
       // Ouvintes de pausa só no cabeçalho atual (o Turbo troca o cabeçalho a cada página: um novo ganha os seus).
       if (!this.ac || this.ac.host !== host) {
         if (this.ac) this.ac.abort();
@@ -175,7 +242,7 @@ export const TOP_BAR = String.raw`
         host.addEventListener('focusin', () => { this.paused = true; }, { signal: signal });
         host.addEventListener('focusout', () => { this.paused = false; }, { signal: signal });
       }
-      if (barState.data.messages.length > 1 && !this.timer && !barReduced()) {
+      if (barState.data.style === 'rotate' && barState.data.messages.length > 1 && !this.timer && !barReduced()) {
         this.timer = setInterval(() => {
           if (this.paused || document.hidden) return;
           barState.turn += 1;

@@ -44,6 +44,7 @@ test('gateway: v1 messages, already filled in; the link becomes the storefront U
   assert.equal(res.headers.get('cache-control'), 'public, max-age=30');
   assert.deepEqual(await res.json(), {
     v: 1,
+    style: 'marquee',
     messages: [
       { id: 'prazo-natal', text: NATAL.text, endsAt: NATAL.endsAt },
       { id: 'black-friday', text: BF.text, href: 'https://useorigens.com.br/sul/h/black-friday', endsAt: BF.endsAt },
@@ -63,7 +64,9 @@ test('gateway: HEAD without a body; POST refused; the visitor cannot choose a re
   await get(ON, {}, '/__origens/top-bar?region=norte&url=https://evil.example/x');
   assert.ok(calls.every((c) => c.host === 'useorigens.com.br' && c.path === '/api/top-bar/sul'));
   storefront = () => Response.json({ v: 1, region: 'sul', messages: [] });
-  assert.deepEqual(await (await get(ON)).json(), { v: 1, messages: [] });
+  assert.deepEqual(await (await get(ON)).json(), { v: 1, style: 'marquee', messages: [] });
+  storefront = () => Response.json({ ...GOOD, style: 'rotate' });
+  assert.equal((await (await get(ON)).json()).style, 'rotate');
   reset();
 });
 
@@ -72,6 +75,7 @@ test('gateway fail-open: invalid JSON, wrong schema, another region, markup, a l
     () => new Response('{not json', { headers: { 'content-type': 'application/json' } }),
     () => Response.json({ ...GOOD, v: 2 }),
     () => Response.json({ ...GOOD, region: 'norte' }),
+    () => Response.json({ ...GOOD, style: 'blink' }),
     () => Response.json({ ...GOOD, messages: [{ ...PARCELE, text: '<img src=x onerror=alert(1)>' }] }),
     () => Response.json({ ...GOOD, messages: [{ ...PARCELE, text: 'x'.repeat(121) }] }),
     () => Response.json({ ...GOOD, messages: [{ ...BF, href: '/norte/h/black-friday' }] }),
@@ -106,7 +110,7 @@ test('gateway only exists with ENABLE_WIDGET=true AND top-bar: otherwise the INK
 test('a message that already ended (cached upstream) leaves the list without invalidating the others; each region reads only its own', () => {
   const now = Date.parse('2026-12-02T12:00:00-03:00');
   const out = normalizeTopBar({ v: 1, region: 'sul', messages: [{ ...BF, endsAt: '2026-12-01T00:00:00-03:00' }, PARCELE] }, STORES.sul, now);
-  assert.deepEqual(out, { v: 1, messages: [{ id: 'parcele', text: PARCELE.text }] });
+  assert.deepEqual(out, { v: 1, style: 'marquee', messages: [{ id: 'parcele', text: PARCELE.text }] });
   for (const id of Object.keys(STORES)) assert.equal(STORES[id].topBarApi, '/api/top-bar/' + STORES[id].region);
   // Loja única: a Sul vista por um visitante do Norte lê a faixa do Norte e só aceita links do Norte.
   const norte = storeView(STORES.sul, 'norte');

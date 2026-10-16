@@ -15,7 +15,8 @@ const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const NATAL = { id: 'prazo-natal', text: 'Peça até 06/12 e receba a tempo do Natal · produção em 7 dias úteis', endsAt: '2099-12-07T00:00:00-03:00' };
 const BF = { id: 'black-friday', text: 'Black Friday: faltam 2 dias', href: 'https://useorigens.com.br/sul/h/black-friday' };
-const PAYLOAD = { v: 1, messages: [NATAL, BF] };
+const PAYLOAD = { v: 1, style: 'rotate', messages: [NATAL, BF] };
+const MARQUEE = { v: 1, style: 'marquee', messages: [NATAL, BF] };
 const NAV = { v: 2, states: [], top: [], more: [] };
 const SHELL_PAGE = '<!doctype html><html><head><title>INK</title></head><body>' + HEADER + '<main><h1>Novidades</h1></main></body></html>';
 
@@ -41,6 +42,7 @@ function setup({ path = '/usesul/collections/novidades', html = SHELL_PAGE, feat
   t.all = (s) => [...w.document.querySelectorAll(s)];
   t.bar = () => t.q('header .header-benefits');
   t.line = () => t.q('header .header-benefits > .o-top-bar > *');
+  t.items = (copy) => t.all('header .o-top-bar-group:nth-child(' + (copy + 1) + ') > .o-top-bar-item');
   t.barFetches = () => t.fetches.filter((f) => f.url.includes('/__origens/top-bar'));
   return t;
 }
@@ -53,13 +55,13 @@ test('feature: top-bar is a known opt-in flag; the bundle only carries the modul
   assert.doesNotMatch(buildLoaderSource([PRODUCT_PATH], ['promo-fab']), /id: 'top-bar'|__origens\/top-bar/);
 });
 
-test('given live messages, then the native phrases are hidden (still in the DOM) and the first message takes their place, text only, one fetch without cookies', async () => {
+test('rotate: given live messages, then the native phrases are hidden (still in the DOM) and the first message takes their place, text only, one fetch without cookies', async () => {
   const t = setup(); await tick(400);
   const bar = t.bar();
   assert.ok(bar.hasAttribute('data-origens-top-bar'));
   assert.equal(bar.querySelectorAll(':scope > span').length, 3, 'the INK phrases stay in the DOM');
   assert.ok(t.q('#o-top-bar-css').textContent.includes('.header-benefits[data-origens-top-bar]>span{display:none!important}'));
-  assert.equal(t.line().tagName, 'SPAN');
+  assert.equal(t.line().tagName, 'DIV', 'never a span: the INK styles every span of the strip');
   assert.equal(t.line().textContent, NATAL.text);
   assert.equal(t.barFetches().length, 1);
   assert.equal(t.barFetches()[0].credentials, 'omit');
@@ -69,7 +71,7 @@ test('given live messages, then the native phrases are hidden (still in the DOM)
   assert.equal(t.all('#o-top-bar-css').length, 1);
 });
 
-test('more than one message take turns every 5 s, a link opens the storefront page; reduced motion keeps the first one', async () => {
+test('rotate: more than one message take turns every 5 s, a link opens the storefront page; reduced motion keeps the first one', async () => {
   const t = setup();
   const still = setup({ reduced: true });
   await tick(5400);
@@ -79,10 +81,43 @@ test('more than one message take turns every 5 s, a link opens the storefront pa
   assert.equal(still.line().textContent, NATAL.text);
 });
 
-test('hover pauses the turns', async () => {
+test('rotate: hover pauses the turns', async () => {
   const t = setup(); await tick(300);
   t.bar().dispatchEvent(new t.w.MouseEvent('mouseenter'));
   await tick(5400);
+  assert.equal(t.line().textContent, NATAL.text);
+});
+
+test('marquee (the default, also without style): every message in one scrolling line, two identical groups, only the first pass readable and reachable', async () => {
+  for (const payload of [MARQUEE, { v: 1, messages: [NATAL, BF] }]) {
+    const t = setup({ payload }); await tick(400);
+    const box = t.q('header .header-benefits > .o-top-bar');
+    assert.ok(box.classList.contains('o-top-bar-marquee'));
+    assert.equal(t.all('header .o-top-bar-group').length, 2);
+    assert.equal(t.all('header .o-top-bar-group')[1].getAttribute('aria-hidden'), 'true');
+    const first = t.items(0);
+    assert.ok(first.length >= 2 && first.length % 2 === 0, 'each group repeats whole passes');
+    assert.deepEqual(first.slice(0, 2).map((i) => i.textContent), [NATAL.text, BF.text]);
+    assert.equal(first[0].hasAttribute('aria-hidden'), false);
+    assert.equal(first[1].querySelector('a').getAttribute('href'), BF.href);
+    assert.equal(first[1].querySelector('a').hasAttribute('tabindex'), false);
+    for (const item of [...first.slice(2), ...t.items(1)]) {
+      assert.equal(item.getAttribute('aria-hidden'), 'true');
+      const a = item.querySelector('a'); if (a) assert.equal(a.getAttribute('tabindex'), '-1');
+    }
+    assert.match(box.style.getPropertyValue('--o-top-bar-seconds'), /^\d+s$/);
+    assert.ok(t.q('#o-top-bar-css').textContent.includes('animation-play-state:paused'));
+    assert.equal(t.all('header .header-benefits .o-top-bar span').length, 0, 'never a span: the INK styles every span of the strip');
+    // Repainting (runtime observer) never rebuilds nor duplicates it.
+    const track = t.q('.o-top-bar-track');
+    t.doc.body.appendChild(t.doc.createElement('div')); await tick(200);
+    assert.equal(t.q('.o-top-bar-track'), track);
+  }
+});
+
+test('marquee with reduced motion: nothing moves, the first message stays', async () => {
+  const t = setup({ payload: MARQUEE, reduced: true }); await tick(400);
+  assert.equal(t.all('.o-top-bar-track').length, 0);
   assert.equal(t.line().textContent, NATAL.text);
 });
 
@@ -92,7 +127,8 @@ test('fail-open: an error, an empty list or a payload outside the contract leave
     { payload: { v: 1, messages: [] } },
     { payload: { v: 1, messages: [{ ...BF, href: 'https://evil.example/sul' }] } },
     { payload: { v: 1, messages: [{ ...BF, href: 'https://useorigens.com.br/norte/h/natal' }] } },
-    { payload: { v: 1, messages: [{ id: 'x', text: '<b>oi</b>' }] } }
+    { payload: { v: 1, messages: [{ id: 'x', text: '<b>oi</b>' }] } },
+    { payload: { v: 1, style: 'blink', messages: [NATAL] } }
   ];
   for (const c of cases) {
     const t = setup(c); await tick(400);
@@ -108,7 +144,7 @@ test('Turbo: the next page\'s header gets the message BEFORE it is painted (no f
   t.doc.dispatchEvent(new t.w.CustomEvent('turbo:visit', { detail: { url: HOST + '/usesul/about' } }));
   t.doc.dispatchEvent(new t.w.Event('turbo:before-cache'));
   t.doc.dispatchEvent(new t.w.CustomEvent('turbo:before-render', { detail: { newBody: next } }));
-  assert.equal(next.querySelector('.header-benefits > .o-top-bar > span').textContent, NATAL.text);
+  assert.equal(next.querySelector('.header-benefits > .o-top-bar > div').textContent, NATAL.text);
   const checkout = new JSDOM('<body>' + HEADER + '</body>').window.document.body;
   t.doc.dispatchEvent(new t.w.CustomEvent('turbo:visit', { detail: { url: HOST + '/usesul/checkout/abc' } }));
   t.doc.dispatchEvent(new t.w.CustomEvent('turbo:before-render', { detail: { newBody: checkout } }));
