@@ -47,7 +47,7 @@ test('product page: <html data-origens-theme="pdp cart">, ONE theme link in <hea
   const res = await get(ALL, PDP);
   const html = await res.text();
   assert.equal(res.status, 200);
-  assert.match(html, /<html lang="pt-BR" data-origens-theme="pdp cart">/);
+  assert.match(html, /<body class="font-poppins" data-origens-theme="pdp cart">/);
   const tag = links(html);
   assert.equal(tag.length, 1);
   assert.match(tag[0], /theme\.css\?s=pdp,cart&v=1&c=[0-9a-z]+"/);
@@ -97,7 +97,7 @@ test('checkout screens: ONLY the attribute and the CSS link (no loader, no scrip
   for (const path of [CONTACT, PAYMENT]) {
     const res = await get(ALL, path);
     const html = await res.text();
-    assert.match(html, /<html lang="pt-BR" data-origens-theme="checkout">/, path);
+    assert.match(html, /<body data-origens-theme="checkout">/, path);
     assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=checkout&/);
     assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on checkout');
     assert.match(html, /<a href="\/usesul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, inside the same link');
@@ -129,7 +129,7 @@ test('theme.css: same hash = immutable for a year; other hash = current CSS with
   const css = await res.text();
   assert.equal(res.headers.get('content-type'), 'text/css; charset=utf-8');
   assert.equal(res.headers.get('cache-control'), 'public, max-age=31536000, immutable');
-  assert.ok(css.includes('html[data-origens-theme~="pdp"]') && css.includes('html[data-origens-theme~="cart"]') && !css.includes('~="checkout"'));
+  assert.ok(css.includes('body[data-origens-theme~="pdp"]') && css.includes('body[data-origens-theme~="cart"]') && !css.includes('~="checkout"'));
   res = await get(ALL, '/__origens/theme.css?s=pdp,cart&v=1&c=old');
   assert.equal(res.headers.get('cache-control'), 'public, max-age=60');
   assert.equal(await res.text(), css);

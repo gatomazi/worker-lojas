@@ -366,8 +366,8 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
   }
   function unmount() { unmountKind('post-add'); }
 
-  // Tema da compra ligado no carrinho (theme-cart: o Worker põe "cart" em <html data-origens-theme>)? Muda só a posição e o texto do bloco, nunca a INK.
-  const themedCart = () => document.documentElement.matches('[data-origens-theme~="cart"]');
+  // Tema da compra ligado no carrinho NESTA página (o Worker põe "cart" em <body data-origens-theme> conforme o painel publicado)? Muda só a posição e o texto do bloco, nunca a INK.
+  const themedCart = () => !!document.body && document.body.matches('[data-origens-theme~="cart"]');
   // Carrinho VAZIO com o tema: o bloco É a abertura do estado vazio ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase
   // da INK que repete a mesma intenção sai pelo CSS do tema. Sem o "sem perder seu carrinho" (não há carrinho a perder).
   function emptyCartCopy(root) {

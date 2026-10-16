@@ -107,7 +107,7 @@ export function checkoutPageKind(pathname, base) {
 }
 
 // ── CSS ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// Tudo sob html[data-origens-theme~="<superfície>"] (o Worker põe o atributo no <html> da resposta): nada vale fora das páginas tematizadas, e cada
+// Tudo sob body[data-origens-theme~="<superfície>"] (o Worker põe o atributo no <body> da resposta): nada vale fora das páginas tematizadas, e cada
 // superfície desliga sozinha. Nenhuma regra muda `display` de algo que a INK mostra/esconde (classes `hidden`, modais, campos do cartão) — os únicos
 // `display` são em contêineres que a INK nunca alterna (grades dos seletores, link da marca no checkout), listados no teste — e nada de preço, cupom, frete,
 // totais ou termos é escondido. Reordenação só com `order` dentro do MESMO pai flex: o DOM (formulários, labels, inputs, frames) não muda.
@@ -115,10 +115,12 @@ export function checkoutPageKind(pathname, base) {
 // (título › preço › modelo/cor/tamanho › medidas › quantidade e CTA › prazo e confiança › outros tipos), controles com linha fina e o escolhido forte.
 // Seletores da INK conferidos no DOM real em 15/10/2026.
 
-const P = 'html[data-origens-theme~="pdp"]';
-const C = 'html[data-origens-theme~="cart"]';
-const K = 'html[data-origens-theme~="checkout"]';
-const ANY = 'html[data-origens-theme]';
+// Escopo no <BODY> (rodada 3): o Turbo troca o <body> a cada visita, então o atributo é sempre o da página carregada — um <link> antigo que o Turbo
+// mantém no <head> não religa nada numa página em que o painel desligou a superfície.
+const P = 'body[data-origens-theme~="pdp"]';
+const C = 'body[data-origens-theme~="cart"]';
+const K = 'body[data-origens-theme~="checkout"]';
+const ANY = 'body[data-origens-theme]';
 
 function tokensCss(tokens) {
   const font = FONTS[tokens.font];
@@ -173,15 +175,16 @@ function pdpCss() {
   const T = F + ' .form-product-options__select-type';
   return [
     stripCss(P), headerCss(),
-    P + ' body{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
-    P + ' body :is(button,input,select,textarea){font-family:inherit}',
+    P + '{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
+    P + ' :is(button,input,select,textarea){font-family:inherit}',
     P + ' .details-product{letter-spacing:normal}',
     // ── Composição ── Computador: galeria larga e FIXA enquanto a coluna de compra rola (a imagem fica à vista durante a escolha); colunas alinhadas pelo
     // topo. (No celular a galeria mantém a largura da coluna: o carrossel da INK fixa a largura das imagens em pixels.) (As recomendações, com a galeria fixa, passam a vir depois da compra: recommendations.js só usa o vão da
     // galeria quando ela é `relative`.)
     '@media (min-width:1024px){' +
       P + ' .details-product{grid-template-columns:minmax(0,1.3fr) minmax(360px,1fr);column-gap:56px;align-items:start}' +
-      P + ' .details-product > .section-product-v2{position:sticky;top:120px;align-self:start}' +
+      // Fixa; `--o-gal-top` (theme-ui) sobe a galeria quando ela é mais alta que a janela, para as últimas miniaturas continuarem alcançáveis.
+      P + ' .details-product > .section-product-v2{position:sticky;top:var(--o-gal-top,120px);align-self:start}' +
       P + ' .details-product > .section-details{padding-top:4px}' +
     '}',
     // Migalha e título: discretos e legíveis (o título deixa de ser o elemento mais pesado da página).
@@ -203,29 +206,33 @@ function pdpCss() {
     P + ' .section-product-v2 ul.absolute.z-30{max-width:calc(100% - 16px)}',
     P + ' .section-product-v2 ul.absolute.z-30 > li + li{margin-left:6px!important}',
     P + ' .section-product-v2 button[id^="dot-image-"]{width:8px!important;height:8px!important}',
-    P + '.o-gal-count .section-product-v2 ul.absolute.z-30{visibility:hidden}',
-    P + ' .o-gal-count{position:absolute;z-index:31;right:12px;bottom:12px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.9);color:var(--o-ink);font:600 13px/1.4 var(--o-font);font-variant-numeric:tabular-nums;pointer-events:none}',
+    // Miniaturas (theme-ui): TODAS as fotos em grade abaixo da principal, quebrando em linhas (6 por linha no celular, 8 no computador; nunca faixa com
+    // rolagem). A escolhida com borda na cor da região; foco de teclado em tinta. Os pontos nativos só somem depois de a grade existir (classe o-thumbs).
+    P + '.o-thumbs .section-product-v2 ul.absolute.z-30{visibility:hidden}',
+    P + ' .o-thumbs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;width:100%;margin-top:8px}',
+    '@media (min-width:1024px){' + P + ' .o-thumbs{grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin-top:10px}}',
+    P + ' .o-thumb{position:relative;aspect-ratio:800/820;min-width:44px;min-height:44px;padding:0;border:1px solid transparent;border-radius:var(--o-radius);background:var(--o-photo);overflow:hidden;cursor:pointer}',
+    P + ' .o-thumb img{display:block;width:100%;height:100%;object-fit:cover}',
+    P + ' .o-thumb[aria-current="true"]{border:2px solid var(--o-selected)}',
+    '@media (hover:hover){' + P + ' .o-thumb:hover{border-color:var(--o-line)}' + P + ' .o-thumb[aria-current="true"]:hover{border-color:var(--o-selected)}}',
+    P + ' .o-thumb:focus-visible{outline:2px solid var(--o-ink);outline-offset:2px}',
+    P + ' .o-thumb-video{position:absolute;right:4px;bottom:4px;padding:1px 5px;border-radius:999px;background:rgba(0,0,0,.65);color:#fff;font:600 10px/1.4 var(--o-font)}',
+    // A seção da galeria vira coluna (foto, depois a grade); no computador era linha por causa do selo de zoom absoluto (que segue absoluto).
+    P + ' .section-product-v2{flex-direction:column;gap:0!important}',
     P + ' #zoom-image-tooltip{width:auto!important;height:40px!important;padding:0 16px;border-radius:999px!important;background:rgba(0,0,0,.6)!important;font-size:14px}',
+    P + '.o-thumbs #zoom-image-tooltip{bottom:calc(var(--o-thumbs-h,0px) + 16px)!important;top:auto!important}',
     P + ' .section-product-v2 > section{background:var(--o-ground)!important}',
-    // ── Coluna de compra: a ordem da decisão (só `order` no flex do próprio formulário). ──
+    // ── Coluna de compra na ordem da decisão: o theme-ui REPOSICIONA no DOM prazo, cupom e "Também disponível em" depois do quadro de compra (mesmo pai),
+    // para a ordem do teclado e do leitor de tela seguir a visual. Sem JS, fica a ordem nativa. ──
     F + '{gap:22px!important}',
-    F + ' > .flex.flex-col.items-start.gap-1{order:1}',
-    F + ' > #product_variants_options_frame{order:2}',
-    F + ' > #delivery_estimates_frame{order:3}',
-    F + ' > #product_promotions_frame{order:4}',
-    F + ' > [data-controller="ink-store--modal"]{order:5}',
     // Preço e condições.
     F + ' .text-4xl{font-family:var(--o-font);font-weight:700;font-size:clamp(28px,2.6vw,36px);line-height:1.05;letter-spacing:-.02em;color:var(--o-ink)}',
     F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-size:15px;font-weight:400}',
     F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:600}',
     F + ' del,' + F + ' .line-through{color:var(--o-ink-mute)}',
-    // Escolhas: uma coluna (modelo › cor › tamanho › medidas › quantidade), cada grupo com rótulo discreto e o mesmo espaço entre grupos.
+    // Escolhas: uma coluna (modelo › cor › tamanho › medidas › quantidade — a quantidade é posta depois das medidas no DOM pelo theme-ui).
     T + '{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:20px!important;margin-bottom:4px!important}',
-    T + ' > div:has(.form-product-options__select-type-model){order:1}',
-    T + ' > div:has(> .form-product-options__select-type-colors){order:2}',
-    T + ' > div:has(> .form-product-options__select-type-size){order:3}',
-    T + ' > div:has(#open-modal-size){order:4;margin-top:-10px}',
-    T + ' > div:has(> div.inline-flex){order:5}',
+    T + ' > div:has(#open-modal-size){margin-top:-10px}',
     T + ' p strong,' + T + ' p{' + groupLabel + '}',
     // Chips de modelo e tamanho: linha fina e fundo claro no normal; o escolhido na cor da região (cheio); indisponível tracejado e apagado.
     T + ' .form-product-options__select-type-model{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}',
@@ -365,8 +372,8 @@ function checkoutCss() {
   const PAY = L + ' > section.md\\:col-span-7';
   return [
     stripCss(K),
-    K + ' body{font-family:var(--o-font);color:var(--o-ink);background:var(--o-surface)}',
-    K + ' body :is(button,input,select,textarea){font-family:inherit}',
+    K + '{font-family:var(--o-font);color:var(--o-ink);background:var(--o-surface)}',
+    K + ' :is(button,input,select,textarea){font-family:inherit}',
     K + ' :is([data-controller="ink-store--checkout"],turbo-frame#cart_summary),' + K + ' :is([data-controller="ink-store--checkout"],turbo-frame#cart_summary) :where(*:not(i):not(svg):not(svg *)){font-family:var(--o-font)!important}',
     // Cabeçalho compacto com a assinatura: símbolo da INK (o logo da loja) + "USE ORIGENS" (posto pelo Worker no HTML, sem script). Sem menu.
     K + ' nav.bg-store-primary a:has([data-origens-brand]){display:flex;align-items:center;gap:10px;text-decoration:none}',

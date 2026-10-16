@@ -1,0 +1,143 @@
+PASS 360 muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 360 muitas (17): grade sem rolagem lateral, 6 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":50,"minH":51,"sw":360,"cw":360}
+PASS 360 muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 360 muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 360 muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 360 muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 360 muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 360 muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 360 muitas (17): foco visível na miniatura
+PASS 360 muitas (17): swipe na foto (toque sintético) — miniatura acompanha o que a INK fizer  — {"before":5,"after":5,"thumb":5,"moved":false}
+PASS 360 muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 360 muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 360 muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 360 muitas (19): grade sem rolagem lateral, 6 por linha em 4 linha(s), alvo ≥ 44×44  — {"minW":50,"minH":51,"sw":360,"cw":360}
+PASS 360 muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 360 muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 360 muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 360 muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+PASS 375 muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 375 muitas (17): grade sem rolagem lateral, 6 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":52,"minH":53,"sw":375,"cw":375}
+PASS 375 muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 375 muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 375 muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 375 muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 375 muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 375 muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 375 muitas (17): foco visível na miniatura
+PASS 375 muitas (17): swipe na foto (toque sintético) — miniatura acompanha o que a INK fizer  — {"before":5,"after":5,"thumb":5,"moved":false}
+PASS 375 muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 375 muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 375 muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 375 muitas (19): grade sem rolagem lateral, 6 por linha em 4 linha(s), alvo ≥ 44×44  — {"minW":52,"minH":53,"sw":375,"cw":375}
+PASS 375 muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 375 muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 375 muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 375 muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+PASS 390 muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 390 muitas (17): grade sem rolagem lateral, 6 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":55,"minH":56,"sw":390,"cw":390}
+PASS 390 muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 390 muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 390 muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 390 muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 390 muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 390 muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 390 muitas (17): foco visível na miniatura
+PASS 390 muitas (17): swipe na foto (toque sintético) — miniatura acompanha o que a INK fizer  — {"before":5,"after":5,"thumb":5,"moved":false}
+PASS 390 muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 390 muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 390 muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 390 muitas (19): grade sem rolagem lateral, 6 por linha em 4 linha(s), alvo ≥ 44×44  — {"minW":55,"minH":56,"sw":390,"cw":390}
+PASS 390 muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 390 muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 390 muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 390 muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+PASS 390 poucas (3): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":3,"slides":3,"label":"Foto 1 de 3"}
+PASS 390 poucas (3): grade sem rolagem lateral, 3 por linha em 1 linha(s), alvo ≥ 44×44  — {"minW":55,"minH":56,"sw":390,"cw":390}
+PASS 390 poucas (3): pontos nativos fora de cena só com a grade montada
+PASS 390 poucas (3): clique na miniatura 1 mostra a foto 1  — {"dots":3,"dot":0,"thumbs":3,"thumb":0,"grids":1}
+PASS 390 poucas (3): clique na miniatura 2 mostra a foto 2  — {"dots":3,"dot":1,"thumbs":3,"thumb":1,"grids":1}
+PASS 390 poucas (3): clique na miniatura 3 mostra a foto 3  — {"dots":3,"dot":2,"thumbs":3,"thumb":2,"grids":1}
+PASS 390 poucas (5): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":5,"slides":5,"label":"Foto 1 de 5"}
+PASS 390 poucas (5): grade sem rolagem lateral, 5 por linha em 1 linha(s), alvo ≥ 44×44  — {"minW":55,"minH":56,"sw":390,"cw":390}
+PASS 390 poucas (5): pontos nativos fora de cena só com a grade montada
+PASS 390 poucas (5): clique na miniatura 1 mostra a foto 1  — {"dots":5,"dot":0,"thumbs":5,"thumb":0,"grids":1}
+PASS 390 poucas (5): clique na miniatura 3 mostra a foto 3  — {"dots":5,"dot":2,"thumbs":5,"thumb":2,"grids":1}
+PASS 390 poucas (5): clique na miniatura 5 mostra a foto 5  — {"dots":5,"dot":4,"thumbs":5,"thumb":4,"grids":1}
+PASS 390: Turbo para outra PDP (sem recarregar o documento) — uma grade, com as fotos do produto novo  — {"grids":1,"first":"9b10883344d7908.webp","slide":"9b10883344d7908.webp","turbo":true,"path":"/usesul/product/scharlau-origem-localidade-rs","viaTurbo":true}
+PASS 390: voltar (restauração do cache do Turbo) — uma grade, fotos do produto certo, uma seleção  — {"grids":1,"first":"611943b44ca74d6.webp","slide":"611943b44ca74d6.webp","sel":1}
+PASS 390: avançar — uma grade, fotos do produto certo  — {"grids":1}
+PASS 390: atualizar a página — uma grade  — 1
+PASS 768 muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 768 muitas (17): grade sem rolagem lateral, 6 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":118,"minH":121,"sw":768,"cw":768}
+PASS 768 muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 768 muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 768 muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 768 muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 768 muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 768 muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 768 muitas (17): foco visível na miniatura
+PASS 768 muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 768 muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 768 muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 768 muitas (19): grade sem rolagem lateral, 6 por linha em 4 linha(s), alvo ≥ 44×44  — {"minW":118,"minH":121,"sw":768,"cw":768}
+PASS 768 muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 768 muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 768 muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 768 muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+PASS 1440 muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 1440 muitas (17): grade sem rolagem lateral, 8 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440 muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 1440 muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 1440 muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 1440 muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 1440 muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 1440 muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 1440 muitas (17): foco visível na miniatura
+PASS 1440 muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 1440 muitas (17): zoom nativo e retorno sem perder a seleção  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 1440 muitas (17): última miniatura alcançável com a galeria fixa  — {"top":805,"bottom":884,"vh":900,"galTop":"-53px"}
+PASS 1440 muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 1440 muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 1440 muitas (19): grade sem rolagem lateral, 8 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440 muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 1440 muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 1440 muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 1440 muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+PASS 1440 poucas (3): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":3,"slides":3,"label":"Foto 1 de 3"}
+PASS 1440 poucas (3): grade sem rolagem lateral, 3 por linha em 1 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440 poucas (3): pontos nativos fora de cena só com a grade montada
+PASS 1440 poucas (3): clique na miniatura 1 mostra a foto 1  — {"dots":3,"dot":0,"thumbs":3,"thumb":0,"grids":1}
+PASS 1440 poucas (3): clique na miniatura 2 mostra a foto 2  — {"dots":3,"dot":1,"thumbs":3,"thumb":1,"grids":1}
+PASS 1440 poucas (3): clique na miniatura 3 mostra a foto 3  — {"dots":3,"dot":2,"thumbs":3,"thumb":2,"grids":1}
+PASS 1440 poucas (5): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":5,"slides":5,"label":"Foto 1 de 5"}
+PASS 1440 poucas (5): grade sem rolagem lateral, 5 por linha em 1 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440 poucas (5): pontos nativos fora de cena só com a grade montada
+PASS 1440 poucas (5): clique na miniatura 1 mostra a foto 1  — {"dots":5,"dot":0,"thumbs":5,"thumb":0,"grids":1}
+PASS 1440 poucas (5): clique na miniatura 3 mostra a foto 3  — {"dots":5,"dot":2,"thumbs":5,"thumb":2,"grids":1}
+PASS 1440 poucas (5): clique na miniatura 5 mostra a foto 5  — {"dots":5,"dot":4,"thumbs":5,"thumb":4,"grids":1}
+PASS 1440: Turbo para outra PDP (sem recarregar o documento) — uma grade, com as fotos do produto novo  — {"grids":1,"first":"9b10883344d7908.webp","slide":"9b10883344d7908.webp","turbo":true,"path":"/usesul/product/scharlau-origem-localidade-rs","viaTurbo":true}
+PASS 1440: voltar (restauração do cache do Turbo) — uma grade, fotos do produto certo, uma seleção  — {"grids":1,"first":"611943b44ca74d6.webp","slide":"611943b44ca74d6.webp","sel":1}
+PASS 1440: avançar — uma grade, fotos do produto certo  — {"grids":1}
+PASS 1440: atualizar a página — uma grade  — 1
+PASS 1440-baixa muitas (17): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":17,"slides":17,"label":"Foto 1 de 17"}
+PASS 1440-baixa muitas (17): grade sem rolagem lateral, 8 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440-baixa muitas (17): pontos nativos fora de cena só com a grade montada
+PASS 1440-baixa muitas (17): clique na miniatura 1 mostra a foto 1  — {"dots":17,"dot":0,"thumbs":17,"thumb":0,"grids":1}
+PASS 1440-baixa muitas (17): clique na miniatura 9 mostra a foto 9  — {"dots":17,"dot":8,"thumbs":17,"thumb":8,"grids":1}
+PASS 1440-baixa muitas (17): clique na miniatura 17 mostra a foto 17  — {"dots":17,"dot":16,"thumbs":17,"thumb":16,"grids":1}
+PASS 1440-baixa muitas (17): seta nativa → a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 1440-baixa muitas (17): teclado (foco + Enter) na miniatura 6  — {"dots":17,"dot":5,"thumbs":17,"thumb":5,"grids":1}
+PASS 1440-baixa muitas (17): foco visível na miniatura
+PASS 1440-baixa muitas (17): foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1,"radios":"style=Masculino,color=Branca"}
+PASS 1440-baixa muitas (17): zoom nativo e retorno sem perder a seleção  — {"dots":17,"dot":3,"thumbs":17,"thumb":3,"grids":1}
+PASS 1440-baixa muitas (17): última miniatura alcançável com a galeria fixa  — {"top":585,"bottom":664,"vh":680,"galTop":"-273px"}
+PASS 1440-baixa muitas (17): Tab segue a ordem visual (modelo › cor › tamanho › medidas › quantidade › CTA › prazo › outros tipos)  — radio:style › radio:color › radio:size › guia › informar › quantidade › cta › prazo › outros-tipos · "Ver cupons" da INK não é focável (sem href)
+PASS 1440-baixa muitas (19): todas as fotos viram miniaturas (mesmas URLs, ordem nativa)  — {"n":19,"slides":19,"label":"Foto 1 de 19"}
+PASS 1440-baixa muitas (19): grade sem rolagem lateral, 8 por linha em 3 linha(s), alvo ≥ 44×44  — {"minW":77,"minH":79,"sw":1440,"cw":1440}
+PASS 1440-baixa muitas (19): pontos nativos fora de cena só com a grade montada
+PASS 1440-baixa muitas (19): clique na miniatura 1 mostra a foto 1  — {"dots":19,"dot":0,"thumbs":19,"thumb":0,"grids":1}
+PASS 1440-baixa muitas (19): clique na miniatura 10 mostra a foto 10  — {"dots":19,"dot":9,"thumbs":19,"thumb":9,"grids":1}
+PASS 1440-baixa muitas (19): clique na miniatura 19 mostra a foto 19  — {"dots":19,"dot":18,"thumbs":19,"thumb":18,"grids":1}
+requisições bloqueadas pela trava: nenhuma
+141/141 PASS

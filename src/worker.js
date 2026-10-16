@@ -134,11 +134,12 @@ async function pageThemeFor(themeSource, features, surfaces) {
   const theme = await themeSource.get();
   return { theme, surfaces: activeSurfaces(theme, features).filter((s) => surfaces.includes(s)) };
 }
-// <html data-origens-theme="pdp cart"> (o escopo de todo o CSS) e o <link> no fim do <head>. O atributo é o MESMO em produto e casca: o <html> sobrevive
-// às navegações Turbo, então ele continua certo de uma página para a outra.
-class ThemeHtmlMarker {
+// <body data-origens-theme="pdp cart"> (o escopo de todo o CSS e o sinal do estado EFETIVO para o loader) e o <link> no fim do <head>. É no <body> porque
+// o Turbo troca o <body> a cada visita: o atributo é sempre o da resposta atual, conforme o painel publicado (o <html> e os <link> do <head> sobrevivem às
+// visitas e poderiam religar uma superfície já desligada).
+class ThemeBodyMarker {
   constructor(value) { this.value = value; }
-  element(html) { html.setAttribute('data-origens-theme', this.value); }
+  element(body) { body.setAttribute('data-origens-theme', this.value); }
 }
 class ThemeLinkInjector {
   constructor(tag) { this.tag = tag; }
@@ -154,7 +155,7 @@ class CheckoutBrand {
   }
 }
 const withTheme = (rewriter, pageTheme) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
-  .on('html', new ThemeHtmlMarker(pageTheme.surfaces.join(' ')))
+  .on('body', new ThemeBodyMarker(pageTheme.surfaces.join(' ')))
   .on('head', new ThemeLinkInjector(themeLinkTag(pageTheme.theme, pageTheme.surfaces))));
 
 async function injectLoader(request, url, mode, allowlist, features, scope, store, upstream, themeSource) {
@@ -228,7 +229,7 @@ async function serveThemeCss(request, url, mode, features, themeSource) {
   return css(buildThemeCss(theme, surfaces), fresh ? IMMUTABLE : SHORT);
 }
 
-// Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <html> e o <link> do CSS. Nenhum script nosso, nenhum nó da INK tocado, nada
+// Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <body>, o <link> do CSS e o nome ao lado do logo. Nenhum script nosso, nenhum nó da INK tocado, nada
 // guardado; o caminho (que leva o uuid do carrinho) nunca vai para log. Qualquer falha = a página original da INK.
 async function injectCheckoutTheme(request, upstream, themeSource, features) {
   const [response, theme] = await Promise.all([passThrough(request, upstream), themeSource.get().catch(() => null)]);
@@ -237,7 +238,7 @@ async function injectCheckoutTheme(request, upstream, themeSource, features) {
   if (response.status !== 200 || !contentType.startsWith('text/html') || response.headers.get('content-encoding')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
   const transformed = new HTMLRewriter()
-    .on('html', new ThemeHtmlMarker('checkout'))
+    .on('body', new ThemeBodyMarker('checkout'))
     .on('nav.bg-store-primary a[href]', new CheckoutBrand())
     .on('head', new ThemeLinkInjector(themeLinkTag(theme, ['checkout'])))
     .transform(response);

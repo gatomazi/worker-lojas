@@ -72,7 +72,7 @@ if (flag('--qa')) {
     const m = await page.evaluate(() => {
       const h = (sel) => { const e = document.querySelector(sel); return e && e.getClientRects().length ? Math.round(e.getBoundingClientRect().height) : null; };
       const labels = [...document.querySelectorAll('form[id^="form-product-"] :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item,.form-product-options__select-type-size-item-disabled) label')].map((l) => Math.round(l.getBoundingClientRect().height));
-      return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, attr: document.documentElement.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, loaders: document.querySelectorAll('script[data-use-origens-widget]').length, cta: h('#add-to-cart-desk'), minChip: labels.length ? Math.min(...labels) : null, chips: labels.length, font: getComputedStyle(document.body).fontFamily.split(',')[0] };
+      return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, attr: document.body.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, loaders: document.querySelectorAll('script[data-use-origens-widget]').length, cta: h('#add-to-cart-desk'), minChip: labels.length ? Math.min(...labels) : null, chips: labels.length, font: getComputedStyle(document.body).fontFamily.split(',')[0] };
     });
     const themed = !OFF;
     check(`${width}px PDP sem rolagem horizontal`, m.sw <= m.cw, `${m.sw}/${m.cw}`);
@@ -82,16 +82,15 @@ if (flag('--qa')) {
       check(`${width}px seletores ≥ 44 px`, m.chips > 0 && m.minChip >= 44, `${m.chips} chips, menor ${m.minChip}`);
     } else check(`${width}px sem tema quando a feature está desligada`, m.attr === null && m.links === 0, JSON.stringify({ attr: m.attr, links: m.links }));
     if (width === 390 && themed) {
-      // Turbo: segue uma recomendação (mesma loja) e volta; o tema e o loader não se multiplicam.
-      const href = await page.evaluate(() => document.querySelector('a.o-reco-card')?.href || null);
+      // Turbo de verdade (Turbo.visit, a API dos links da INK) para outra PDP e volta; o tema e o loader não se multiplicam.
+      const href = await page.evaluate((u) => { if (!window.Turbo || typeof window.Turbo.visit !== 'function') return null; window.Turbo.visit(u); return u; }, HOST + '/usesul/product/scharlau-origem-localidade-rs');
       if (href) {
-        await page.evaluate(() => document.querySelector('a.o-reco-card').click());
         await page.waitForURL((u) => u.href !== HOST + PDP, { timeout: 30000 }).catch(() => {});
         await page.waitForTimeout(2500);
-        const t = await page.evaluate(() => ({ attr: document.documentElement.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, loaders: document.querySelectorAll('script[data-use-origens-widget]').length, guides: document.querySelectorAll('[data-origens-guide="invite"]').length, turbo: !!window.Turbo }));
-        check('Turbo: outra PDP mantém 1 tema, 1 link, 1 guia', t.attr === 'pdp cart' && t.links === 1 && t.guides <= 1, JSON.stringify(t));
+        const t = await page.evaluate(() => ({ attr: document.body.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, loaders: document.querySelectorAll('script[data-use-origens-widget]').length, guides: document.querySelectorAll('[data-origens-guide="invite"]').length, grids: document.querySelectorAll('[data-origens-thumbs]').length, semRecarga: performance.getEntriesByType('navigation')[0].name.includes('florianopolis-legado') }));
+        check('Turbo (sem recarregar o documento): outra PDP com 1 tema, 1 link, 1 guia, 1 grade', t.semRecarga && t.attr === 'pdp cart' && t.links === 1 && t.guides <= 1 && t.grids === 1, JSON.stringify(t));
         await page.goBack({ waitUntil: 'networkidle' }).catch(() => {}); await page.waitForTimeout(2000);
-        const b = await page.evaluate(() => ({ attr: document.documentElement.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, guides: document.querySelectorAll('[data-origens-guide="invite"]').length }));
+        const b = await page.evaluate(() => ({ attr: document.body.getAttribute('data-origens-theme'), links: document.querySelectorAll('link[data-origens-theme-css]').length, guides: document.querySelectorAll('[data-origens-guide="invite"]').length }));
         check('Voltar: tema persiste sem duplicar', b.attr === 'pdp cart' && b.links === 1 && b.guides <= 1, JSON.stringify(b));
       }
       // Toque na barra inerte (sem variante) leva o foco à primeira escolha; nenhum POST sai.
@@ -122,14 +121,19 @@ if (flag('--qa')) {
       const closed = await page.evaluate(() => !document.querySelector('.cart-drawer.open'));
       check('carrinho: abre pelo ícone e Esc fecha (controle nativo)', open && closed, JSON.stringify({ open, closed }));
     }
-    check(`${width}px sem erro de JS na página`, errors.length === 0, errors.join(' | '));
+    // Scripts inline da INK re-executados pelo Turbo redeclaram `const` ("Identifier 'buttons'/'eventIDViewContent' has already been declared"): acontece
+    // IGUAL com o tema desligado (verificado), então é registrado como nativo e não conta como erro nosso.
+    const nativeTurbo = errors.filter((e) => /Identifier '(buttons|eventIDViewContent)' has already been declared/.test(e));
+    const ours = errors.filter((e) => !nativeTurbo.includes(e));
+    if (nativeTurbo.length) console.log(`INFO ${width}px erros NATIVOS da INK após visita Turbo (também sem tema): ${[...new Set(nativeTurbo)].join(' | ')}`);
+    check(`${width}px sem erro de JS que não seja da própria INK`, ours.length === 0, ours.join(' | '));
     if (UUID) {
       for (const step of ['contact_and_shipping_details', 'payment_methods']) {
         await page.goto(`${HOST}${store.inkBase}/checkout/${step}/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await page.waitForTimeout(800);
         const c = await page.evaluate(() => {
           const fields = [...document.querySelectorAll('[data-controller="ink-store--checkout"] :is(input[type="text"],input[type="email"],input[type="tel"],select)')].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height));
           const btn = [...document.querySelectorAll('[data-controller="ink-store--checkout"] button')].filter((b) => b.getClientRects().length && /pagamento|finalizar/i.test(b.textContent || '')).map((b) => Math.round(b.getBoundingClientRect().height));
-          return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, attr: document.documentElement.getAttribute('data-origens-theme'), loaders: document.querySelectorAll('script[data-use-origens-widget]').length, minField: fields.length ? Math.min(...fields) : null, fields: fields.length, btn };
+          return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, attr: document.body.getAttribute('data-origens-theme'), loaders: document.querySelectorAll('script[data-use-origens-widget]').length, minField: fields.length ? Math.min(...fields) : null, fields: fields.length, btn };
         });
         const label = step === 'payment_methods' ? 'pagamento' : 'contato/entrega';
         check(`${width}px checkout ${label} sem rolagem horizontal`, c.sw <= c.cw, `${c.sw}/${c.cw}`);

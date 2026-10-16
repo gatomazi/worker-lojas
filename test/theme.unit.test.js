@@ -50,7 +50,7 @@ test('features: the three theme flags parse; unknown theme name still discards t
   assert.equal(parseFeatures(all).status, 'ok', 'the full list (production + theme) fits the length guard');
 });
 
-test('CSS: every rule is scoped to the themed <html> (or is the font @import / an @media of scoped rules); a surface carries only its own rules', () => {
+test('CSS: every rule is scoped to the themed <body> (or is the font @import / an @media of scoped rules); a surface carries only its own rules', () => {
   const t = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }));
   const css = buildThemeCss(t, SURFACES);
   // @keyframes o-benefit é global por natureza (nome nosso, prefixado); o resto precisa do escopo.
@@ -62,7 +62,7 @@ test('CSS: every rule is scoped to the themed <html> (or is the font @import / a
   for (const rule of top) {
     const inner = rule.startsWith('@media') ? rule.slice(rule.indexOf('{') + 1, -1) : rule;
     for (const sel of inner.split('}').filter(Boolean).map((r) => r.slice(0, r.indexOf('{'))).flatMap(splitSelectors)) {
-      assert.match(sel.trim(), /^html\[data-origens-theme/, 'unscoped selector: ' + sel.trim().slice(0, 80));
+      assert.match(sel.trim(), /^body\[data-origens-theme/, 'unscoped selector: ' + sel.trim().slice(0, 80));
     }
   }
   const pdpOnly = buildThemeCss(t, ['pdp']);
@@ -79,22 +79,24 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   // `display` só onde a INK nunca alterna visibilidade (grades dos seletores, o "Continuar Comprando" do carrinho vazio, o link da marca no checkout). Os dois
   // `display:none`: a frase da INK que repete o nosso "Seu carrinho está vazio" (só quando o nosso bloco existe) e a setinha do nosso "Guia de medidas".
   assert.deepEqual(selectorsWith('display:').sort(), [
-    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]',
-    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
-    'html[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
-    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
-    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
-    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-size'
+    'body[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]',
+    'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'body[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
+    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
+    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
+    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-size',
+    'body[data-origens-theme~="pdp"] .o-thumbs',
+    'body[data-origens-theme~="pdp"] .o-thumb img'
   ].sort());
   assert.deepEqual(selectorsWith('display:\\s*none').sort(), [
-    'html[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
-    'html[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
+    'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
   ].sort());
-  // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com o contador no lugar), flutuantes durante a escolha.
+  // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com as miniaturas no lugar), flutuantes durante a escolha.
   const vis = selectorsWith('visibility:hidden');
   assert.equal(vis.length, 3);
   assert.ok(vis.some((v) => v.includes(':is(.o-cta-inview,.o-typing)') && v.includes('.form-product-options__add-to-cart-mobile')));
-  assert.ok(vis.some((v) => v.includes('.o-gal-count') && v.includes('ul.absolute.z-30')));
+  assert.ok(vis.some((v) => v.includes('.o-thumbs') && v.includes('ul.absolute.z-30')), 'native dots hidden only once the thumbnail grid is mounted');
   assert.ok(vis.some((v) => v.includes('.o-choosing') && v.includes('ink-store--help-button')));
   assert.ok(!/[;{]content:/.test(css), 'no generated text');
   assert.ok(css.includes('--o-action:#000000') && css.includes('--o-selected:#4d543d') && css.includes('--o-photo:#e5e5e5'));

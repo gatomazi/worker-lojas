@@ -17,14 +17,16 @@ export const VIEWPORTS = [{ name: 'desktop', width: 1440, height: 900 }, { name:
 // Campos com valor vindo do servidor (contato/endereço) são mascarados; os VAZIOS (cartão, cobrança) ficam visíveis para avaliar o estilo — nada é digitado.
 const PII = ['[data-controller="ink-store--checkout"] input[value]:not([value=""]):not([type="radio"]):not([type="checkbox"]):not([type="hidden"])', '[data-controller="ink-store--checkout"] select:has(option[selected]:not([value=""]))', '.md\\:hidden.flex.flex-col .text-sm.font-normal', '.md\\:hidden.flex.flex-col .text-lg', '.md\\:flex.md\\:flex-col.items-center small', '.md\\:hidden.flex.md\\:flex-col small', '#saved_address_offer', 'turbo-frame#cart_summary + * small'];
 
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false } = {}) {
+// `config` é lido A CADA pedido do Worker ao storefront: mudar o objeto durante a sessão simula uma nova publicação no painel (o Worker ainda guarda 60 s
+// por isolate). `themeFeatures` troca as features de tema do deploy (padrão: as três).
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout' } = {}) {
   const require = createRequire((process.env.PW_PATH || '.') + '/');
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
   const { workerModules } = await import('../../test/helpers.js');
   const store = STORES.sul;
   const HOST = 'https://' + store.inkHost;
-  const features = off ? LIVE_FEATURES : LIVE_FEATURES + ',theme-pdp,theme-cart,theme-checkout';
+  const features = off || !themeFeatures ? LIVE_FEATURES : LIVE_FEATURES + ',' + themeFeatures;
   const upstream = { html: '', status: 200 };
   const mf = new Miniflare({
     ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS', 'NORTE_CART_REFS', 'CENTRO_CART_REFS'],
@@ -57,11 +59,16 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
     const productRe = new RegExp('^' + store.inkBase + '/product/[^/]+$');
     await ctx.route((u) => u.host === store.inkHost && (productRe.test(u.pathname) || shellPageKind(u.pathname, store.inkBase) !== null || checkoutPageKind(u.pathname, store.inkBase) !== null), async (route) => {
       const req = route.request();
-      if (req.resourceType() !== 'document' || req.method() !== 'GET') return route.fallback();
+      // Documento E visitas Turbo (fetch com Accept text/html): em produção a rota do Worker cobre o caminho seja qual for o tipo de pedido. Frames
+      // (header Turbo-Frame) também passam pelo Worker, que os devolve intactos — como no real.
+      const kind = req.resourceType();
+      if (req.method() !== 'GET' || !(kind === 'document' || ((kind === 'fetch' || kind === 'xhr') && /text\/html/.test(req.headers().accept || '')))) return route.fallback();
       const res = await route.fetch({ maxRedirects: 0, timeout: 60000 });
       if (res.status() >= 300 && res.status() < 400) return route.fulfill({ response: res });
       upstream.html = await res.text(); upstream.status = res.status();
-      const out = await mf.dispatchFetch(req.url(), { headers: { accept: 'text/html' } });
+      const fwd = { accept: req.headers().accept || 'text/html' };
+      if (req.headers()['turbo-frame']) fwd['turbo-frame'] = req.headers()['turbo-frame'];
+      const out = await mf.dispatchFetch(req.url(), { headers: fwd });
       const headers = { ...res.headers() }; delete headers['content-length']; delete headers['content-encoding']; delete headers.etag;
       await route.fulfill({ status: out.status, headers, body: await out.text() });
     });
