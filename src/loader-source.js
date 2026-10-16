@@ -80,7 +80,8 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
     .replace('__SCOPE_MODE__', () => JSON.stringify(scopeMode === 'product-catalog' ? 'product-catalog' : 'allowlist'));
 }
 
-export const loaderQuery = (allowedPaths, features, scopeMode, store = ACTIVE_STORE) => memoize('l:' + JSON.stringify([store.id, allowedPaths, features, scopeMode]), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildLoaderSource(allowedPaths, features, scopeMode, store)));
+// A loja vista de outra região (loja única) tem outro conteúdo (navbar, cor, volta) e leva a região na URL (&r=), para o Worker servir o arquivo dela.
+export const loaderQuery = (allowedPaths, features, scopeMode, store = ACTIVE_STORE) => memoize('l:' + JSON.stringify([store.viewKey ?? store.id, allowedPaths, features, scopeMode]), () => 'v=' + LOADER_VERSION + '&c=' + contentHash(buildLoaderSource(allowedPaths, features, scopeMode, store)) + (store.viewKey ? '&r=' + store.region : ''));
 
 // Sem allowlist embutida: nunca monta. Mantido para compatibilidade e testes de fail-closed.
 export const LOADER_SOURCE = buildLoaderSource([]);
