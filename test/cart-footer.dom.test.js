@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { buildLoaderSource } from '../src/loader-source.js';
 
-// Rodapé do carrinho tematizado (theme-ui): cupom recolhido atrás de "Adicionar cupom" e incentivo de frete por peças (cart-incentive). A gaveta cheia
+// Carrinho tematizado (theme-ui): cupom recolhido atrás de "Adicionar cupom" no rodapé e incentivo de frete por peças (cart-incentive) no topo da lista. A gaveta cheia
 // abaixo segue a marcação que o JS e o CSS públicos da INK confirmam (#quantity-header[data-quantityheader], #coupon-form com cart[coupon][code],
 // alvos cepInputContainer/cartErrors do ink-store--cart, as classes .cart-drawer__footer__*). Itens fictícios.
 const FIXTURE = readFileSync(new URL('./fixtures/product-page-theme.html', import.meta.url), 'utf8');
@@ -90,28 +90,34 @@ test('sem o carrinho tematizado (painel desligado ou sem theme-cart no deploy): 
   }
 });
 
-test('incentivo: falta peça (régua), meta atingida com CEP pendente, frete grátis confirmado pela INK, CEP pago — mensagens naturais, um bloco só', async () => {
+test('incentivo: no TOPO da lista (abaixo do título, antes dos produtos, rola com eles); falta peça (régua), quantidade atingida com CEP pendente, frete grátis da INK, CEP pago — um bloco só', async () => {
   const t = setup();
   await tick();
   assert.equal(boxes(t).length, 1);
-  assert.deepEqual(say(t), ['Falta 1 peça para o frete grátis', 'Para entregas em PR, SC e RS.']);
+  const list = t.doc.querySelector('.cart-drawer__main ul');
+  const slot = boxes(t)[0].parentElement;
+  assert.ok(slot.matches('li[role="none"][data-origens-incentive-slot]') && list.firstElementChild === slot, 'primeiro item da lista rolável');
+  assert.ok(!t.doc.querySelector('.cart-drawer__footer [data-origens-incentive-box]'), 'nada no rodapé');
+  assert.deepEqual(say(t), ['Falta 1 peça para o frete grátis', 'Vale para PR, SC e RS; confirme pelo CEP.']);
+  assert.deepEqual([...boxes(t)[0].querySelectorAll('strong')].map((b) => b.textContent), ['1 peça', 'frete grátis'], 'o que falta e o benefício em destaque');
   assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.width, '50%');
   assert.equal(boxes(t)[0].getAttribute('role'), 'status');
-  assert.equal(boxes(t)[0].parentElement.firstElementChild, boxes(t)[0], 'no topo do rodapé, antes do cupom e do total');
   rerender(t, { qty: 2 });
   await tick();
-  assert.deepEqual(say(t), ['Você já tem 2 peças!', 'Consulte seu CEP para verificar o frete grátis.']);
-  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar'), null, 'sem régua depois da meta');
+  assert.deepEqual(say(t), ['Quantidade atingida! Confirme seu CEP para verificar o frete grátis.', 'Vale para PR, SC e RS.']);
+  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.width, '100%', 'régua cheia, mas o texto não promete o frete');
   rerender(t, { qty: 3, shipping: 'Grátis' });
   await tick();
-  assert.deepEqual(say(t), ['Frete grátis disponível para o seu CEP.', '']);
+  assert.deepEqual(say(t), ['Frete grátis disponível para o seu CEP', 'Valor calculado pela INK para o CEP informado.']);
   rerender(t, { qty: 3, shipping: 'R$ 27,49' });
   await tick();
-  assert.deepEqual(say(t), ['O frete grátis com 2 peças ou mais vale para PR, SC e RS.', ''], 'nunca sucesso com frete cobrado');
+  assert.deepEqual(say(t), ['O frete grátis com 2 peças vale para PR, SC e RS.', 'Para este CEP, o frete é cobrado.'], 'nunca sucesso com frete cobrado');
+  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar'), null);
   rerender(t, { qty: 1 });
   await tick();
   assert.deepEqual(say(t)[0], 'Falta 1 peça para o frete grátis', 'removeu: volta a faltar');
   assert.equal(boxes(t).length, 1);
+  assert.equal(t.doc.querySelectorAll('[data-origens-incentive-slot]').length, 1);
 });
 
 test('incentivo: some sem regra, sem a feature, com carrinho vazio ou quando a régua NATIVA da INK aparece (um aviso só)', async () => {
@@ -130,13 +136,13 @@ test('incentivo durante a resposta da INK: conteúdo escondido (sem mensagem vel
   rerender(t, { qty: 2 });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Você já tem 2 peças!/);
+  assert.match(say(t)[0], /^Quantidade atingida!/);
   submit(t, 'turbo:submit-start');
   assert.ok(boxes(t)[0].hasAttribute('data-loading'));
   submit(t, 'turbo:submit-end', { success: false });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Você já tem 2 peças!/);
+  assert.match(say(t)[0], /^Quantidade atingida!/);
 });
 
 test('Turbo: página nova sem o carrinho tematizado = nenhum botão, nenhum incentivo, cupom à mostra; com tema = um de cada (sem duplicar)', async () => {

@@ -67,6 +67,7 @@ PW_PATH=… node scripts/qa-desligamento-tema.mjs [--checkout <uuid>] [--rapido]
 PW_PATH=… node scripts/complemento-visual.mjs --out <dir> --checkout <uuid de teste>    # carrinho preenchido + incentivo (simulação) e checkout SANITIZADO, 1440/390/360/1280×640
 PW_PATH=… node scripts/preview-tema.mjs --headed --allow-cart [--incentivo-exemplo] --capturar-carrinho <dir> # carrinho REAL montado à mão; Enter fotografa a gaveta
 PW_PATH=… node scripts/ajustes-finais.mjs --fase antes|depois --out <dir> [--checkout <uuid>] # rodapé do carrinho antes/depois, medidas e custo de abrir o carrinho
+PW_PATH=… node scripts/refinamento-aphago.mjs --fase antes|depois --out <dir> [--checkout <uuid>] # incentivo no topo, teclado aberto, foco, validação e pagamento
 PW_PATH=… node scripts/validacao-checkout.mjs --checkout <uuid de teste> --out <json>     # resposta REAL: Pix/cartão (só payment_discount), parcelas, "Editar"
 ```
 
@@ -97,7 +98,12 @@ PW_PATH=… node scripts/validacao-checkout.mjs --checkout <uuid de teste> --out
 - **Incentivo.** Regra publicada pelo painel (`incentive` no contrato v1, só ligada e confirmada pelo dono), validada pelo Worker (`normalizeIncentive`:
   frete grátis por peças, 2–20, UFs da região) e escrita no `<body>` como `data-origens-incentive="2|PR,SC,RS"`, só com `cart-incentive` no deploy e o
   carrinho tematizado. O `theme-ui` lê a contagem em `#quantity-header[data-quantityheader]` e a linha do frete da INK (`.cart-drawer__footer__cep`:
-  "Grátis" = disponível; "R$ …" = cobrado) e mostra uma caixa de duas linhas no topo do rodapé. Entre `turbo:submit-start` e a resposta (rodapé ou
+  "Grátis" = disponível; "R$ …" = cobrado) e mostra o incentivo no TOPO da lista, logo abaixo do título (um `<li role="none">` de largura total, porque o `.cart-drawer__main` da INK é um flex em
+  linha; rola com os produtos, sem área fixa). Entre `turbo:submit-start` e a resposta (rodapé ou
   contagem novos), o conteúdo some sem mudar a altura; erro no envio = volta o estado atual. A barra nativa da INK (por valor) com meta > 0 tira o nosso
   incentivo (um aviso só). Nenhuma requisição a mais.
+- **Tela muito baixa** (até 520 px de altura, como com o teclado do celular aberto no cupom ou no CEP): a gaveta rola inteira e o rodapé deixa de ser
+  fixo, para não cobrir o campo em uso nem o último produto.
+- **Checkout, frete e pagamento**: a opção escolhida tem fundo leve e borda na cor de seleção da marca, e o indicador nativo nessa cor; as outras ficam
+  neutras. O contorno azul nativo da INK (`peer-checked:border-blue-600`) sai. Os controles desabilitados ficam esmaecidos e sem cursor de clique.
 

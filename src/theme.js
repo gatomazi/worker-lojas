@@ -368,16 +368,17 @@ function cartCss() {
     D + '__footer__coupon[data-origens-collapsed]{display:none!important}',
     D + ' .o-coupon-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:0;border:0;background:transparent;color:var(--o-ink);font-family:var(--o-font);font-size:14px;font-weight:600;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}',
     D + ' .o-coupon-toggle:focus-visible{outline:2px solid var(--o-ink);outline-offset:2px}',
-    // Incentivo de frete (cart-incentive): fundo suave da cor de seleção da marca, a informação útil em negrito na cor da marca, a ressalva numa linha
-    // menor; a régua (só com meta numérica) é a linha da base da caixa, sem altura a mais. Altura fixa de duas linhas: trocar de estado ou carregar não
-    // empurra os controles. Sem animação contínua.
-    D + ' [data-origens-incentive-box]{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:10px;align-content:center;min-height:50px;margin:0 0 4px;padding:6px 12px 8px;overflow:hidden;border:1px solid var(--o-line-soft);border-radius:var(--o-radius);background:var(--o-surface);background:color-mix(in srgb,var(--o-selected) 18%,var(--o-surface));color:var(--o-ink);font-family:var(--o-font)}',
-    D + ' [data-origens-incentive-box] > svg{grid-row:1 / span 2;align-self:center;width:28px;height:28px;padding:5px;border-radius:50%;background:var(--o-selected);color:var(--o-on-selected)}',
-    D + ' [data-origens-incentive-box] > p{margin:0;font-size:14px;line-height:1.3;color:var(--o-ink)}',
+    // Incentivo de frete (cart-incentive): no TOPO da lista, logo abaixo do título (rola com os produtos; nenhuma área fixa a mais). Fundo da cor de
+    // seleção da marca, perceptível no branco do carrinho; o que falta e o benefício em destaque na mesma cor; a ressalva (destinos, CEP) numa linha
+    // menor; régua fina só com meta numérica. Altura mínima de duas linhas + régua: trocar de estado não empurra os produtos. Sem animação contínua.
+    D + ' [data-origens-incentive-slot]{flex:0 0 auto;width:100%;margin:0;padding:12px 16px 4px;list-style:none}',
+    D + ' [data-origens-incentive-box]{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:8px;row-gap:3px;align-content:center;min-height:76px;padding:10px 12px 12px;border:1px solid var(--o-line-soft);border-color:color-mix(in srgb,var(--o-selected) 35%,var(--o-surface));border-radius:var(--o-radius);background:var(--o-paper);background:color-mix(in srgb,var(--o-selected) 20%,var(--o-surface));color:var(--o-ink);font-family:var(--o-font)}',
+    D + ' [data-origens-incentive-box] > svg{grid-row:1;align-self:start;width:18px;height:18px;margin-top:1px;color:var(--o-selected)}',
+    D + ' [data-origens-incentive-box] > p{grid-column:2;margin:0;font-size:14px;line-height:1.35;color:var(--o-ink)}',
     D + ' [data-origens-incentive-box] > p strong{font-weight:700;color:var(--o-selected)}',
     D + ' [data-origens-incentive-box] > small{grid-column:2;font-size:12.5px;line-height:1.3;color:var(--o-ink-soft)}',
-    D + ' [data-origens-incentive-box] .o-incentive-bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:color-mix(in srgb,var(--o-selected) 22%,var(--o-surface))}',
-    D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;height:100%;background:var(--o-selected);transition:width .25s ease}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar{display:block;grid-column:1 / -1;height:6px;margin-top:6px;border-radius:3px;overflow:hidden;background:var(--o-surface);background:color-mix(in srgb,var(--o-selected) 8%,var(--o-surface))}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;height:100%;border-radius:3px;background:var(--o-selected);transition:width .25s ease}',
     D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
     '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
     // Com o cupom recolhido e o CEP ainda fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (os dois são ações curtas): uma linha de
@@ -392,7 +393,11 @@ function cartCss() {
     // INK e sem alvo de toque abaixo de 44 px.
     '@media (max-height:760px){' + D + '__footer{padding:8px 16px calc(10px + env(safe-area-inset-bottom))!important}' +
       D + '__footer .footer-details{margin:2px 0 8px!important;gap:2px}' + D + '__footer .footer-details ul > li:last-child{font-size:18px;padding-top:2px}' +
-      D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}' + D + ' [data-origens-incentive-box]{min-height:46px;padding:5px 10px 7px}}',
+      D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}}',
+    // Tela MUITO baixa (teclado do celular aberto no cupom ou no CEP, janela achatada): a gaveta rola inteira — itens, cupom, totais e botões em
+    // sequência —, e o rodapé deixa de ser fixo para não cobrir o campo em uso nem o último produto.
+    '@media (max-height:520px){' + D + ' turbo-frame#cart > div.flex-col{overflow-y:auto;overscroll-behavior:contain}' +
+      D + '__main{flex:0 0 auto!important;height:auto!important;overflow:visible!important}}',
     // Carrinho vazio: o nosso bloco abre o estado ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase da INK que repete
     // a mesma intenção some só quando o nosso bloco existe (sem ele, a INK fica como é). Recomendações da INK abaixo; "Continuar comprando" secundário.
     D + ' .empty-cart{background:var(--o-surface)!important;color:var(--o-ink-soft)!important;gap:20px}',
@@ -452,18 +457,26 @@ function checkoutCss() {
     L + ' input:is([type="checkbox"],[type="radio"]){color:var(--o-ink)!important;accent-color:var(--o-ink);border-color:var(--o-ink-mute)!important}',
     L + ' input[type="checkbox"]{width:20px;height:20px}',
     L + ' input:is([type="checkbox"],[type="radio"]):focus-visible{outline:2px solid var(--o-ink);outline-offset:2px;box-shadow:none!important}',
-    L + ' small[class*="-bottom-5"]{color:var(--o-error)!important;font-weight:600}',
+    L + ' small[class*="-bottom-5"]{color:var(--o-error)!important;font-weight:600;font-size:12.5px;line-height:1.3}',
     L + ' .field_with_errors :is(input,select),' + L + ' :is(input,select)[aria-invalid="true"]{border-color:var(--o-error)!important}',
     L + ' #contentAlert{color:var(--o-error)!important}',
     L + ' a.underline{color:var(--o-ink)}',
     // Opções de frete e pagamento: linhas de escolha com borda fina; a escolhida com borda forte e fundo claro. Campos revelados (cartão, cobrança) iguais.
-    L + ' .shipping-types__item,' + L + ' #formPaymentMethods > ul > li{border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    // A escolhida: fundo leve da cor de seleção da marca, borda discreta nessa cor e o indicador nativo na mesma cor; as demais neutras. Mesma
+    // espessura de borda nos dois estados (nada pula ao escolher).
+    L + ' .shipping-types__item,' + L + ' #formPaymentMethods > ul > li{border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;background:var(--o-surface);box-shadow:none}',
     L + ' .shipping-types__item{padding:12px 14px;min-height:56px}',
-    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border:2px solid var(--o-ink);background:var(--o-paper)}',
+    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border-color:var(--o-selected);background:var(--o-paper);background:color-mix(in srgb,var(--o-selected) 10%,var(--o-surface));box-shadow:inset 0 0 0 1px var(--o-selected)}',
+    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]{accent-color:var(--o-selected)}',
+    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]:checked{color:var(--o-selected)!important;border-color:var(--o-selected)!important}',
     L + ' #formPaymentMethods > ul{gap:8px;border:0!important;border-radius:0!important}',
     L + ' #formPaymentMethods > ul > li > label{min-height:56px}',
-    L + ' #formPaymentMethods label{background-color:transparent!important}',
+    L + ' #formPaymentMethods label{background-color:transparent!important;border-color:transparent!important}',
     L + ' #content-credit_card,' + L + ' #content-pix{padding:4px 16px 16px!important;background:transparent!important}',
+    // Desabilitado e carregando (a INK desabilita o botão enquanto envia): legível, sem parecer clicável.
+    L + ' :is(button,input,select):disabled{opacity:.55;cursor:not-allowed}',
+    // Respiro entre as seções (identificação, entrega, formas de entrega, pagamento).
+    L + ' h3.text-lg{margin-top:12px}',
     L + ' #content-pix .bg-orange-50{background:var(--o-surface)!important;border:1px solid var(--o-line-soft);border-radius:var(--o-radius)}',
     // A faixa "pagamento protegido" desce para DEPOIS das opções e do botão (mesmo pai flex): a decisão vem primeiro, a garantia fica perto do botão.
     PAY + '{gap:20px}',

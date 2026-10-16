@@ -88,6 +88,7 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="cart"] .cart-drawer__footer__coupon[data-origens-collapsed]',
     'body[data-origens-theme~="cart"] .cart-drawer .o-coupon-toggle',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box]',
+    'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar i',
     // A linha "Adicionar cupom" + "Frete · Inserir CEP" (grade do rodapé só com o nosso botão no lugar do cupom e o CEP fechado) e o alvo de 44 px do
     // "Inserir CEP" (a INK alterna o campo do CEP, não este link).

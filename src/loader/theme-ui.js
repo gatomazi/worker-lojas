@@ -276,8 +276,9 @@ export const THEME_UI = String.raw`
   // Cupom (form #coupon-form, campo cart[coupon][code] da INK): atrás de "Adicionar cupom" SÓ quando vazio e sem nada a dizer. Com código, foco, cupom
   // aplicado (ação de limpar/remover), erro ou depois de aberto, fica à mostra. Quem esconde é um atributo NOSSO posto aqui: sem este código (falhou,
   // tema desligado), o campo da INK aparece como sempre. Nenhum nó da INK é movido.
-  // Incentivo (cart-incentive + regra publicada no <body>): lido do que a INK já mostra (peças em #quantity-header, a linha do frete). Enquanto a INK
-  // responde a um envio da gaveta, o conteúdo some sem mudar a altura (nunca uma mensagem velha); volta com a resposta nova.
+  // Incentivo (cart-incentive + regra publicada no <body>): lido do que a INK já mostra (peças em #quantity-header, a linha do frete). Fica no TOPO da
+  // lista, logo abaixo do título (um <li> de largura total, como o bloco de descoberta: o <main> da INK é um flex em linha), e rola com os produtos:
+  // visível ao abrir, sem área fixa. Enquanto a INK responde a um envio da gaveta, o conteúdo some sem mudar a altura (nunca uma mensagem velha).
   const THEME_INCENTIVE = FEATURES.includes('cart-incentive');
   const THEME_COUPON_INPUT = 'input[name="cart[coupon][code]"], input.coupon-input';
   let themeCouponOpen = false;
@@ -340,39 +341,44 @@ export const THEME_UI = String.raw`
     const shipping = cep ? cep.textContent.replace(typing ? typing.textContent : '', '') : '';
     const free = /gr[aá]tis/i.test(shipping);
     const paid = !free && /R\$\s*\d/.test(shipping);
-    const where = 'Para entregas em ' + themeUfs(rule.ufs) + '.';
-    // Duas linhas no máximo: a informação útil (negrito) e a ressalva.
-    if (free) return { key: 'free', strong: 'Frete grátis disponível', rest: ' para o seu CEP.', sub: '', bar: -1 };
+    const ufs = themeUfs(rule.ufs);
+    const pct = Math.min(100, Math.round((count / rule.threshold) * 100));
+    // Linha principal (o que falta ou o estado, com o essencial em destaque) e a ressalva; a cor só complementa o texto.
+    if (free) return { key: 'free', parts: [['b', 'Frete grátis'], ['', ' disponível para o seu CEP']], sub: 'Valor calculado pela INK para o CEP informado.', bar: 100 };
     if (count < rule.threshold) {
       const n = rule.threshold - count;
-      return { key: 'need-' + count, strong: (n === 1 ? 'Falta ' : 'Faltam ') + themePieces(n), rest: ' para o frete grátis', sub: where, bar: Math.round((count / rule.threshold) * 100) };
+      return { key: 'need-' + count, parts: [['', n === 1 ? 'Falta ' : 'Faltam '], ['b', themePieces(n)], ['', ' para o '], ['b', 'frete grátis']], sub: 'Vale para ' + ufs + '; confirme pelo CEP.', bar: pct };
     }
-    if (paid) return { key: 'paid-' + count, strong: '', rest: 'O frete grátis com ' + themePieces(rule.threshold) + ' ou mais vale para ' + themeUfs(rule.ufs) + '.', sub: '', bar: -1 };
-    return { key: 'reached-' + count, strong: 'Você já tem ' + themePieces(count) + '!', rest: '', sub: 'Consulte seu CEP para verificar o frete grátis.', bar: -1 };
+    if (paid) return { key: 'paid-' + count, parts: [['', 'O frete grátis com ' + themePieces(rule.threshold) + ' vale para ' + ufs + '.']], sub: 'Para este CEP, o frete é cobrado.', bar: -1 };
+    return { key: 'reached-' + count, parts: [['b', 'Quantidade atingida!'], ['', ' Confirme seu CEP para verificar o frete grátis.']], sub: 'Vale para ' + ufs + '.', bar: 100 };
   }
   const THEME_TRUCK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>';
   function themeIncentive() {
     const drawer = themeDrawer();
-    const footer = drawer && drawer.querySelector('.cart-drawer__footer');
-    let box = drawer && drawer.querySelector('[data-origens-incentive-box]');
+    const list = drawer && drawer.querySelector('.cart-drawer__main ul');
+    let slot = list && list.querySelector(':scope > [data-origens-incentive-slot]');
     const rule = themeIncentiveRule();
-    const state = footer && rule ? themeIncentiveState(drawer, rule) : null;
-    if (!state) { if (box) box.remove(); return; }
-    if (!box || footer.firstElementChild !== box) {
-      if (box) box.remove();
-      box = document.createElement('div');
-      box.setAttribute('data-origens-incentive-box', '');
-      box.setAttribute('role', 'status');
-      footer.prepend(box);
+    const state = list && rule ? themeIncentiveState(drawer, rule) : null;
+    if (!state) { if (slot) slot.remove(); return; }
+    if (!slot || list.firstElementChild !== slot) {
+      if (slot) slot.remove();
+      slot = document.createElement('li');
+      slot.setAttribute('role', 'none');
+      slot.setAttribute('data-origens-incentive-slot', '');
+      const made = document.createElement('div');
+      made.setAttribute('data-origens-incentive-box', '');
+      made.setAttribute('role', 'status');
+      slot.appendChild(made);
+      list.prepend(slot);
     }
+    const box = slot.firstElementChild;
     if (!!themeCartWait !== box.hasAttribute('data-loading')) box.toggleAttribute('data-loading', !!themeCartWait);
     if (box.getAttribute('data-key') === state.key) return;
     box.setAttribute('data-key', state.key);
     box.setAttribute('data-state', state.key.replace(/-\d+$/, ''));
     box.innerHTML = THEME_TRUCK;
     const line = document.createElement('p');
-    if (state.strong) { const b = document.createElement('strong'); b.textContent = state.strong; line.appendChild(b); }
-    line.appendChild(document.createTextNode(state.rest));
+    for (const [kind, text] of state.parts) line.appendChild(kind === 'b' ? Object.assign(document.createElement('strong'), { textContent: text }) : document.createTextNode(text));
     box.appendChild(line);
     if (state.sub) { const small = document.createElement('small'); small.textContent = state.sub; box.appendChild(small); }
     if (state.bar >= 0) {
@@ -415,7 +421,7 @@ export const THEME_UI = String.raw`
     themeCartListen(false);
     themeCartRelease(false);
     themeCouponOpen = false;
-    for (const node of document.querySelectorAll('.o-coupon-toggle, [data-origens-incentive-box]')) node.remove();
+    for (const node of document.querySelectorAll('.o-coupon-toggle, [data-origens-incentive-slot], [data-origens-incentive-box]')) node.remove();
     for (const node of document.querySelectorAll('[data-origens-collapsed]')) node.removeAttribute('data-origens-collapsed');
   }
 
