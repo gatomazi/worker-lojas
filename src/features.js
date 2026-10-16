@@ -11,7 +11,9 @@
 // pdp-guide: ajuda guiada "Procurando sua cidade ou outra estampa?" na página de produto (painel com busca de cidade, estampas da cidade e coleções da região,
 // dados de /__origens/guia). Com ela ligada, o bloco "Continue explorando" (product-discovery) NÃO é montado: um recurso só por função. Desligada = nem o
 // módulo nem o gateway entram; o bloco anterior volta como estava (rollback simples).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit'];
+// top-bar: as mensagens da "Faixa do topo" do CMS na faixa preta do cabeçalho da INK (produto e casca), no lugar das frases nativas. Sem mensagem no ar,
+// erro ou feature desligada = a faixa da INK fica exatamente como está (nem o módulo nem o gateway entram).
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {
