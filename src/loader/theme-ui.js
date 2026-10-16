@@ -9,7 +9,8 @@
 // Restauração do cache do Turbo (voltar/avançar sem nova requisição): o <body> restaurado é o ANTIGO. Por isso vale o último estado vindo da REDE (carga
 // inteira ou visita Turbo que buscou a página): numa restauração, o atributo do body é corrigido para ele — um tema desligado depois não volta pelo cache.
 //
-//   PDP  · Miniaturas da galeria: uma grade abaixo da foto com TODAS as fotos do conjunto nativo, na ordem nativa (mesmas URLs, carregamento preguiçoso).
+//   PDP  · Miniaturas da galeria: uma linha abaixo da foto com TODAS as fotos do conjunto nativo, na ordem nativa (mesmas URLs, carregamento preguiçoso);
+//          quando não cabem na largura da foto, rolagem lateral, e a ativa é trazida para a área visível.
 //          Tocar numa miniatura aciona o ponto nativo correspondente (#dot-image-N); a seleção acompanha `aria-current` dos pontos (setas, swipe, troca de
 //          cor/modelo — a INK pula para a foto da variante). Navegar por fotos NÃO muda a variante comprável (só os rádios mudam). Os pontos nativos só
 //          somem (classe o-thumbs) depois de a grade estar montada; uma foto só = sem grade.
@@ -41,7 +42,7 @@ export const THEME_UI = String.raw`
   let themeObserver = null;
   let themeListening = false;
   let themeOpener = null;
-  let themeGallery = null;  // { host, list, grid, observer, body }
+  let themeGallery = null;  // { host, list, key, grid, observer, body, sync }
   let themeChoosing = null; // { targets, observer }
   let themeMoves = [];      // [{ node, restore }]
   let themeResize = null;
@@ -112,11 +113,21 @@ export const THEME_UI = String.raw`
   function themeWatchGallery() {
     const host = document.querySelector('.section-product-v2 [data-controller~="ink-store--carousel"]');
     const list = host && host.querySelector('ul.absolute.z-30');
-    if (themeGallery && themeGallery.host === host && themeGallery.list === list && themeGallery.body === themeBody() && themeGallery.grid.isConnected) return;
+    const slides = host ? [...host.querySelectorAll('ul.aspect-square > li')] : [];
+    const key = slides.map((li) => { const img = li.querySelector('img'); return img ? img.getAttribute('src') : ''; }).join('|');
+    const g = themeGallery;
+    if (g && g.host === host && g.key === key && g.body === themeBody() && g.grid.isConnected) {
+      // Mesmo produto e mesmas fotos. A INK pode refazer a lista de pontos (ex.: o carrossel se reconecta ao voltar pelo cache do Turbo): a grade FICA e
+      // só passa a observar a lista nova — sem desmontar nem piscar os pontos nativos enquanto os pontos estão incompletos.
+      if (list && g.list !== list) { g.observer.disconnect(); g.list = list; g.observer.observe(list, { attributes: true, attributeFilter: ['aria-current', 'class'], subtree: true, childList: true }); g.sync(); }
+      return;
+    }
+    const dots = list ? [...list.querySelectorAll('button[id^="dot-image-"]')] : [];
+    // Outro produto (ou primeira montagem) com o conjunto ainda incoerente (pontos sendo refeitos): espera a próxima mudança no DOM, sem desmontar o que
+    // for do MESMO produto.
+    if (g && g.host === host && g.key === key && g.grid.isConnected && dots.length !== slides.length) return;
     themeStopGallery();
     if (!host || !list) return;
-    const slides = [...host.querySelectorAll('ul.aspect-square > li')];
-    const dots = [...list.querySelectorAll('button[id^="dot-image-"]')];
     if (slides.length < 2 || dots.length !== slides.length) return; // uma foto só (ou conjunto incoerente): sem grade, a INK fica como está
     const grid = document.createElement('div');
     grid.className = 'o-thumbs';
@@ -142,15 +153,26 @@ export const THEME_UI = String.raw`
       button.addEventListener('click', () => { const dot = document.getElementById('dot-image-' + i); if (dot) dot.click(); });
       grid.appendChild(button);
     });
-    const sync = () => {
-      const current = [...list.querySelectorAll('button[id^="dot-image-"]')].findIndex((d) => d.getAttribute('aria-current') === 'true');
-      grid.querySelectorAll('.o-thumb').forEach((b, i) => { if (i === current) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    const state = { host, list, key, grid, observer: null, body: themeBody(), sync: null };
+    state.sync = () => {
+      const current = [...state.list.querySelectorAll('button[id^="dot-image-"]')].findIndex((d) => d.getAttribute('aria-current') === 'true');
+      if (current < 0) return; // pontos sendo refeitos pela INK: mantém a seleção atual
+      const buttons = [...grid.querySelectorAll('.o-thumb')];
+      buttons.forEach((b, i) => { if (i === current) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+      // Linha com rolagem lateral: a miniatura ativa (mudada por seta, swipe ou troca de cor/modelo) entra na área visível — só na horizontal, sem
+      // rolar a página.
+      const active = buttons[current];
+      if (active && grid.scrollWidth > grid.clientWidth) {
+        const left = active.offsetLeft; const right = left + active.offsetWidth; const pad = 8;
+        if (left < grid.scrollLeft) grid.scrollTo({ left: Math.max(0, left - pad), behavior: 'smooth' });
+        else if (right > grid.scrollLeft + grid.clientWidth) grid.scrollTo({ left: right - grid.clientWidth + pad, behavior: 'smooth' });
+      }
     };
-    const observer = new MutationObserver(sync);
-    observer.observe(list, { attributes: true, attributeFilter: ['aria-current', 'class'], subtree: true });
+    state.observer = new MutationObserver(state.sync);
+    state.observer.observe(list, { attributes: true, attributeFilter: ['aria-current', 'class'], subtree: true, childList: true });
     host.insertAdjacentElement('afterend', grid);
-    themeGallery = { host, list, grid, observer, body: themeBody() };
-    sync();
+    themeGallery = state;
+    state.sync();
     // Só agora (grade montada e funcionando) os pontos nativos saem de cena.
     themeBody().classList.add('o-thumbs');
     themeGalleryTop();

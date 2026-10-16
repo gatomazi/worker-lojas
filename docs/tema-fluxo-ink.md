@@ -49,7 +49,7 @@ PDP com galeria fixa no computador e coluna de compra na ordem da decisão (`ord
 
 ## Rodada 3 (galeria e desligamento)
 
-Miniaturas de TODAS as fotos abaixo da principal (o toque aciona o ponto nativo `#dot-image-N`; a seleção segue `aria-current`; navegar por fotos não muda a variante), galeria fixa ajustada à altura da janela, ordem do DOM = ordem visual (prazo/cupom/outros tipos e medidas reposicionados no mesmo pai, sem mover frame que a INK está carregando) e o desligamento efetivo acima. Detalhes: [`RELATORIO_RODADA_3_GALERIA_E_VALIDACAO_INK.md`](RELATORIO_RODADA_3_GALERIA_E_VALIDACAO_INK.md).
+Miniaturas de TODAS as fotos numa linha abaixo da principal (rolagem lateral quando não cabem; a ativa sempre visível) (o toque aciona o ponto nativo `#dot-image-N`; a seleção segue `aria-current`; navegar por fotos não muda a variante), galeria fixa ajustada à altura da janela, ordem do DOM = ordem visual (prazo/cupom/outros tipos e medidas reposicionados no mesmo pai, sem mover frame que a INK está carregando) e o desligamento efetivo acima. Detalhes: [`RELATORIO_RODADA_3_GALERIA_E_VALIDACAO_INK.md`](RELATORIO_RODADA_3_GALERIA_E_VALIDACAO_INK.md).
 
 ## Prévia e QA (sem publicar nada)
 

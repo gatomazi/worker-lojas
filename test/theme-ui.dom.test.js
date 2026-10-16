@@ -68,6 +68,24 @@ test('miniaturas: TODAS as fotos, na ordem nativa, com as mesmas URLs; a atual a
   assert.equal(t.doc.querySelector('[data-origens-thumbs]').previousElementSibling.getAttribute('data-controller'), 'ink-store--carousel');
 });
 
+test('a INK refaz a lista de pontos (carrossel reconectado ao voltar pelo cache): a grade do MESMO produto fica, sem piscar, e volta a acompanhar', async () => {
+  const t = setup();
+  await tick();
+  const grid = t.doc.querySelector('[data-origens-thumbs]');
+  const old = t.doc.querySelector('.section-product-v2 ul.absolute.z-30');
+  const rebuilt = t.doc.createElement('ul'); rebuilt.className = old.className; // vazia por um instante
+  old.replaceWith(rebuilt);
+  await tick();
+  assert.equal(t.doc.querySelector('[data-origens-thumbs]'), grid, 'mesma grade, não desmontada');
+  assert.ok(body(t).classList.contains('o-thumbs'), 'pontos nativos não piscam');
+  rebuilt.innerHTML = [0, 1, 2].map((i) => '<li><button id="dot-image-' + i + '" type="button" aria-current="' + (i === 1) + '"></button></li>').join('');
+  await tick();
+  assert.equal(t.doc.querySelectorAll('[data-origens-thumbs]').length, 1);
+  assert.deepEqual(thumbs(t).map((b) => b.getAttribute('aria-current')), [null, 'true', null], 'acompanha a lista nova');
+  thumbs(t)[2].click();
+  assert.deepEqual(t.native.dots, ['dot-image-2']);
+});
+
 test('uma foto só = sem grade e sem esconder pontos', async () => {
   const one = FIXTURE.replace(/<li data-ink-store--carousel-target="item"><div id="carousel-item-[23]">.*?<\/li>/g, '').replace(/<li><button id="dot-image-[12]".*?<\/li>/g, '');
   const t = setup({ html: one });

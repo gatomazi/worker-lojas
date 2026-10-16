@@ -206,12 +206,13 @@ function pdpCss() {
     P + ' .section-product-v2 ul.absolute.z-30{max-width:calc(100% - 16px)}',
     P + ' .section-product-v2 ul.absolute.z-30 > li + li{margin-left:6px!important}',
     P + ' .section-product-v2 button[id^="dot-image-"]{width:8px!important;height:8px!important}',
-    // Miniaturas (theme-ui): TODAS as fotos em grade abaixo da principal, quebrando em linhas (6 por linha no celular, 8 no computador; nunca faixa com
-    // rolagem). A escolhida com borda na cor da região; foco de teclado em tinta. Os pontos nativos só somem depois de a grade existir (classe o-thumbs).
+    // Miniaturas (theme-ui): TODAS as fotos numa LINHA abaixo da principal, na largura dela; quando não cabem, rolagem lateral (decisão do dono,
+    // 15/10/2026). ~6,5 visíveis no celular e ~7,5 no computador: a metade da próxima na borda mostra que há mais. A escolhida com borda na cor da região
+    // (e trazida para a área visível pelo theme-ui); foco de teclado em tinta. Os pontos nativos só somem depois de a grade existir (classe o-thumbs).
     P + '.o-thumbs .section-product-v2 ul.absolute.z-30{visibility:hidden}',
-    P + ' .o-thumbs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;width:100%;margin-top:8px}',
-    '@media (min-width:1024px){' + P + ' .o-thumbs{grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin-top:10px}}',
-    P + ' .o-thumb{position:relative;aspect-ratio:800/820;min-width:44px;min-height:44px;padding:0;border:1px solid transparent;border-radius:var(--o-radius);background:var(--o-photo);overflow:hidden;cursor:pointer}',
+    P + ' .o-thumbs{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:clamp(44px,calc((100% - 33px) / 6.5),84px);gap:6px;width:100%;margin-top:8px;padding-bottom:6px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;-webkit-overflow-scrolling:touch}',
+    '@media (min-width:1024px){' + P + ' .o-thumbs{grid-auto-columns:calc((100% - 52px) / 7.5);gap:8px;margin-top:10px}}',
+    P + ' .o-thumb{position:relative;scroll-snap-align:start;aspect-ratio:800/820;min-width:44px;min-height:44px;padding:0;border:1px solid transparent;border-radius:var(--o-radius);background:var(--o-photo);overflow:hidden;cursor:pointer}',
     P + ' .o-thumb img{display:block;width:100%;height:100%;object-fit:cover}',
     P + ' .o-thumb[aria-current="true"]{border:2px solid var(--o-selected)}',
     '@media (hover:hover){' + P + ' .o-thumb:hover{border-color:var(--o-line)}' + P + ' .o-thumb[aria-current="true"]:hover{border-color:var(--o-selected)}}',

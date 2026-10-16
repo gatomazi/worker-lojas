@@ -8,8 +8,9 @@ Rodada de 15/10/2026, a partir de `CLAUDE_RODADA_3_GALERIA_E_VALIDACAO_INK.md`, 
 
 | O quê | Onde |
 |---|---|
-| **Galeria com miniaturas**: grade abaixo da foto com TODAS as fotos do conjunto nativo (6 colunas no celular, 8 no computador, quebrando em linhas, nunca faixa com rolagem); selecionada com borda na cor da região; foco de teclado visível; nomes "Foto N de M"; os pontos da INK saem de cena só depois da grade montada; uma foto só = sem grade. Substitui o contador "1 / 17" da rodada 2 | `src/loader/theme-ui.js`, `src/theme.js` |
-| Galeria fixa no computador ajustada à altura da janela (`--o-gal-top`): em telas baixas a galeria sobe até a última miniatura ficar visível; o selo nativo "Clique para dar zoom" fica acima da grade | idem |
+| **Galeria com miniaturas**: TODAS as fotos do conjunto nativo numa **linha** abaixo da foto, na largura dela; quando não cabem, **rolagem lateral** (decisão do dono depois da primeira entrega da rodada, que quebrava em linhas): ~6,5 visíveis no celular e ~7,5 no computador (a metade da próxima na borda mostra que há mais; no máximo 84 px por miniatura); a ativa é trazida para a área visível quando a foto muda por seta, swipe ou troca de cor; selecionada com borda na cor da região; foco de teclado visível; nomes "Foto N de M"; os pontos da INK saem de cena só depois da grade montada; uma foto só = sem grade. Substitui o contador "1 / 17" da rodada 2 | `src/loader/theme-ui.js`, `src/theme.js` |
+| Galeria fixa no computador ajustada à altura da janela (`--o-gal-top`): em telas baixas a galeria sobe até a faixa de miniaturas ficar visível; o selo nativo "Clique para dar zoom" fica acima da faixa | idem |
+| A grade não desmonta quando a INK refaz a lista de pontos do MESMO produto (o carrossel se reconecta ao voltar pelo cache do Turbo e por um instante pontos e fotos ficam incoerentes): antes a grade sumia por alguns segundos e os pontos nativos voltavam; agora ela fica e passa a observar a lista nova | `src/loader/theme-ui.js` |
 | **Desligamento efetivo** (§3 abaixo): escopo do CSS e sinal do loader passam do `<html>` para o `<body>`; o loader só atua com a feature do deploy **e** a superfície ligada na página atual; desligar desfaz tudo; voltar pelo cache do Turbo não religa | `src/worker.js`, `src/theme.js`, `src/loader/theme-ui.js`, `src/loader/discovery-ui.js` |
 | **Ordem de foco = ordem visual**: o `order` do CSS da rodada 2 saiu; prazo, cupom e "Também disponível em" são reposicionados no DOM depois do quadro de compra, e "Guia/Informar medidas" antes da quantidade (mesmo pai; voltam ao lugar ao desligar; um frame que a INK ainda está carregando não é movido) | `src/loader/theme-ui.js` |
 | Flutuantes (Ajuda, WhatsApp, cupons) também saem do caminho enquanto a grade de miniaturas está na tela do celular | idem |
@@ -58,14 +59,15 @@ Medido na PDP real (`florianopolis-legado-sc`, 17 fotos) e em produtos com 3, 4,
 
 | Item | Situação | Justificativa |
 |---|---|---|
-| Miniaturas: todas as fotos, ordem e URLs nativas, 6/8 por linha, sem rolagem lateral, alvos ≥ 44×44 | **Validado localmente** (INK real + Worker local) | 360, 375, 390, 768, 1440 e 1440×680; 3, 5, 17 e 19 fotos |
+| Miniaturas: todas as fotos, ordem e URLs nativas, **uma linha na largura da foto**, rolagem lateral só quando não cabem (17 e 19 fotos: sim; 3 e 5: não), alvos ≥ 44×44, página sem rolagem horizontal | **Validado localmente** (INK real + Worker local) | 360 (45 px), 375 (48), 390 (50), 768 (84), 1440 (83) e 1440×680; 3, 5, 17 e 19 fotos |
+| Miniatura ativa sempre inteira na faixa: depois de clicar a última, de 10× "próxima" (dá a volta), de 12× "anterior" e de trocar a cor estando na última foto | **Validado localmente** | Medido a cada passo (`aria-current` do ponto = miniatura ativa = slide exibido) |
 | 1ª, intermediária e última miniatura; seta nativa; teclado (foco + Enter, anel visível); swipe sintético | **Validado localmente** | Swipe por eventos de toque sintéticos; a miniatura acompanha o que a INK fizer |
 | Foto intermediária → troca de modelo/cor | **Validado localmente** | A INK pula para a foto da variante; a miniatura acompanha; a variante é a dos rádios |
 | Zoom e retorno (computador) | **Validado localmente** | Seleção e grade intactas |
-| Desktop baixo (680 px): últimas miniaturas | **Validado localmente** | `--o-gal-top` −273 px; a última fica visível no fim da coluna |
+| Desktop baixo (680 px): faixa de miniaturas alcançável com a galeria fixa | **Validado localmente** | A galeria sobe (`--o-gal-top` negativo) até a faixa aparecer no fim da coluna |
 | Produto com uma foto | **Validado localmente (DOM)** | Nenhum produto com foto única entre ~60 PDPs varridas; teste de DOM cobre (sem grade, pontos intactos) |
 | Variante indisponível e tamanho invalidado | **Validado localmente** | 4G na Clássica → Baby Look: a INK limpa o tamanho; "P" indisponível tracejado e riscado |
-| Turbo (sem recarregar o documento) para outra PDP, voltar (cache), avançar, atualizar | **Validado localmente** | Uma grade, fotos do produto certo, uma seleção. **Correção de honestidade:** nas rodadas 1 e 2 o "Turbo" do QA era um clique em link de recomendação que fazia **carga inteira** (o harness só passava documentos pelo Worker); agora é `Turbo.visit` de verdade |
+| Turbo (sem recarregar o documento) para outra PDP, voltar (cache), avançar, atualizar | **Validado localmente** | Uma grade, fotos do produto certo, uma seleção; no voltar, a grade fica estável (4/4 repetições, sem intervalo sem grade). **Correção de honestidade:** nas rodadas 1 e 2 o "Turbo" do QA era um clique em link de recomendação que fazia **carga inteira** (o harness só passava documentos pelo Worker); agora é `Turbo.visit` de verdade |
 | Ordem de Tab/Shift+Tab na compra | **Validado localmente** | modelo › cor › tamanho › Guia › Informar › quantidade › CTA › prazo › outros tipos. "Ver cupons disponíveis" é um `<a>` da INK **sem `href`**: não recebe foco nem na INK nativa (limitação nativa) |
 | Liga/desliga por superfície, deploy × painel, mudança no meio, cache do Turbo | **Validado localmente** | §3 |
 | Erros de JS | **Validado localmente** | Nenhum nosso. Após visita Turbo, a INK lança `Identifier 'buttons'/'eventIDViewContent' has already been declared` (scripts inline reexecutados): **igual com o tema desligado** |
@@ -85,9 +87,9 @@ Medido na PDP real (`florianopolis-legado-sc`, 17 fotos) e em produtos com 3, 4,
 
 | Suíte | Resultado |
 |---|---|
-| Worker `npm test` | **559/559** (inclui 10 casos novos do theme-ui: miniaturas, ordem do DOM, frame carregando, desligamento pelo painel, Turbo, cache do Turbo, feature ausente) |
-| `qa-galeria-tema.mjs` (galeria, foco, Turbo) | **141/141** |
-| `preview-tema.mjs --qa` (larguras, barra fixa, Esc, Turbo real, checkout só CSS, campos e botões) | **66/66** |
+| Worker `npm test` | **560/560** (inclui 11 casos novos do theme-ui: miniaturas, lista de pontos refeita pela INK, ordem do DOM, frame carregando, desligamento pelo painel, Turbo, cache do Turbo, feature ausente) |
+| `qa-galeria-tema.mjs` (galeria em linha com rolagem, ativa visível, foco, Turbo) | **163/163** |
+| `preview-tema.mjs --qa` (larguras, barra fixa, Esc, Turbo real, checkout só CSS, campos e botões) | **65/65** (uma verificação só roda quando o quadro de variantes ainda não carregou no toque) |
 | `qa-desligamento-tema.mjs` | **21/21** + **6/6** (mudança no meio) |
 | `estados-tema.mjs` (matriz da rodada 2 refeita) | sem regressão: faixa superior sem sobreposição, símbolo + nome no cabeçalho, variantes, modais, carrinho vazio |
 
@@ -109,6 +111,6 @@ PW_PATH=$HOME/projects/useorigens node scripts/preview-tema.mjs --headed --allow
 - Prévia: o comando acima; capturas e QA: os scripts da seção 5 (`--shots`, `--qa`).
 - Reverter: painel (por superfície, ~1 min para páginas novas), `WIDGET_FEATURES` sem a feature, `wrangler rollback`, rotas do checkout. Sem o tema, galeria, ordem e flutuantes voltam ao nativo; nada fica guardado.
 
-Evidências: `evidence/tema-fluxo-ink/rodada-3/` — `comparativo-galeria-desktop.jpg` e `comparativo-galeria-celular.jpg` (rodada 2 × rodada 3 × tema desligado), `galeria-poucas-e-muitas-fotos.jpg`, `galeria/` (todas as larguras, selecionada, desktop baixo no fim da coluna), estados da PDP e do carrinho vazio, logs `qa-galeria.txt`, `qa-geral.txt`, `qa-desligamento.txt`. **Checkout sem capturas nesta rodada** (só descrição), como pedido.
+Evidências: `evidence/tema-fluxo-ink/rodada-3/` — `comparativo-galeria-desktop.jpg` e `comparativo-galeria-celular.jpg` (rodada 2 × rodada 3 × tema desligado), `galeria-poucas-e-muitas-fotos.jpg` (3 fotos sem rolagem, 19 com rolagem), `galeria/` (360, 390 e 1440 px com a foto 5 ou 12 selecionada e a faixa rolada até ela; desktop baixo no fim da coluna). Capturas sem `fullPage`: a captura de página inteira redimensiona a janela e o carrossel da INK volta à 1ª foto, estados da PDP e do carrinho vazio, logs `qa-galeria.txt`, `qa-geral.txt`, `qa-desligamento.txt`. **Checkout sem capturas nesta rodada** (só descrição), como pedido.
 
 **Pendente para considerar o fluxo pronto:** a validação real do carrinho (adicionar, editar, cupom, frete) e do contato/entrega/pagamento até antes da finalização, feita pelo dono ou com permissão explícita; as duas rotas do checkout (PR próprio); deploys na ordem storefront → painel → Worker.

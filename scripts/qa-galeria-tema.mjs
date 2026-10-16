@@ -21,6 +21,8 @@ const VIEWPORTS = [{ name: '360', width: 360, height: 740 }, { name: '375', widt
 const results = [];
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  — ' + String(detail).slice(0, 260) : '')); };
 const wait = (p, ms) => p.waitForTimeout(ms);
+// A miniatura ativa está inteira dentro da faixa visível (após a rolagem suave terminar)?
+const activeVisible = (page) => page.evaluate(() => { const g = document.querySelector('[data-origens-thumbs]'); const a = g && g.querySelector('.o-thumb[aria-current="true"]'); if (!a) return false; const gr = g.getBoundingClientRect(); const ar = a.getBoundingClientRect(); return ar.left >= gr.left - 1 && ar.right <= gr.right + 1; });
 const state = (page) => page.evaluate(() => {
   const dots = [...document.querySelectorAll('.section-product-v2 button[id^="dot-image-"]')];
   const thumbs = [...document.querySelectorAll('[data-origens-thumbs] .o-thumb')];
@@ -46,12 +48,15 @@ for (const vp of VIEWPORTS) {
         n: thumbs.length, slides: slides.length, sameSrc: thumbs.every((t, i) => t.querySelector('img')?.getAttribute('src') === slides[i]),
         minW: rects.length ? Math.round(Math.min(...rects.map((r) => r.width))) : 0, minH: rects.length ? Math.round(Math.min(...rects.map((r) => r.height))) : 0,
         rows: cols, perRow: rects.length ? rects.filter((r) => Math.round(r.top) === Math.round(rects[0].top)).length : 0,
-        gridOverflow: grid ? grid.scrollWidth > grid.clientWidth + 1 : false, dotsHidden: getComputedStyle(document.querySelector('.section-product-v2 ul.absolute.z-30')).visibility === 'hidden',
+        scrolls: grid ? grid.scrollWidth > grid.clientWidth + 1 : false, fits: grid ? Math.round(rects.length ? rects[rects.length - 1].right - rects[0].left : 0) <= grid.clientWidth + 1 : false,
+        gridW: grid ? grid.clientWidth : 0, mainW: Math.round(document.querySelector('.section-product-v2 ul.aspect-square').getBoundingClientRect().width), dotsHidden: getComputedStyle(document.querySelector('.section-product-v2 ul.absolute.z-30')).visibility === 'hidden',
         labels: thumbs.slice(0, 1).map((t) => t.getAttribute('aria-label'))
       };
     });
     check(`${tag}: todas as fotos viram miniaturas (mesmas URLs, ordem nativa)`, m.n === m.slides && m.n >= 2 && m.sameSrc, JSON.stringify({ n: m.n, slides: m.slides, label: m.labels[0] }));
-    check(`${tag}: grade sem rolagem lateral, ${m.perRow} por linha em ${m.rows} linha(s), alvo ≥ 44×44`, !m.gridOverflow && m.minW >= 44 && m.minH >= 44 && m.sw <= m.cw, JSON.stringify({ minW: m.minW, minH: m.minH, sw: m.sw, cw: m.cw }));
+    // Regra do dono (15/10): UMA linha na largura da foto principal; rolagem lateral só quando as miniaturas não cabem. A página nunca rola de lado.
+    check(`${tag}: uma linha na largura da foto, ${m.scrolls ? 'com rolagem lateral (não cabem)' : 'sem rolagem (cabem)'}, alvo ≥ 44×44, página sem rolagem horizontal`,
+      m.rows === 1 && m.scrolls === !m.fits && Math.abs(m.gridW - m.mainW) <= 2 && m.minW >= 44 && m.minH >= 44 && m.sw <= m.cw, JSON.stringify({ rows: m.rows, visiveis: +(m.gridW / (m.minW + 6)).toFixed(1), minW: m.minW, gridW: m.gridW, mainW: m.mainW, sw: m.sw, cw: m.cw }));
     check(`${tag}: pontos nativos fora de cena só com a grade montada`, m.dotsHidden && m.n > 0);
     // Primeira, intermediária e última por clique; a principal (ponto nativo) e a miniatura acompanham.
     for (const i of [0, Math.floor(m.n / 2), m.n - 1]) {
@@ -59,6 +64,7 @@ for (const vp of VIEWPORTS) {
       await wait(page, 750);
       const st = await state(page);
       check(`${tag}: clique na miniatura ${i + 1} mostra a foto ${i + 1}`, st.dot === i && st.thumb === i, JSON.stringify(st));
+      if (i === m.n - 1) check(`${tag}: a última miniatura, depois do clique, está inteira na faixa`, await activeVisible(page));
     }
     if (pi === 0) {
       // Seta nativa (outro controle) e teclado (Enter numa miniatura focada).
@@ -88,6 +94,11 @@ for (const vp of VIEWPORTS) {
       st = await state(page);
       const radios = await page.evaluate(() => [...document.querySelectorAll('form[id^="form-product-"] input[type=radio]:checked')].map((r) => r.name + '=' + r.value).join(','));
       check(`${tag}: foto 9 → Clássica + Branca: a INK pula para a foto da variante e a miniatura acompanha`, st.dot === st.thumb && st.dot !== 8 && /style=Masculino/.test(radios) && /color=Branca/.test(radios), JSON.stringify({ ...st, radios }));
+      // A partir da ÚLTIMA foto, uma troca de cor leva a seleção para o começo: a faixa rola sozinha até ela.
+      await page.evaluate(() => { const t = document.querySelectorAll('[data-origens-thumbs] .o-thumb'); t[t.length - 1].click(); }); await wait(page, 900);
+      await page.evaluate(() => document.querySelector('input[name="color"][value="Preta"]')?.click()); await wait(page, 2000);
+      const vis = await activeVisible(page); st = await state(page);
+      check(`${tag}: da última foto, trocar a cor traz a miniatura ativa para a área visível da faixa`, vis && st.dot === st.thumb, JSON.stringify(st));
       if (vp.width >= 1024) {
         // Zoom nativo e retorno (computador; a galeria só é fixa a partir de 1024 px).
         const g = await page.evaluate(() => { const r = document.querySelector('.section-product-v2 ul.aspect-square').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });

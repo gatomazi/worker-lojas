@@ -27,8 +27,7 @@ PASS 390px PDP tema aplicado (atributo, 1 link, 1 loader, fonte)  — {"attr":"p
 PASS 390px CTA ≥ 44 px  — 54
 PASS 390px seletores ≥ 44 px  — 9 chips, menor 46
 PASS Turbo (sem recarregar o documento): outra PDP com 1 tema, 1 link, 1 guia, 1 grade  — {"attr":"pdp cart","links":1,"loaders":1,"guides":1,"grids":1,"semRecarga":true}
-PASS Voltar: tema persiste sem duplicar  — {"attr":"pdp cart","links":1,"guides":0}
-PASS celular: toque na barra antes de o quadro de variantes carregar rola até ele (e ele carrega)
+PASS Voltar: tema persiste sem duplicar  — {"attr":"pdp cart","links":1,"guides":1}
 PASS celular: barra fixa visível com o CTA principal fora da tela  — {"visible":true,"inert":false}
 PASS celular: barra fixa some com o CTA principal à vista (um CTA só)
 PASS carrinho: abre pelo ícone e Esc fecha (controle nativo)  — {"open":true,"closed":true}
@@ -66,4 +65,4 @@ PASS 1440px checkout pagamento sem rolagem horizontal  — 1440/1440
 PASS 1440px checkout pagamento: tema só CSS (sem loader)  — {"attr":"checkout","loaders":0}
 PASS 1440px checkout pagamento: botão de seguir ≥ 44 px e numa linha só (≤ 60 px)  — [54]
 INFO trava do checkout/carrinho: nenhuma requisição não-GET foi tentada
-66/66 PASS
+65/65 PASS
