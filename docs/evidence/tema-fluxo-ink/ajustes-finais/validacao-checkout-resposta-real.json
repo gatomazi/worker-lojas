@@ -1,0 +1,136 @@
+{
+ "geradoEm": "2026-10-16T14:06:03.180Z",
+ "resultados": [
+  {
+   "name": "contato: tela da INK com o tema (atributo checkout) e resumo com total",
+   "ok": true,
+   "detail": "{\"Subtotal\":\"R$ 659,40\",\"Desconto\":\"-R$ 85,00\",\"Frete\":\"R$ 27,49 GRÁTIS\",\"Total\":\"R$ 574,40\"}"
+  },
+  {
+   "name": "pagamento: forma escolhida e total lidos",
+   "ok": true,
+   "detail": "forma inicial: null · {\"Subtotal\":\"R$ 659,40\",\"Desconto\":\"-R$ 85,00\",\"Frete\":\"R$ 27,49 GRÁTIS\",\"Total\":\"R$ 574,40\"}"
+  },
+  {
+   "name": "Pix: a INK respondeu ao recálculo (POST payment_discount liberado)",
+   "ok": true,
+   "detail": "desktop POST /usesul/checkout/payment_discount/<id> -> 200"
+  },
+  {
+   "name": "cartão: a INK respondeu ao recálculo",
+   "ok": true,
+   "detail": "desktop POST /usesul/checkout/payment_discount/<id> -> 200 | desktop POST /usesul/checkout/payment_discount/<id> -> 200"
+  },
+  {
+   "name": "Pix × cartão: totais lidos depois de cada resposta",
+   "ok": true,
+   "detail": "Pix R$ 574,40 (desconto -R$ 85,00) · cartão R$ 574,40 (desconto -R$ 85,00)"
+  },
+  {
+   "name": "parcelas: escolher não faz requisição",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "parcelas: n × valor da parcela = total do cartão (±R$ 0,05)",
+   "ok": true,
+   "detail": "1x de R$ 574,40 sem juros · 2x de R$ 287,20 sem juros · 3x de R$ 191,47 sem juros · 4x de R$ 143,60 sem juros · 5x de R$ 114,88 sem juros"
+  },
+  {
+   "name": "\"Editar\" volta ao contato (GET), com o tema, sem envio",
+   "ok": true,
+   "detail": "sem POST"
+  }
+ ],
+ "passos": [
+  {
+   "step": "contato",
+   "rows": {
+    "Subtotal": "R$ 659,40",
+    "Desconto": "-R$ 85,00",
+    "Frete": "R$ 27,49 GRÁTIS",
+    "Total": "R$ 574,40"
+   },
+   "selected": null,
+   "installments": [],
+   "theme": "checkout"
+  },
+  {
+   "step": "pagamento (inicial)",
+   "rows": {
+    "Subtotal": "R$ 659,40",
+    "Desconto": "-R$ 85,00",
+    "Frete": "R$ 27,49 GRÁTIS",
+    "Total": "R$ 574,40"
+   },
+   "selected": null,
+   "installments": [
+    "1x de R$ 574,40 sem juros",
+    "2x de R$ 287,20 sem juros",
+    "3x de R$ 191,47 sem juros",
+    "4x de R$ 143,60 sem juros",
+    "5x de R$ 114,88 sem juros"
+   ],
+   "theme": "checkout"
+  },
+  {
+   "step": "Pix",
+   "rows": {
+    "Subtotal": "R$ 659,40",
+    "Desconto": "-R$ 85,00",
+    "Frete": "R$ 27,49 GRÁTIS",
+    "Total": "R$ 574,40"
+   },
+   "selected": "pix",
+   "installments": [
+    "1x de R$ 574,40 sem juros",
+    "2x de R$ 287,20 sem juros",
+    "3x de R$ 191,47 sem juros",
+    "4x de R$ 143,60 sem juros",
+    "5x de R$ 114,88 sem juros"
+   ],
+   "theme": "checkout"
+  },
+  {
+   "step": "cartão",
+   "rows": {
+    "Subtotal": "R$ 659,40",
+    "Desconto": "-R$ 85,00",
+    "Frete": "R$ 27,49 GRÁTIS",
+    "Total": "R$ 574,40"
+   },
+   "selected": "credit_card",
+   "installments": [
+    "1x de R$ 574,40 sem juros",
+    "2x de R$ 287,20 sem juros",
+    "3x de R$ 191,47 sem juros",
+    "4x de R$ 143,60 sem juros",
+    "5x de R$ 114,88 sem juros"
+   ],
+   "theme": "checkout"
+  },
+  {
+   "step": "recarregado",
+   "rows": {
+    "Subtotal": "R$ 659,40",
+    "Desconto": "-R$ 85,00",
+    "Frete": "R$ 27,49 GRÁTIS",
+    "Total": "R$ 574,40"
+   },
+   "selected": null,
+   "installments": [
+    "1x de R$ 574,40 sem juros",
+    "2x de R$ 287,20 sem juros",
+    "3x de R$ 191,47 sem juros",
+    "4x de R$ 143,60 sem juros",
+    "5x de R$ 114,88 sem juros"
+   ],
+   "theme": "checkout"
+  }
+ ],
+ "liberadas": [
+  "desktop POST /usesul/checkout/payment_discount/<id> -> 200",
+  "desktop POST /usesul/checkout/payment_discount/<id> -> 200"
+ ],
+ "bloqueadas": []
+}
