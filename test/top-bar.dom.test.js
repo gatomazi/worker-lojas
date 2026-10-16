@@ -115,6 +115,17 @@ test('marquee (the default, also without style): every message in one scrolling 
   }
 });
 
+test('colours from the panel paint the whole strip while a message is on; leaving the scope gives the INK its black strip back', async () => {
+  const t = setup({ payload: { ...MARQUEE, colors: { background: '#b3121f', text: '#ffffff' } } }); await tick(400);
+  assert.equal(t.bar().style.getPropertyValue('--o-top-bar-bg'), '#b3121f');
+  assert.equal(t.bar().style.getPropertyValue('--o-top-bar-fg'), '#ffffff');
+  assert.ok(t.q('#o-top-bar-css').textContent.includes('background-color:var(--o-top-bar-bg,#000)!important'));
+  await goto(t, '/usesul/cart');
+  assert.equal(t.bar().style.getPropertyValue('--o-top-bar-bg'), '');
+  const plain = setup({ payload: MARQUEE }); await tick(400);
+  assert.equal(plain.bar().style.getPropertyValue('--o-top-bar-bg'), '', 'no colours = the black strip');
+});
+
 test('marquee with reduced motion: nothing moves, the first message stays', async () => {
   const t = setup({ payload: MARQUEE, reduced: true }); await tick(400);
   assert.equal(t.all('.o-top-bar-track').length, 0);
@@ -128,7 +139,8 @@ test('fail-open: an error, an empty list or a payload outside the contract leave
     { payload: { v: 1, messages: [{ ...BF, href: 'https://evil.example/sul' }] } },
     { payload: { v: 1, messages: [{ ...BF, href: 'https://useorigens.com.br/norte/h/natal' }] } },
     { payload: { v: 1, messages: [{ id: 'x', text: '<b>oi</b>' }] } },
-    { payload: { v: 1, style: 'blink', messages: [NATAL] } }
+    { payload: { v: 1, style: 'blink', messages: [NATAL] } },
+    { payload: { v: 1, colors: { background: 'red', text: '#fff' }, messages: [NATAL] } }
   ];
   for (const c of cases) {
     const t = setup(c); await tick(400);

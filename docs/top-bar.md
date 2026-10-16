@@ -12,6 +12,8 @@ Feature **opt-in** `top-bar` (`WIDGET_FEATURES`). Troca as frases nativas da fai
 - **Estilos** (`style` do payload, escolhido no painel): `marquee` (padrão, letreiro no estilo da Aphago: todas numa linha que corre sem parar, separadas por um
   ponto, com laço sem emenda e 45 px/s medidos depois do layout) ou `rotate` (uma de cada vez, a cada 5 s). Os dois param sob o ponteiro e com o foco e ficam
   parados com `prefers-reduced-motion`. No letreiro, só a 1ª passagem é lida pelo leitor de tela e alcançada pelo Tab.
+- **Cores** (`colors` do payload, opcional): fundo e fonte da faixa inteira, aplicados por variáveis CSS na própria `.header-benefits` (`--o-top-bar-bg`,
+  `--o-top-bar-fg`) só enquanto a faixa é nossa; ao desmontar, as variáveis saem e a faixa preta da INK volta.
 - **Nunca `<span>` dentro da faixa:** o CSS da INK (`.header .header-benefits span`) põe todo span dali em `position:absolute` com a animação de troca dela.
   Os nossos elementos são `div`/`a` (conferido num navegador real com o CSS oficial da INK; o jsdom não aplica esse CSS).
 - **Turbo:** o `turbo:before-cache` desmonta tudo ANTES do `turbo:before-render`. Por isso o estado e o ouvinte de `turbo:before-render` ficam no módulo
