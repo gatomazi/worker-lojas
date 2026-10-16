@@ -10,6 +10,7 @@ import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommenda
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
 import { resolveStore, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
+import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
 // declarou a variável). STORE_ID desconhecido = fail-closed: só o health responde e todo o resto vai direto à INK.
@@ -220,6 +221,9 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
           scope_status: scope.status,
           served_regions: served.regions,
           served_regions_status: served.status,
+          // Loja antiga redirecionando para a loja única (legacy-redirect.js) e se o mapa de produtos está ligado (nunca o conteúdo).
+          legacy_redirect: legacyRedirectOn(env, store),
+          legacy_map_bound: Boolean(env.LEGACY_MAP),
           shell_pages: store ? shellEnabled(scope.mode, features.features, store.shellPages) : false,
           features_status: features.status,
           widget_features: store ? features.features : [],
@@ -235,6 +239,13 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       // workers.dev (ou qualquer host que não seja o da loja deste Worker) não é espelho da INK.
       if (url.hostname !== store.inkHost) {
         return new Response('Test host: use /__health. The integration requires a Worker Route on www.', { status: 404 });
+      }
+
+      // Loja antiga depois da loja única: produto -> o mesmo produto na loja única; home/listagens/coleções -> a região no storefront.
+      // Pedidos, carrinho, checkout e conta seguem para a INK (legacyRedirect devolve null).
+      if (legacyRedirectOn(env, store) && !url.pathname.startsWith('/__origens/')) {
+        const moved = await legacyRedirect(request, url, store, env.LEGACY_MAP, env);
+        if (moved) return moved;
       }
 
       // A região do visitante decide o que ele vê (loja única); sem SERVE_REGIONS ela é sempre a da loja e `view` é a própria loja.
