@@ -12,6 +12,8 @@
 //     --qa        verificações com número em 360/375/390/768/1440 (rolagem horizontal, alvos de toque, Turbo, barra fixa, Esc, checkout); exit 1 se falhar
 //     --headed    abre duas janelas (computador e celular) para navegar à mão; Ctrl+C encerra
 //     --allow-cart  libera os POSTs do CARRINHO (adicionar/quantidade/remover) — só para uso manual; o checkout continua bloqueado
+//     --capturar-carrinho <dir>  (com --headed) a cada Enter no terminal, captura a gaveta do carrinho como ESTÁ em cada janela (topo e fim da lista).
+//                 Quem adiciona/remove itens é a pessoa, à mão; o script só abre a gaveta e fotografa (nenhum POST sai dele).
 // TRAVA: qualquer requisição não-GET para <loja>/checkout é ABORTADA no navegador (nunca chega à INK: nada de pedido, pagamento ou cobrança).
 import { mkdirSync, readFileSync } from 'node:fs';
 import { createHarness, REFERENCE_THEME, DEFAULT_PDP, VIEWPORTS } from './lib/tema-harness.mjs';
@@ -36,8 +38,29 @@ async function shot(page, file, full = false) {
 }
 
 if (flag('--headed')) {
-  for (const vp of VIEWPORTS) { const s = await session(vp); await s.page.goto(HOST + PDP, { waitUntil: 'domcontentloaded', timeout: 60000 }); }
+  const opened = [];
+  for (const vp of VIEWPORTS) { const s = await session(vp); opened.push(s.page); await s.page.goto(HOST + PDP, { waitUntil: 'domcontentloaded', timeout: 60000 }); }
   console.log('Prévia aberta (computador e celular)' + (OFF ? ' SEM tema' : ' COM tema') + '. Checkout: só GET; Ctrl+C encerra.');
+  const dir = opt('--capturar-carrinho');
+  if (dir) {
+    mkdirSync(dir, { recursive: true });
+    let n = 0;
+    console.log('Monte o carrinho À MÃO em cada janela e aperte Enter aqui para fotografar a gaveta (repita a cada estado).');
+    process.stdin.on('data', async () => {
+      n++;
+      for (const page of opened) {
+        const mobile = page.viewportSize().width < 600; const tag = String(n).padStart(2, '0') + '_' + (mobile ? 'mobile' : 'desktop');
+        await page.evaluate((m) => { window.scrollTo(0, 0); if (!document.querySelector('.cart-drawer.open')) document.getElementById(m ? 'shopping-cart-menu-mob' : 'shopping-cart-menu-desk')?.click(); }, mobile);
+        await page.waitForTimeout(1500);
+        await page.screenshot({ path: `${dir}/REAL-CARRINHO-MONTADO-A-MAO_${tag}_topo.png` });
+        await page.evaluate(() => { const el = document.querySelector('.cart-drawer__main'); if (el) el.scrollTop = el.scrollHeight; });
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: `${dir}/REAL-CARRINHO-MONTADO-A-MAO_${tag}_fim.png` });
+        await page.evaluate(() => { const el = document.querySelector('.cart-drawer__main'); if (el) el.scrollTop = 0; });
+      }
+      console.log(`estado ${n} capturado em ${dir}`);
+    });
+  }
   await new Promise(() => {});
 }
 

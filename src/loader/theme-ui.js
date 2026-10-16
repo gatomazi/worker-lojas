@@ -45,6 +45,7 @@ export const THEME_UI = String.raw`
   let themeGallery = null;  // { host, list, key, grid, observer, body, sync }
   let themeChoosing = null; // { targets, observer }
   let themeMoves = [];      // [{ node, restore }]
+  let themeBusy = new Map(); // frame da INK carregando -> observador do atributo busy
   let themeResize = null;
 
   // ── Barra fixa e teclado ──
@@ -187,6 +188,22 @@ export const THEME_UI = String.raw`
     place();
     themeMoves.push({ node, restore });
   }
+  const themeRawBusy = (node) => node.hasAttribute('busy') || node.getAttribute('aria-busy') === 'true';
+  // Medido na INK: o Turbo tira o busy no fim do fetch, mas ainda LÊ a resposta (~20 ms), troca o conteúdo e só então marca complete. Mover o frame
+  // nesse meio também aborta a leitura. Frame visto carregando conta como carregando até o complete; aí o próprio frame avisa e a ordem é refeita.
+  const themeIsBusy = (node) => themeRawBusy(node) || themeBusy.has(node);
+  function themeWaitBusy(node) {
+    if (themeBusy.has(node) || typeof MutationObserver !== 'function') return;
+    const observer = new MutationObserver((records) => {
+      if (!records.some((r) => r.attributeName === 'complete') || themeRawBusy(node) || !node.hasAttribute('complete')) return;
+      observer.disconnect(); themeBusy.delete(node);
+      if (node.isConnected && themeOn('pdp') && allowedNow()) themeReorder();
+    });
+    observer.observe(node, { attributes: true, attributeFilter: ['busy', 'aria-busy', 'complete'] });
+    themeBusy.set(node, observer);
+  }
+  function themeStopBusy() { for (const o of themeBusy.values()) o.disconnect(); themeBusy = new Map(); }
+
   function themeReorder() {
     themeMoves = themeMoves.filter((m) => m.node.isConnected); // nós que a INK re-renderizou não precisam voltar
     const form = document.querySelector('form[id^="form-product-"]');
@@ -198,7 +215,7 @@ export const THEME_UI = String.raw`
       if (!node) continue;
       // Frame carregando (o Turbo marca o atributo busy): mover agora DESCONECTA o frame e aborta o pedido da INK. Fica para o próximo ciclo (o fim do carregamento
       // muda o DOM e o runtime remonta), e o âncora não avança: os outros blocos entram logo depois do quadro de compra.
-      if (node.hasAttribute('busy') || node.getAttribute('aria-busy') === 'true') continue;
+      if (themeIsBusy(node)) { themeWaitBusy(node); continue; }
       if (anchor.nextElementSibling !== node) {
         const prev = node.previousElementSibling; const parent = node.parentElement; const at = anchor;
         themeMove(node, () => at.after(node), () => (prev && prev.parentElement === parent ? prev.after(node) : parent.prepend(node)));
@@ -267,7 +284,7 @@ export const THEME_UI = String.raw`
   }
 
   function themeStopPdp() {
-    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeRestoreMoves();
+    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeStopBusy(); themeRestoreMoves();
     if (themeBody()) themeBody().classList.remove('o-typing');
   }
   register({

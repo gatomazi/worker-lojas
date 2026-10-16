@@ -62,7 +62,8 @@ test('CSS: every rule is scoped to the themed <body> (or is the font @import / a
   for (const rule of top) {
     const inner = rule.startsWith('@media') ? rule.slice(rule.indexOf('{') + 1, -1) : rule;
     for (const sel of inner.split('}').filter(Boolean).map((r) => r.slice(0, r.indexOf('{'))).flatMap(splitSelectors)) {
-      assert.match(sel.trim(), /^body\[data-origens-theme/, 'unscoped selector: ' + sel.trim().slice(0, 80));
+      // `html:has(> body[data-origens-theme~=…])`: o scroll-padding do checkout mora no <html>, mas só vale com o <body> tematizado.
+      assert.match(sel.trim(), /^(?:html:has\(> )?body\[data-origens-theme/, 'unscoped selector: ' + sel.trim().slice(0, 80));
     }
   }
   const pdpOnly = buildThemeCss(t, ['pdp']);
@@ -76,11 +77,13 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   const t = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }));
   const css = buildThemeCss(t, SURFACES);
   const selectorsWith = (re) => (css.replace(/@keyframes o-[a-z-]+\{(?:[^{}]*\{[^}]*\})*\}/g, '').match(new RegExp('[^{}]+\\{[^}]*' + re + '[^}]*\\}', 'g')) || []).map((r) => { const head = r.slice(0, r.lastIndexOf('{')); return head.slice(head.lastIndexOf('{') + 1); }); // tira o @media em volta
-  // `display` só onde a INK nunca alterna visibilidade (grades dos seletores, o "Continuar Comprando" do carrinho vazio, o link da marca no checkout). Os dois
-  // `display:none`: a frase da INK que repete o nosso "Seu carrinho está vazio" (só quando o nosso bloco existe) e a setinha do nosso "Guia de medidas".
+  // `display` só onde a INK nunca alterna visibilidade (grades dos seletores, o "Continuar Comprando" do carrinho vazio, o link da marca no checkout). Os
+  // `display:none`: a frase da INK que repete o nosso "Seu carrinho está vazio" (só quando o nosso bloco existe), a setinha do nosso "Guia de medidas" e o
+  // rótulo/texto de apoio do NOSSO bloco no pós-adição.
   assert.deepEqual(selectorsWith('display:').sort(), [
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
@@ -90,6 +93,7 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   ].sort());
   assert.deepEqual(selectorsWith('display:\\s*none').sort(), [
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
   ].sort());
   // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com as miniaturas no lugar), flutuantes durante a escolha.
@@ -106,6 +110,14 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   // Faixa superior: a animação nossa só entra com exatamente três mensagens e com os keyframes no próprio CSS.
   assert.ok(css.includes('@keyframes o-benefit') && css.includes('.header-benefits:has(> span:nth-child(3):last-child) > span'));
   assert.ok(!buildThemeCss(t, ['cart']).includes('@keyframes'), 'cart alone has no strip');
+  // Checkout: o campo em foco não para atrás da faixa do topo nem da barra fixa do celular (só CSS; o respiro de baixo só existe com a barra).
+  const k = buildThemeCss(t, ['checkout']);
+  assert.ok(k.includes('html:has(> body[data-origens-theme~="checkout"]){scroll-padding-top:48px}'));
+  assert.ok(/@media \(max-width:767px\)\{html:has\(> body\[data-origens-theme~="checkout"\] div\.fixed\.bottom-0 button\.md\\:hidden\)\{scroll-padding-bottom:104px\}\}/.test(k));
+  assert.ok(!buildThemeCss(t, ['pdp', 'cart']).includes('scroll-padding'), 'only the checkout touches scroll-padding');
+  // Carrinho: preço de cada item numa linha; botões de quantidade/remover com 44 px.
+  const c = buildThemeCss(t, ['cart']);
+  assert.ok(c.includes(':is(.price,.price span,.price del){white-space:nowrap}') && c.includes('.item-details__quantity button{width:44px!important;height:44px!important}'));
 });
 
 test('themeQuery: changes with the published tokens and with the surfaces; parseSurfaceParam keeps only known names in canonical order', () => {

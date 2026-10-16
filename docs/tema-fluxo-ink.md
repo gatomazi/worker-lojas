@@ -64,9 +64,13 @@ PW_PATH=… node scripts/estados-tema.mjs --out <dir> [--off] [--checkout <uuid>
 PW_PATH=… node scripts/simulacao-carrinho.mjs --out <dir> [--off]                       # SIMULAÇÃO de carrinho com itens e pós-adição (aparência)
 PW_PATH=… node scripts/qa-galeria-tema.mjs [--shots <dir>]                               # miniaturas, foco, Turbo real (6 larguras, 3–19 fotos)
 PW_PATH=… node scripts/qa-desligamento-tema.mjs [--checkout <uuid>] [--rapido]           # liga/desliga por superfície, deploy × painel, mudança no meio
+PW_PATH=… node scripts/complemento-visual.mjs --out <dir> --checkout <uuid de teste>    # carrinho preenchido + incentivo (simulação) e checkout SANITIZADO, 1440/390/360/1280×640
+PW_PATH=… node scripts/preview-tema.mjs --headed --allow-cart --capturar-carrinho <dir> # carrinho REAL montado à mão; Enter no terminal fotografa a gaveta
 ```
 
 **Trava:** no navegador da prévia, qualquer requisição não-GET para `/checkout` é abortada (nada de pedido, pagamento ou cobrança); as do carrinho também, salvo `--allow-cart` (uso manual). Nas capturas, campos e endereço do checkout saem mascarados. `--checkout` deve ser um carrinho de **teste**.
+
+**Checkout sanitizado** (`createHarness({ sanitize: true })`, usado pelo `complemento-visual.mjs`): antes de a página chegar ao navegador, `sanitizeCheckout` lê do próprio HTML os valores de contato e endereço e troca todas as ocorrências (atributos, textos, só dígitos; o número da casa só no campo e depois da rua) por dados fictícios. A tela de pagamento usa o que foi aprendido na de contato. Se nada foi aprendido, ou se sobrar um valor ou um CEP real no texto, a página é recusada (451) e a captura não acontece. Nenhum dado real fica no código (`test/sanitize-checkout.test.js`).
 
 ## Ligar e desligar
 

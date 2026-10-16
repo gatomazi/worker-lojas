@@ -19,7 +19,48 @@ const PII = ['[data-controller="ink-store--checkout"] input[value]:not([value=""
 
 // `config` é lido A CADA pedido do Worker ao storefront: mudar o objeto durante a sessão simula uma nova publicação no painel (o Worker ainda guarda 60 s
 // por isolate). `themeFeatures` troca as features de tema do deploy (padrão: as três).
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout' } = {}) {
+// SANITIZAÇÃO do checkout para capturas de apresentação: lê do PRÓPRIO HTML os valores pessoais (inputs de contato e de endereço) e troca TODAS as
+// ocorrências (atributos e textos, também em só dígitos) por dados fictícios ANTES de a página chegar ao navegador. Nenhum dado real fica no código. Se
+// algum valor original sobrar, lança erro (a captura não acontece). Os campos de cartão vêm vazios da INK e continuam vazios.
+const FAKE = {
+  'user[email]': 'cliente@exemplo.com', 'user[first_name]': 'Cliente', 'user[last_name]': 'Exemplo', 'user[phone]': '(48) 90000-0000', 'user[document]': '000.000.000-00',
+  'cart[cep]': '88000-000', street: 'Rua Exemplo', number: '100', neighbourhood: 'Centro', city: 'Cidade Exemplo', complement: ''
+};
+const decode = (v) => v.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+// `learned`: o que já foi aprendido em outra tela do MESMO checkout (a de pagamento só mostra o endereço em texto, sem os campos de contato).
+export function sanitizeCheckout(html, learned = new Map()) {
+  const found = new Map(learned); // valor original -> fictício
+  for (const m of html.matchAll(/<input\b[^>]*>/g)) {
+    const tag = m[0];
+    const name = (/\bname="([^"]+)"/.exec(tag) || [])[1];
+    const value = (/\bvalue="([^"]*)"/.exec(tag) || [])[1];
+    if (!name || !value || value.length < 2) continue;
+    const field = (/\[(?:shipping|billing)_address\]\[([a-z_]+)\]/.exec(name) || [])[1];
+    const fake = Object.hasOwn(FAKE, name) ? FAKE[name] : (field && Object.hasOwn(FAKE, field) ? FAKE[field] : null);
+    if (fake === null || (field === 'number')) continue; // número da casa sozinho não identifica; evita trocar números de preço
+    const original = decode(value).trim();
+    if (original.length < 2) continue;
+    found.set(original, fake);
+    const digits = original.replace(/\D/g, '');
+    if (digits.length >= 8 && digits !== original) found.set(digits, fake.replace(/\D/g, '') || fake);
+  }
+  let out = html;
+  for (const [original, fake] of [...found.entries()].sort((a, b) => b[0].length - a[0].length)) {
+    const esc = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(esc, 'g'), fake).replace(new RegExp(esc.replace(/'/g, '&#39;').replace(/"/g, '&quot;'), 'g'), fake);
+  }
+  // Número da casa: trocado só no campo e logo depois da rua fictícia (um número solto aparece em preços e datas; trocá-lo no texto todo estragaria a página).
+  out = out.replace(/<input\b[^>]*name="cart\[(?:shipping|billing)_address\]\[number\]"[^>]*>/g, (tag) => tag.replace(/\bvalue="[^"]*"/, 'value="' + FAKE.number + '"'))
+    .replace(new RegExp('(' + FAKE.street + ',\\s*)[0-9]+[A-Za-z]?', 'g'), '$1' + FAKE.number);
+  if (found.size === 0) throw new Error('sanitização recusada: nenhum valor pessoal aprendido (abra antes a tela de contato e entrega)');
+  for (const original of found.keys()) if (out.includes(original)) throw new Error('sanitização incompleta: um valor pessoal sobrou no HTML');
+  // Rede de segurança: nenhum CEP no texto visível além do fictício.
+  const text = out.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, ' ');
+  if ((text.match(/\b\d{5}-\d{3}\b/g) || []).some((c) => c !== FAKE['cart[cep]'])) throw new Error('sanitização incompleta: sobrou um CEP real no texto');
+  return { html: out, replaced: found.size, learned: found };
+}
+
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false } = {}) {
   const require = createRequire((process.env.PW_PATH || '.') + '/');
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
@@ -40,6 +81,7 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
   });
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: !headed });
   const blocked = [];
+  const learned = new Map(); // sanitização: valores aprendidos na tela de contato (vale para a de pagamento)
   async function session({ name, width, height }) {
     const mobile = width < 600;
     const ctx = await browser.newContext({ viewport: { width, height }, locale: 'pt-BR', deviceScaleFactor: mobile ? 2 : 1, isMobile: mobile, hasTouch: mobile });
@@ -66,6 +108,10 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
       const res = await route.fetch({ maxRedirects: 0, timeout: 60000 });
       if (res.status() >= 300 && res.status() < 400) return route.fulfill({ response: res });
       upstream.html = await res.text(); upstream.status = res.status();
+      if (sanitize && checkoutPageKind(new URL(req.url()).pathname, store.inkBase) !== null) {
+        try { const r = sanitizeCheckout(upstream.html, learned); upstream.html = r.html; for (const [k, v] of r.learned) learned.set(k, v); }
+        catch (error) { console.error('[harness] ' + error.message); return route.fulfill({ status: 451, contentType: 'text/plain', body: 'checkout não sanitizado: captura recusada' }); }
+      }
       const fwd = { accept: req.headers().accept || 'text/html' };
       if (req.headers()['turbo-frame']) fwd['turbo-frame'] = req.headers()['turbo-frame'];
       const out = await mf.dispatchFetch(req.url(), { headers: fwd });

@@ -316,15 +316,20 @@ function cartCss() {
     D + '__header .top-header > span .text-gray-500{color:var(--o-ink-mute)!important;font-weight:400;font-size:14px!important}',
     D + '__header #cart-drawer-close{width:28px!important;height:28px!important;min-width:28px;cursor:pointer;color:var(--o-ink)}',
     D + '__main{background:var(--o-surface)!important}',
-    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding-top:14px;padding-bottom:14px}',
+    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding:14px 16px!important;gap:12px}',
     D + '__main .main-list__item > img{width:88px!important;height:88px!important;max-width:88px;flex:0 0 88px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
     D + '__main .main-list__item .item-wrapper .item-header{font-size:15px;font-weight:600;color:var(--o-ink)}',
     D + '__main .main-list__item .item-wrapper .item-details > span,' + D + '__main .main-list__item .item-wrapper .item-details p{color:var(--o-ink-mute);font-size:14px}',
     D + '__main .main-list__item .item-wrapper .item-details > p:first-child{color:var(--o-ink);font-weight:600;font-size:15px}',
     D + '__main .main-list__item .item-wrapper .item-details .price span{color:var(--o-ink);font-weight:600}',
+    // Preço numa linha só, mesmo com nome longo (o nome é que quebra).
+    D + '__main .main-list__item .item-wrapper .price-details{flex:0 0 auto;padding-left:8px}',
+    D + '__main .main-list__item .item-wrapper :is(.price,.price span,.price del){white-space:nowrap}',
+    D + '__main .main-list__item .item-wrapper .item-details > :is(span,p){line-height:1.35}',
     D + '__main .main-list__item .item-wrapper .item-details .price del{color:var(--o-ink-mute)}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity{border:1px solid var(--o-line-soft);border-radius:var(--o-radius);width:fit-content!important;max-width:100%}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:40px!important;height:40px!important}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:44px!important;height:44px!important}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
     D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line-soft);padding:12px 20px calc(16px + env(safe-area-inset-bottom))!important}',
@@ -340,6 +345,11 @@ function cartCss() {
     btn(D + ' #checkout-btn,' + D + '__footer__submit'),
     D + ' #checkout-btn{width:100%}',
     ghost(D + '__footer__keep-shopping'),
+    // Tela baixa (celular de 640–760 px de altura, notebook com a janela baixa): o rodapé fixo da gaveta (329 px) comia a lista. Compacto, sem
+    // esconder nada da INK e sem alvo de toque abaixo de 44 px: ~40 px a mais para os itens.
+    '@media (max-height:760px){' + D + '__footer{padding:8px 16px calc(10px + env(safe-area-inset-bottom))!important}' +
+      D + '__footer .footer-details{margin:2px 0 8px!important;gap:2px}' + D + '__footer .footer-details ul > li:last-child{font-size:18px;padding-top:2px}' +
+      D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}' + D + '__footer__keep-shopping{min-height:44px;margin-top:6px!important}}',
     // Carrinho vazio: o nosso bloco abre o estado ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase da INK que repete
     // a mesma intenção some só quando o nosso bloco existe (sem ele, a INK fica como é). Recomendações da INK abaixo; "Continuar comprando" secundário.
     D + ' .empty-cart{background:var(--o-surface)!important;color:var(--o-ink-soft)!important;gap:20px}',
@@ -357,6 +367,12 @@ function cartCss() {
     C + ' [data-origens-discovery][data-origens-empty] .o-actions > *{flex:0 0 auto!important;width:100%}',
     C + ' [data-origens-discovery][data-origens-empty] .o-toggle{background:var(--o-action)!important;border-color:var(--o-action)!important;color:var(--o-on-action)!important;min-height:52px}',
     C + ' [data-origens-discovery] .o-input{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;font-size:16px}',
+    // Carrinho preenchido: o bloco (denso, depois dos itens) é uma linha de duas ações de 44 px, sem disputar com os itens.
+    C + ' [data-origens-discovery="cart"].o-dense{padding:8px!important;margin:12px 16px!important}',
+    C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){min-height:44px!important;padding:6px 10px!important;font-size:14px!important;line-height:1.2}',
+    // Pós-adição: só título e ações (o texto de apoio e o rótulo de cima alongavam a folha no celular).
+    C + ' [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead){display:none}',
+    C + ' [data-origens-discovery="post-add"] .o-title{font-size:16px!important;margin-bottom:8px}',
     C + ' [data-origens-discovery] .o-item{border-radius:var(--o-radius)!important}',
     // Confirmação pós-adição (modal nativo): mesma linguagem; "Ver carrinho" = ação principal, "Continuar comprando" = secundária.
     C + ' #modal-wrapper{font-family:var(--o-font);letter-spacing:normal;color:var(--o-ink)}',
@@ -416,6 +432,10 @@ function checkoutCss() {
     // Botões de seguir e "Finalizar compra" (que já processa o pagamento: não há revisão depois). Na barra do celular, uma linha só.
     btn(L + ' button.bg-green-500,' + L + ' button[type="submit"][data-action*="validateAndSubmit"],' + L + ' a.bg-green-500'),
     L + ' button.bg-green-500.md\\:hidden{white-space:nowrap;padding:0 16px;letter-spacing:.02em;font-size:14px}',
+    // Campo em foco (Tab, ou o navegador levando ao campo com erro) nunca para atrás da faixa fixa do topo nem, no celular, atrás da barra fixa
+    // "Total · Finalizar compra" (79 px): o navegador respeita o scroll-padding ao rolar até o foco.
+    'html:has(> ' + K + '){scroll-padding-top:48px}',
+    '@media (max-width:767px){html:has(> ' + K + ' div.fixed.bottom-0 button.md\\:hidden){scroll-padding-bottom:104px}}',
     // Resumo: itens, subtotal, desconto, prazo, frete e total; total em destaque, desconto em verde AA.
     K + ' turbo-frame#cart_summary > section{background:var(--o-paper)!important}',
     K + ' turbo-frame#cart_summary img{border-radius:var(--o-radius)!important;border-color:var(--o-line-soft)!important;background:var(--o-photo)}',

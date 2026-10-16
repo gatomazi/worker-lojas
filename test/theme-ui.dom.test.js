@@ -126,6 +126,24 @@ test('frame da INK carregando (busy) não é movido — mover abortaria o pedido
   assert.deepEqual(formOrder(t), THEMED_FORM);
 });
 
+test('frame busy: o Turbo tira o busy ANTES de ler a resposta — nada o move até o complete, nem uma remontagem no meio; depois entra na ordem', async () => {
+  const t = setup({ html: FIXTURE.replace('<turbo-frame id="delivery_estimates_frame">', '<turbo-frame id="delivery_estimates_frame" busy aria-busy="true" src="/usesul/delivery_estimate">') });
+  await tick();
+  const SKIPPED = ['flex', 'delivery_estimates_frame', 'product_variants_options_frame', 'product_promotions_frame', 'ink-store--modal'];
+  const f = t.doc.getElementById('delivery_estimates_frame');
+  // Sequência medida na INK: busy sai -> (~20 ms lendo a resposta) -> conteúdo trocado -> complete.
+  f.removeAttribute('busy'); f.removeAttribute('aria-busy');
+  t.doc.body.appendChild(t.doc.createElement('i')); // qualquer outra mudança no DOM remonta o runtime justo nesse intervalo
+  await tick();
+  assert.deepEqual(formOrder(t), SKIPPED, 'mover agora abortaria a leitura da resposta');
+  f.appendChild(t.doc.createElement('span'));
+  await tick();
+  assert.deepEqual(formOrder(t), SKIPPED, 'conteúdo trocado, mas ainda sem complete');
+  f.setAttribute('complete', '');
+  await tick();
+  assert.deepEqual(formOrder(t), THEMED_FORM);
+});
+
 test('REGRESSÃO: feature no deploy NÃO basta — com a PDP desligada no painel (body sem "pdp") nada da PDP atua; o carrinho segue', async () => {
   const t = setup({ attr: 'cart' });
   await tick();
