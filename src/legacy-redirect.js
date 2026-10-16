@@ -23,6 +23,18 @@ function withCampaign(target, from) {
 
 const redirect = (target, status) => new Response(null, { status, headers: { Location: target.href, 'Cache-Control': 'no-store', 'X-Origens-Legacy': '1' } });
 
+// Coleção antiga -> página equivalente no storefront da região (estado, coleção, busca do estilo). O mapa fica no mesmo KV, na chave "c:<slug>",
+// e o valor é um caminho do storefront (com query opcional). Só vale um destino DENTRO da região da loja no storefront; qualquer outra coisa = home da região.
+export const COLLECTION_KEY = 'c:';
+function collectionTarget(value, store) {
+  if (typeof value !== 'string' || value.length > 300 || !value.startsWith('/')) return null;
+  try {
+    const target = new URL(value, store.storefront);
+    const ok = target.origin === new URL(store.storefront).origin && !target.hash && (target.pathname === store.storefrontBase || target.pathname.startsWith(store.storefrontBase + '/'));
+    return ok ? target : null;
+  } catch (_) { return null; }
+}
+
 // Resposta de redirect, ou null quando o pedido segue para a INK (pedidos, carrinho, checkout, conta, qualquer outro caminho).
 export async function legacyRedirect(request, url, store, kv, env = {}) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
@@ -44,6 +56,13 @@ export async function legacyRedirect(request, url, store, kv, env = {}) {
     return redirect(regionHome(), status);
   }
   const kind = shellPageKind(url.pathname, store.inkBase);
+  if (kind === 'collection' && kv) {
+    const slug = url.pathname.slice((store.inkBase + '/collections/').length).replace(/\/$/, '');
+    let value = null;
+    try { value = await kv.get(COLLECTION_KEY + slug); } catch (_) { value = null; }
+    const target = collectionTarget(value, store);
+    if (target) return redirect(withCampaign(target, url), status);
+  }
   if (kind === 'home' || kind === 'products' || kind === 'about' || kind === 'collection') return redirect(regionHome(), status);
   return null;
 }

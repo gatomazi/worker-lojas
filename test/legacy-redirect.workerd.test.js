@@ -55,3 +55,25 @@ test('LEGACY_REDIRECT_STATUS=301 makes it permanent; without LEGACY_REDIRECT not
   assert.equal(res.status, 200);
   assert.equal((await (await off.dispatchFetch(at('/__origens/health'))).json()).legacy_redirect, false);
 });
+
+test('an old collection goes to its equivalent page in the region (state, collection or style search), with the campaign; a bad map value is ignored', async () => {
+  const mf = await worker({ LEGACY_REDIRECT: 'on' }, {
+    'c:rondonia': '/norte/ro', 'c:territorio': '/norte/busca?q=Territ%C3%B3rio', 'c:fala-daqui': '/norte/colecoes/fala-daqui',
+    'c:fora': '/sul/pr', 'c:outro-host': '//evil.example/norte', 'c:absoluta': 'https://evil.example/norte'
+  });
+  const cases = [
+    ['/collections/rondonia?utm_source=ig', 'https://useorigens.com.br/norte/ro?utm_source=ig'],
+    ['/collections/rondonia/', 'https://useorigens.com.br/norte/ro'],
+    ['/collections/territorio', 'https://useorigens.com.br/norte/busca?q=Territ%C3%B3rio'],
+    ['/collections/fala-daqui', 'https://useorigens.com.br/norte/colecoes/fala-daqui'],
+    ['/collections/fora', 'https://useorigens.com.br/norte'],
+    ['/collections/outro-host', 'https://useorigens.com.br/norte'],
+    ['/collections/absoluta', 'https://useorigens.com.br/norte'],
+    ['/collections/sem-mapa', 'https://useorigens.com.br/norte']
+  ];
+  for (const [path, location] of cases) {
+    const res = await go(mf, norte.inkBase + path);
+    assert.equal(res.status, 302, path);
+    assert.equal(res.headers.get('location'), location, path);
+  }
+});
