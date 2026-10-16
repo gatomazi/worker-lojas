@@ -80,6 +80,49 @@ export const STORES = Object.freeze({
   })
 });
 export const STORE_IDS = Object.freeze(Object.keys(STORES));
+
+// ── Loja única: uma loja vendendo as três regiões ─────────────────────────────────────────────────────────────────────────────────────────────
+// Na loja única (a Use Sul vendendo Sul, Norte e Centro-Oeste), o que o visitante vê na INK segue a REGIÃO DE ONDE ELE VEIO no storefront, não a loja:
+// navbar, busca de cidades, guia, recomendações, promoções, cor e o caminho de volta são os da região. Host, prefixo, KV do carrinho e sessão de compra
+// continuam os da loja. Ligado só por SERVE_REGIONS (var do TOML da loja); sem ela, cada Worker atende só a própria região, como sempre.
+export const REGION_PARAM = 'origens_r';
+export const REGION_COOKIE = 'origens_r';
+const REGION_FIELDS = ['region', 'name', 'storefrontBase', 'navbarApi', 'promotionsApi', 'inkThemeApi', 'citiesApi', 'theme', 'ufs', 'stateNames'];
+const PROFILES = Object.freeze(Object.fromEntries(Object.values(STORES).map((s) => [s.region, Object.freeze(Object.fromEntries(REGION_FIELDS.map((k) => [k, s[k]])))])));
+export const REGION_SLUGS = Object.freeze(Object.keys(PROFILES));
+
+// SERVE_REGIONS -> regiões que esta loja atende. Ausente/vazio = só a própria (status "single"). Lista válida que inclui a própria = "ok".
+// Qualquer região desconhecida, ou uma lista sem a própria região da loja, = fail-closed para só a própria ("invalid").
+export function parseServedRegions(raw, store) {
+  if (!store) return { regions: [], status: 'invalid' };
+  if (raw === undefined || raw === null || String(raw).trim() === '') return { regions: [store.region], status: 'single' };
+  const list = [...new Set(String(raw).split(',').map((r) => r.trim()).filter(Boolean))];
+  if (list.some((r) => !Object.hasOwn(PROFILES, r)) || !list.includes(store.region)) return { regions: [store.region], status: 'invalid' };
+  return { regions: list, status: 'ok' };
+}
+
+// A loja vista por um visitante de `region`: tudo da região, menos o que é da loja (host, prefixo, KV, sessão, GA da página da INK, workerName).
+// `id` continua o da loja (chave do KV e dos padrões de URL); `viewKey` separa caches e serviços por região.
+const views = new Map();
+export function storeView(store, region) {
+  if (!store || !region || region === store.region) return store;
+  const key = store.id + '@' + region;
+  if (!views.has(key)) views.set(key, Object.freeze({ ...store, ...PROFILES[region], viewKey: key }));
+  return views.get(key);
+}
+
+// Região do visitante: o parâmetro do link do storefront (?origens_r=norte) vence; senão o cookie que o Worker gravou na 1ª visita; senão a da loja.
+// Só vale uma região que esta loja atende. `fromParam` diz se é preciso (re)gravar o cookie.
+export function visitorRegion(url, cookieHeader, served, store) {
+  const ok = (r) => typeof r === 'string' && served.includes(r);
+  const param = url.searchParams.get(REGION_PARAM);
+  if (ok(param)) return { region: param, fromParam: true };
+  const match = /(?:^|;\s*)origens_r=([a-z-]{2,20})(?:;|$)/.exec(cookieHeader || '');
+  if (match && ok(match[1])) return { region: match[1], fromParam: false };
+  return { region: store.region, fromParam: false };
+}
+
+export const regionCookie = (region) => REGION_COOKIE + '=' + region + '; Path=/; Max-Age=2592000; Secure; SameSite=Lax';
 export const DEFAULT_STORE_ID = 'sul';
 export const ACTIVE_STORE = STORES[DEFAULT_STORE_ID];
 

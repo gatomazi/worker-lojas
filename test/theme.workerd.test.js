@@ -59,6 +59,24 @@ test('product page: <html data-origens-theme="pdp cart">, ONE theme link in <hea
   assert.deepEqual(read, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null }, 'fixed URL, no visitor cookie');
 });
 
+test('loja única: o tema segue a região do visitante (como navbar e promoções) — cada região lê o próprio /api/ink-theme/<região>', async () => {
+  reset();
+  const extra = { SERVE_REGIONS: 'sul,norte,centro-oeste' };
+  // Sem região lembrada: a da loja (Sul), com o tema publicado.
+  let html = await (await get(ALL, PDP, {}, extra)).text();
+  assert.match(html, /data-origens-theme="pdp cart"/);
+  assert.ok(calls.some((c) => c.host === 'useorigens.com.br' && c.path === '/api/ink-theme/sul'));
+  // Visitante do Norte: lê o tema do Norte (aqui sem publicação: 404) e fica sem tema, sem cair no da Sul.
+  html = await (await get(ALL, PDP, { headers: { cookie: 'origens_r=norte' } }, extra)).text();
+  assert.ok(calls.some((c) => c.host === 'useorigens.com.br' && c.path === '/api/ink-theme/norte'), calls.map((c) => c.path).join(','));
+  assert.ok(!calls.some((c) => c.path === '/api/ink-theme/sul'), 'never the Sul theme for a Norte visitor');
+  assert.doesNotMatch(html, /data-origens-theme=/);
+  assert.equal(links(html).length, 0);
+  // Checkout do visitante do Norte: idem.
+  const k = await (await get(ALL, PAYMENT, { headers: { cookie: 'origens_r=norte' } }, extra)).text();
+  assert.doesNotMatch(k, /data-origens-theme=/);
+});
+
 test('product page: the panel switch narrows the surfaces; feature off = no theme read, no link, no attribute', async () => {
   // Cada passo usa um isolate novo (outra combinação de features): a configuração fica 60 s em memória por isolate, de propósito.
   storefront = () => Response.json(themeOf({ cart: true }));

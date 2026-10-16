@@ -60,6 +60,9 @@ WIDGET_FEATURES = "return-link"
 # Caminhos EXATOS separados por vírgula, ex.: "/usesul/product/serra-catarinense".
 # Vazio/ausente/malformado = nenhuma página (fail-closed). Sem curinga, prefixo, query ou barra final.
 WIDGET_ALLOWLIST = ""
+# Loja única (src/stores.js): regiões que a Use Sul atende. Dormente até o storefront mandar ?origens_r= nos links (só no modo loja única):
+# sem o parâmetro (nem o cookie que ele grava) o visitante é sempre da Sul. Fica no TOML, e não no --var, para nenhum release a esquecer.
+SERVE_REGIONS = "sul,norte,centro-oeste"
 
 # KV do espelho do carrinho (cart-mirror). Provisionado em 2026-09-24; o ID identifica o namespace, não é credencial.
 # As vars acima seguem fail-closed: produção recebe ENABLE_WIDGET/ALLOWLIST/FEATURES por --var no deploy (ver docs/fase-4-cart-bridge.md).
