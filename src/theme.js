@@ -9,6 +9,9 @@
 // Contrato v1: { v:1, region, surfaces:{ pdp, cart, checkout }, tokens:{ action, onAction, selected, onSelected, ground, surface, paper, ink,
 //   inkSoft, inkMute, line, photo, radius:0|8, font:'origens'|'ink' } } — cores só #rrggbb (nenhum texto livre vira CSS). `photo` = o cinza das fotos da INK
 //   (fundo da galeria e das miniaturas), separado do fundo da página (`ground`).
+//   Opcional: incentive:{ enabled, kind:'free-shipping', unit:'items', threshold, ufs } — a REPRESENTAÇÃO de uma regra comercial que a INK já aplica
+//   (o painel exige a confirmação do dono para ligar). Só por peças: a regra por valor a INK mostra sozinha (barra nativa). Inválido = sem incentivo,
+//   o tema continua. Vai para a página como atributo do <body> (data-origens-incentive="2|PR,SC,RS"), só com a feature cart-incentive.
 import { ACTIVE_STORE } from './stores.js';
 import { contentHash } from './loader-source.js';
 
@@ -49,11 +52,25 @@ export function normalizeTheme(data, store = ACTIVE_STORE) {
   if (t.radius !== 0 && t.radius !== 8) return null;
   if (!Object.hasOwn(FONTS, t.font)) return null;
   tokens.radius = t.radius; tokens.font = t.font;
+  const incentive = normalizeIncentive(data.incentive, store);
   // Defesa em profundidade (o CMS já confere): texto do botão e do selecionado legíveis, texto da página legível no fundo e nas superfícies.
   if (contrast(tokens.action, tokens.onAction) < 4.5 || contrast(tokens.selected, tokens.onSelected) < 4.5) return null;
   for (const bg of ['ground', 'surface', 'paper']) if (contrast(tokens.ink, tokens[bg]) < 4.5 || contrast(tokens.inkMute, tokens[bg]) < 4.5) return null;
-  return { surfaces, tokens };
+  return { surfaces, tokens, incentive };
 }
+
+// Incentivo do carrinho: só ligado, só frete grátis por quantidade de peças, meta de 2 a 20, destinos = UFs DESTA região (sem repetição).
+const UF = /^[A-Z]{2}$/;
+export function normalizeIncentive(raw, store = ACTIVE_STORE) {
+  if (!raw || typeof raw !== 'object' || raw.enabled !== true || raw.kind !== 'free-shipping' || raw.unit !== 'items') return null;
+  if (!Number.isInteger(raw.threshold) || raw.threshold < 2 || raw.threshold > 20) return null;
+  const allowed = store.ufs || [];
+  if (!Array.isArray(raw.ufs) || raw.ufs.length === 0 || raw.ufs.length > allowed.length || new Set(raw.ufs).size !== raw.ufs.length) return null;
+  if (!raw.ufs.every((uf) => typeof uf === 'string' && UF.test(uf) && allowed.includes(uf))) return null;
+  return { threshold: raw.threshold, ufs: allowed.filter((uf) => raw.ufs.includes(uf)) };
+}
+// Valor do atributo do <body> (só números e siglas validados): "2|PR,SC,RS".
+export const incentiveAttr = (theme) => (theme && theme.incentive ? theme.incentive.threshold + '|' + theme.incentive.ufs.join(',') : '');
 
 // Superfícies que valem AGORA: ligadas no painel E liberadas no deploy. Ordem fixa (a URL do CSS e o atributo do <html> não variam por ordem).
 export const activeSurfaces = (theme, features) => (theme ? SURFACES.filter((s) => theme.surfaces[s] && features.includes(SURFACE_FEATURE[s])) : []);
@@ -332,8 +349,8 @@ function cartCss() {
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
-    D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line-soft);padding:12px 20px calc(16px + env(safe-area-inset-bottom))!important}',
-    D + '__footer .footer-details{margin:8px 0 12px!important;gap:6px}',
+    D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line-soft);padding:10px 16px calc(12px + env(safe-area-inset-bottom))!important}',
+    D + '__footer .footer-details{margin:4px 0 10px!important;gap:4px}',
     D + '__footer .footer-details ul > li{font-size:14px;font-weight:400;color:var(--o-ink-soft)}',
     D + '__footer .footer-details ul > li:last-child{font-size:20px;font-weight:700;color:var(--o-ink);padding-top:6px}',
     D + '__footer :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
@@ -344,12 +361,38 @@ function cartCss() {
     D + '__footer__cep label,' + D + '__footer__coupon label,' + D + '__footer__cep span,' + D + '__footer__coupon span{color:var(--o-ink-soft);font-weight:500;font-size:14px}',
     btn(D + ' #checkout-btn,' + D + '__footer__submit'),
     D + ' #checkout-btn{width:100%}',
-    ghost(D + '__footer__keep-shopping'),
-    // Tela baixa (celular de 640–760 px de altura, notebook com a janela baixa): o rodapé fixo da gaveta (329 px) comia a lista. Compacto, sem
-    // esconder nada da INK e sem alvo de toque abaixo de 44 px: ~40 px a mais para os itens.
+    // "Continuar comprando": ação de texto (44 px de toque, foco visível), abaixo da ação principal; mesmo controle da INK, só a aparência.
+    D + '__footer__keep-shopping{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:2px!important;padding:0 12px!important;border:0!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;box-shadow:none!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;text-decoration:underline;text-underline-offset:3px}',
+    D + '__footer__keep-shopping:focus-visible{outline:2px solid var(--o-ink);outline-offset:2px}',
+    // Cupom recolhido (theme-ui): o atributo é NOSSO e só existe com o código rodando; sem ele o campo da INK aparece. "Adicionar cupom" no lugar.
+    D + '__footer__coupon[data-origens-collapsed]{display:none!important}',
+    D + ' .o-coupon-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:0;border:0;background:transparent;color:var(--o-ink);font-family:var(--o-font);font-size:14px;font-weight:600;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}',
+    D + ' .o-coupon-toggle:focus-visible{outline:2px solid var(--o-ink);outline-offset:2px}',
+    // Incentivo de frete (cart-incentive): fundo suave da cor de seleção da marca, a informação útil em negrito na cor da marca, a ressalva numa linha
+    // menor; a régua (só com meta numérica) é a linha da base da caixa, sem altura a mais. Altura fixa de duas linhas: trocar de estado ou carregar não
+    // empurra os controles. Sem animação contínua.
+    D + ' [data-origens-incentive-box]{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:10px;align-content:center;min-height:50px;margin:0 0 4px;padding:6px 12px 8px;overflow:hidden;border:1px solid var(--o-line-soft);border-radius:var(--o-radius);background:var(--o-surface);background:color-mix(in srgb,var(--o-selected) 18%,var(--o-surface));color:var(--o-ink);font-family:var(--o-font)}',
+    D + ' [data-origens-incentive-box] > svg{grid-row:1 / span 2;align-self:center;width:28px;height:28px;padding:5px;border-radius:50%;background:var(--o-selected);color:var(--o-on-selected)}',
+    D + ' [data-origens-incentive-box] > p{margin:0;font-size:14px;line-height:1.3;color:var(--o-ink)}',
+    D + ' [data-origens-incentive-box] > p strong{font-weight:700;color:var(--o-selected)}',
+    D + ' [data-origens-incentive-box] > small{grid-column:2;font-size:12.5px;line-height:1.3;color:var(--o-ink-soft)}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:color-mix(in srgb,var(--o-selected) 22%,var(--o-surface))}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;height:100%;background:var(--o-selected);transition:width .25s ease}',
+    D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
+    '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
+    // Com o cupom recolhido e o CEP ainda fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (os dois são ações curtas): uma linha de
+    // 44 px a menos no rodapé fixo. Abriu o cupom ou o CEP, ou a marcação não é a esperada? Volta a uma linha cada. Nenhum nó é movido.
+    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}',
+    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > *{grid-column:1 / -1}',
+    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > .o-coupon-toggle{grid-column:1}',
+    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))) > .cart-drawer__footer__cep{grid-column:2}',
+    // "Inserir CEP" da INK: 44 px de toque sem crescer a linha.
+    D + '__footer__cep [data-action*="insertCep"]{display:inline-flex;align-items:center;min-height:44px;color:var(--o-ink);font-weight:600}',
+    // Tela baixa (celular de 640–760 px de altura, notebook com a janela baixa): o rodapé fixo da gaveta comia a lista. Compacto, sem esconder nada da
+    // INK e sem alvo de toque abaixo de 44 px.
     '@media (max-height:760px){' + D + '__footer{padding:8px 16px calc(10px + env(safe-area-inset-bottom))!important}' +
       D + '__footer .footer-details{margin:2px 0 8px!important;gap:2px}' + D + '__footer .footer-details ul > li:last-child{font-size:18px;padding-top:2px}' +
-      D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}' + D + '__footer__keep-shopping{min-height:44px;margin-top:6px!important}}',
+      D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}' + D + ' [data-origens-incentive-box]{min-height:46px;padding:5px 10px 7px}}',
     // Carrinho vazio: o nosso bloco abre o estado ("Seu carrinho está vazio" + "Encontrar minha cidade" + "Explorar estampas"); a frase da INK que repete
     // a mesma intenção some só quando o nosso bloco existe (sem ele, a INK fica como é). Recomendações da INK abaixo; "Continuar comprando" secundário.
     D + ' .empty-cart{background:var(--o-surface)!important;color:var(--o-ink-soft)!important;gap:20px}',

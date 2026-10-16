@@ -12,6 +12,8 @@
 //     --qa        verificações com número em 360/375/390/768/1440 (rolagem horizontal, alvos de toque, Turbo, barra fixa, Esc, checkout); exit 1 se falhar
 //     --headed    abre duas janelas (computador e celular) para navegar à mão; Ctrl+C encerra
 //     --allow-cart  libera os POSTs do CARRINHO (adicionar/quantidade/remover) — só para uso manual; o checkout continua bloqueado
+//     --incentivo-exemplo  publica NA PRÉVIA a regra de exemplo do incentivo (frete grátis a partir de 2 peças, PR/SC/RS) e liga cart-incentive.
+//                 Só para conferir a aparência e o comportamento com o carrinho real; no ar, a regra só existe se o dono confirmar no painel.
 //     --capturar-carrinho <dir>  (com --headed) a cada Enter no terminal, captura a gaveta do carrinho como ESTÁ em cada janela (topo e fim da lista).
 //                 Quem adiciona/remove itens é a pessoa, à mão; o script só abre a gaveta e fotografa (nenhum POST sai dele).
 // TRAVA: qualquer requisição não-GET para <loja>/checkout é ABORTADA no navegador (nunca chega à INK: nada de pedido, pagamento ou cobrança).
@@ -21,14 +23,16 @@ import { createHarness, REFERENCE_THEME, DEFAULT_PDP, VIEWPORTS } from './lib/te
 const argv = process.argv.slice(2);
 const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
 const flag = (n) => argv.includes(n);
-const config = opt('--config') ? JSON.parse(readFileSync(opt('--config'), 'utf8')) : REFERENCE_THEME;
+const baseConfig = opt('--config') ? JSON.parse(readFileSync(opt('--config'), 'utf8')) : REFERENCE_THEME;
+const EXAMPLE = flag('--incentivo-exemplo');
+const config = EXAMPLE ? { ...baseConfig, incentive: { enabled: true, kind: 'free-shipping', unit: 'items', threshold: 2, ufs: ['PR', 'SC', 'RS'] } } : baseConfig;
 const OFF = flag('--off');
 const UUID = opt('--checkout');
 if (UUID && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(UUID)) { console.error('--checkout espera o uuid do carrinho'); process.exit(2); }
 const SHOTS = opt('--shots');
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const PDP = process.env.PREVIEW_PDP || DEFAULT_PDP;
-const H = await createHarness({ config, off: OFF, headed: flag('--headed'), allowCart: flag('--allow-cart') });
+const H = await createHarness({ config, off: OFF, headed: flag('--headed'), allowCart: flag('--allow-cart'), themeFeatures: 'theme-pdp,theme-cart,theme-checkout' + (EXAMPLE ? ',cart-incentive' : '') });
 const { session, blocked, HOST, store, acceptCookies } = H;
 const browser = { close: () => H.close() };
 const mf = { dispose: async () => {} };

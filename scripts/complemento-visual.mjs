@@ -35,7 +35,7 @@ async function labeled(buffer, file, label, detail) {
   await p.waitForTimeout(100);
   const box = await p.evaluate(() => { const r = document.getElementById('w').getBoundingClientRect(); return { width: r.width, height: r.height }; });
   await p.setViewportSize({ width: Math.ceil(box.width), height: Math.min(Math.ceil(box.height), 16000) });
-  await p.screenshot({ path: file, fullPage: true });
+  await p.locator('#w').screenshot({ path: file }); // só o bloco (faixa + tela): sem costura de página inteira
   await p.close();
 }
 let only = null; // telas extras (360, desktop baixo): só os estados em que barra fixa e altura importam

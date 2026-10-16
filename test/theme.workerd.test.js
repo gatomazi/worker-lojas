@@ -59,6 +59,27 @@ test('product page: <html data-origens-theme="pdp cart">, ONE theme link in <hea
   assert.deepEqual(read, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null }, 'fixed URL, no visitor cookie');
 });
 
+test('incentivo: com theme-cart + cart-incentive e regra válida publicada, a regra vai no <body>; sem a feature, sem o carrinho ou regra inválida, não', async () => {
+  const rule = { enabled: true, kind: 'free-shipping', unit: 'items', threshold: 2, ufs: ['PR', 'SC', 'RS'] };
+  const INC = ALL + ',cart-incentive';
+  // Uma instância por cenário (a configuração fica 60 s em cache por isolate).
+  storefront = () => Response.json({ ...themeOf({ pdp: true, cart: true, checkout: true }), incentive: rule });
+  let html = await (await get(INC, PDP, {}, { CASE: 'ok' })).text();
+  assert.match(html, /<body class="font-poppins" data-origens-theme="pdp cart" data-origens-incentive="2\|PR,SC,RS">/);
+  const k = await (await get(INC, PAYMENT, {}, { CASE: 'ok' })).text();
+  assert.doesNotMatch(k, /data-origens-incentive/, 'checkout: nada além do tema');
+  html = await (await get(ALL, PDP, {}, { CASE: 'no-feature' })).text();
+  assert.doesNotMatch(html, /data-origens-incentive/, 'sem a feature');
+  storefront = () => Response.json({ ...themeOf({ pdp: true, cart: false, checkout: true }), incentive: rule });
+  html = await (await get(INC, PDP, {}, { CASE: 'cart-off' })).text();
+  assert.doesNotMatch(html, /data-origens-incentive/, 'carrinho desligado no painel');
+  storefront = () => Response.json({ ...themeOf({ pdp: true, cart: true, checkout: true }), incentive: { ...rule, ufs: ['SP'] } });
+  html = await (await get(INC, PDP, {}, { CASE: 'bad' })).text();
+  assert.match(html, /data-origens-theme="pdp cart"/, 'regra inválida não derruba o tema');
+  assert.doesNotMatch(html, /data-origens-incentive/);
+  reset();
+});
+
 test('loja única: o tema segue a região do visitante (como navbar e promoções) — cada região lê o próprio /api/ink-theme/<região>', async () => {
   reset();
   const extra = { SERVE_REGIONS: 'sul,norte,centro-oeste' };

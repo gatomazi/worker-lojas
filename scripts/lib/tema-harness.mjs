@@ -60,7 +60,9 @@ export function sanitizeCheckout(html, learned = new Map()) {
   return { html: out, replaced: found.size, learned: found };
 }
 
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false } = {}) {
+// allowPaymentDiscount: deixa passar SÓ o POST de recálculo do desconto ao trocar Pix/cartão (<loja>/checkout/payment_discount/<id>), que não cria pedido
+// nem cobrança; a resposta também é sanitizada. Pagamento (process_payment), contato e entrega continuam abortados.
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false } = {}) {
   const require = createRequire((process.env.PW_PATH || '.') + '/');
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
@@ -81,6 +83,7 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
   });
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: !headed });
   const blocked = [];
+  const passed = []; // POSTs liberados (só payment_discount, com allowPaymentDiscount)
   const learned = new Map(); // sanitização: valores aprendidos na tela de contato (vale para a de pagamento)
   async function session({ name, width, height }) {
     const mobile = width < 600;
@@ -90,6 +93,17 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
       const req = route.request();
       if (req.method() === 'GET' || req.method() === 'HEAD') return route.fallback();
       const path = new URL(req.url()).pathname;
+      const safe = (p) => p.replace(/[0-9a-f-]{36}/g, '<uuid>').replace(/\d{5,}/g, '<id>');
+      if (allowPaymentDiscount && req.method() === 'POST' && new RegExp('^' + store.inkBase + '/checkout/payment_discount/[0-9a-zA-Z-]+$').test(path)) {
+        const res = await route.fetch({ maxRedirects: 0, timeout: 60000 });
+        let body = await res.text();
+        if (sanitize) {
+          try { body = sanitizeCheckout(body, learned).html; } catch (error) { if (!/nenhum valor pessoal aprendido/.test(error.message)) { console.error('[harness] ' + error.message); return route.fulfill({ status: 451, contentType: 'text/plain', body: 'resposta não sanitizada' }); } }
+        }
+        passed.push(name + ' ' + req.method() + ' ' + safe(path) + ' -> ' + res.status());
+        const headers = { ...res.headers() }; delete headers['content-length']; delete headers['content-encoding'];
+        return route.fulfill({ status: res.status(), headers, body });
+      }
       if (path.includes('/checkout') || !allowCart) { blocked.push(name + ' ' + req.method() + ' ' + path.replace(/[0-9a-f-]{36}/g, '<uuid>').replace(/\d{5,}/g, '<id>')); return route.abort(); }
       return route.fallback();
     });
@@ -125,5 +139,5 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
   const pii = (page) => [...PII.map((s) => page.locator(s)), page.locator('div:has(> div > a[aria-label="Editar endereço de entrega"]), div:has(> a[aria-label="Editar endereço de entrega"])'), page.locator('li', { hasText: /Entrega para/ })];
   const shot = (page, path, full = false) => page.screenshot({ path, fullPage: full, mask: pii(page), maskColor: '#ff5fa2' });
   const close = async () => { await browser.close(); await mf.dispose(); };
-  return { session, browser, mf, blocked, HOST, store, acceptCookies, shot, close };
+  return { session, browser, mf, blocked, passed, HOST, store, acceptCookies, shot, close };
 }

@@ -21,6 +21,7 @@
 //        · Barra fixa do celular some com o CTA principal à vista ou com teclado; toque na barra inerte leva à escolha que falta.
 //        · No celular, flutuantes (Ajuda, WhatsApp, cupons) saem do caminho enquanto as escolhas e o CTA estão na tela.
 //   Carrinho · Esc fecha o carrinho pelo "X" nativo e devolve o foco ao botão do carrinho.
+//            · Cupom recolhido atrás de "Adicionar cupom" quando vazio; incentivo de frete grátis por peças (cart-incentive, regra publicada no painel).
 export const THEME_UI = String.raw`
   const THEME_DEPLOY = { pdp: FEATURES.includes('theme-pdp'), cart: FEATURES.includes('theme-cart') };
   const THEME_NARROW = window.matchMedia ? window.matchMedia('(max-width: 1023px)') : null;
@@ -271,6 +272,153 @@ export const THEME_UI = String.raw`
     const back = themeOpener && document.contains(themeOpener) ? themeOpener : null;
     if (back) setTimeout(() => { try { back.focus(); } catch (_) { /* ignora */ } }, 350);
   }
+  // ── Carrinho: cupom recolhido e incentivo de frete ──
+  // Cupom (form #coupon-form, campo cart[coupon][code] da INK): atrás de "Adicionar cupom" SÓ quando vazio e sem nada a dizer. Com código, foco, cupom
+  // aplicado (ação de limpar/remover), erro ou depois de aberto, fica à mostra. Quem esconde é um atributo NOSSO posto aqui: sem este código (falhou,
+  // tema desligado), o campo da INK aparece como sempre. Nenhum nó da INK é movido.
+  // Incentivo (cart-incentive + regra publicada no <body>): lido do que a INK já mostra (peças em #quantity-header, a linha do frete). Enquanto a INK
+  // responde a um envio da gaveta, o conteúdo some sem mudar a altura (nunca uma mensagem velha); volta com a resposta nova.
+  const THEME_INCENTIVE = FEATURES.includes('cart-incentive');
+  const THEME_COUPON_INPUT = 'input[name="cart[coupon][code]"], input.coupon-input';
+  let themeCouponOpen = false;
+  let themeCouponDrawer = null;
+  let themeCartWait = null;  // { footer, qty, timer } entre o envio e a resposta da INK
+  let themeCartListening = false;
+  const themeDrawer = () => document.querySelector('.cart-drawer');
+  const themeQty = (drawer) => { const h = drawer && drawer.querySelector('#quantity-header'); return h ? h.getAttribute('data-quantityheader') : null; };
+  function themeCouponAttention(row) {
+    const input = row.querySelector(THEME_COUPON_INPUT);
+    if (!input) return true; // marcação desconhecida: não mexe
+    if (input.value.trim() !== '' || document.activeElement === input) return true;
+    if (row.querySelector('[data-action*="clearCoupon"], [data-action*="removeCoupon"], [role="alert"], [class*="text-red"], [class*="error"]')) return true;
+    return !!document.querySelector('.cart-drawer [data-ink-store--cart-target="cartErrors"]');
+  }
+  function themeCoupon() {
+    const drawer = themeDrawer();
+    if (drawer !== themeCouponDrawer) { themeCouponDrawer = drawer; themeCouponOpen = false; } // página nova, gaveta nova
+    const row = drawer && drawer.querySelector('.cart-drawer__footer__coupon');
+    let toggle = drawer && drawer.querySelector('.o-coupon-toggle');
+    if (!row) { if (toggle) toggle.remove(); return; }
+    if (themeCouponOpen || themeCouponAttention(row)) {
+      if (row.hasAttribute('data-origens-collapsed')) row.removeAttribute('data-origens-collapsed');
+      if (toggle) toggle.remove();
+      return;
+    }
+    if (!row.hasAttribute('data-origens-collapsed')) row.setAttribute('data-origens-collapsed', '');
+    if (toggle && toggle.nextElementSibling === row) return;
+    if (toggle) toggle.remove();
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'o-coupon-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    const form = row.querySelector('form[id]');
+    if (form) toggle.setAttribute('aria-controls', form.id);
+    toggle.textContent = 'Adicionar cupom';
+    toggle.addEventListener('click', () => {
+      themeCouponOpen = true;
+      row.removeAttribute('data-origens-collapsed');
+      toggle.remove();
+      const input = row.querySelector(THEME_COUPON_INPUT);
+      if (input) input.focus();
+    });
+    row.before(toggle);
+  }
+  function themeIncentiveRule() {
+    const m = /^(\d{1,2})\|([A-Z]{2}(?:,[A-Z]{2})*)$/.exec((themeBody() && themeBody().getAttribute('data-origens-incentive')) || '');
+    return THEME_INCENTIVE && m ? { threshold: Number(m[1]), ufs: m[2].split(',') } : null;
+  }
+  const themeUfs = (ufs) => (ufs.length > 1 ? ufs.slice(0, -1).join(', ') + ' e ' + ufs[ufs.length - 1] : ufs[0]);
+  const themePieces = (n) => n + (n === 1 ? ' peça' : ' peças');
+  function themeIncentiveState(drawer, rule) {
+    const count = Number.parseInt(themeQty(drawer), 10);
+    if (!(count > 0)) return null;
+    // A INK tem régua própria de frete grátis (por valor): se ela aparece, a dela vale e a nossa não entra (um aviso só).
+    const native = drawer.querySelector('[data-ink-store--progress-bar-max-progress-value]');
+    if (native && Number(native.getAttribute('data-ink-store--progress-bar-max-progress-value')) > 0) return null;
+    const cep = drawer.querySelector('.cart-drawer__footer__cep');
+    const typing = cep && cep.querySelector('[data-ink-store--cart-target="cepInputContainer"]');
+    const shipping = cep ? cep.textContent.replace(typing ? typing.textContent : '', '') : '';
+    const free = /gr[aá]tis/i.test(shipping);
+    const paid = !free && /R\$\s*\d/.test(shipping);
+    const where = 'Para entregas em ' + themeUfs(rule.ufs) + '.';
+    // Duas linhas no máximo: a informação útil (negrito) e a ressalva.
+    if (free) return { key: 'free', strong: 'Frete grátis disponível', rest: ' para o seu CEP.', sub: '', bar: -1 };
+    if (count < rule.threshold) {
+      const n = rule.threshold - count;
+      return { key: 'need-' + count, strong: (n === 1 ? 'Falta ' : 'Faltam ') + themePieces(n), rest: ' para o frete grátis', sub: where, bar: Math.round((count / rule.threshold) * 100) };
+    }
+    if (paid) return { key: 'paid-' + count, strong: '', rest: 'O frete grátis com ' + themePieces(rule.threshold) + ' ou mais vale para ' + themeUfs(rule.ufs) + '.', sub: '', bar: -1 };
+    return { key: 'reached-' + count, strong: 'Você já tem ' + themePieces(count) + '!', rest: '', sub: 'Consulte seu CEP para verificar o frete grátis.', bar: -1 };
+  }
+  const THEME_TRUCK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>';
+  function themeIncentive() {
+    const drawer = themeDrawer();
+    const footer = drawer && drawer.querySelector('.cart-drawer__footer');
+    let box = drawer && drawer.querySelector('[data-origens-incentive-box]');
+    const rule = themeIncentiveRule();
+    const state = footer && rule ? themeIncentiveState(drawer, rule) : null;
+    if (!state) { if (box) box.remove(); return; }
+    if (!box || footer.firstElementChild !== box) {
+      if (box) box.remove();
+      box = document.createElement('div');
+      box.setAttribute('data-origens-incentive-box', '');
+      box.setAttribute('role', 'status');
+      footer.prepend(box);
+    }
+    if (!!themeCartWait !== box.hasAttribute('data-loading')) box.toggleAttribute('data-loading', !!themeCartWait);
+    if (box.getAttribute('data-key') === state.key) return;
+    box.setAttribute('data-key', state.key);
+    box.setAttribute('data-state', state.key.replace(/-\d+$/, ''));
+    box.innerHTML = THEME_TRUCK;
+    const line = document.createElement('p');
+    if (state.strong) { const b = document.createElement('strong'); b.textContent = state.strong; line.appendChild(b); }
+    line.appendChild(document.createTextNode(state.rest));
+    box.appendChild(line);
+    if (state.sub) { const small = document.createElement('small'); small.textContent = state.sub; box.appendChild(small); }
+    if (state.bar >= 0) {
+      const bar = document.createElement('span'); bar.className = 'o-incentive-bar'; bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('i'); fill.style.width = state.bar + '%'; bar.appendChild(fill); box.appendChild(bar);
+    }
+  }
+  function themeCartRelease(render) {
+    if (!themeCartWait) return;
+    clearTimeout(themeCartWait.timer);
+    themeCartWait = null;
+    if (render) themeCartSync();
+  }
+  function themeCartSubmit(event) {
+    const target = event.target;
+    if (!target || !target.closest || !target.closest('.cart-drawer')) return;
+    if (event.type === 'turbo:submit-start') {
+      themeCartRelease(false);
+      const drawer = themeDrawer();
+      themeCartWait = { footer: drawer && drawer.querySelector('.cart-drawer__footer'), qty: themeQty(drawer), timer: setTimeout(() => themeCartRelease(true), 4000) };
+      const box = drawer && drawer.querySelector('[data-origens-incentive-box]');
+      if (box) box.setAttribute('data-loading', '');
+    } else if (event.detail && event.detail.success === false) themeCartRelease(true); // erro: o carrinho na tela continua o certo
+  }
+  function themeCartSync() {
+    const drawer = themeDrawer();
+    // Resposta chegou quando a INK trocou o rodapé ou a contagem.
+    if (themeCartWait && drawer && (drawer.querySelector('.cart-drawer__footer') !== themeCartWait.footer || themeQty(drawer) !== themeCartWait.qty)) themeCartRelease(false);
+    themeCoupon();
+    themeIncentive();
+  }
+  function themeCartListen(on) {
+    if (on === themeCartListening) return;
+    themeCartListening = on;
+    const method = on ? 'addEventListener' : 'removeEventListener';
+    document[method]('turbo:submit-start', themeCartSubmit);
+    document[method]('turbo:submit-end', themeCartSubmit);
+  }
+  function themeStopCart() {
+    themeCartListen(false);
+    themeCartRelease(false);
+    themeCouponOpen = false;
+    for (const node of document.querySelectorAll('.o-coupon-toggle, [data-origens-incentive-box]')) node.remove();
+    for (const node of document.querySelectorAll('[data-origens-collapsed]')) node.removeAttribute('data-origens-collapsed');
+  }
+
   function themeListen(on) {
     if (on === themeListening) return;
     themeListening = on;
@@ -297,11 +445,13 @@ export const THEME_UI = String.raw`
       themeListen(pdp || cart);
       if (pdp) { themeReorder(); themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); themeGalleryTop(); }
       else themeStopPdp();
-      if (!cart) themeOpener = null;
+      if (cart) { themeCartListen(true); themeCartSync(); }
+      else { themeStopCart(); themeOpener = null; }
     },
     unmount() {
       themeListen(false);
       themeStopPdp();
+      themeStopCart();
       themeOpener = null;
     }
   });

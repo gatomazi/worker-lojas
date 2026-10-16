@@ -65,7 +65,9 @@ PW_PATH=… node scripts/simulacao-carrinho.mjs --out <dir> [--off]             
 PW_PATH=… node scripts/qa-galeria-tema.mjs [--shots <dir>]                               # miniaturas, foco, Turbo real (6 larguras, 3–19 fotos)
 PW_PATH=… node scripts/qa-desligamento-tema.mjs [--checkout <uuid>] [--rapido]           # liga/desliga por superfície, deploy × painel, mudança no meio
 PW_PATH=… node scripts/complemento-visual.mjs --out <dir> --checkout <uuid de teste>    # carrinho preenchido + incentivo (simulação) e checkout SANITIZADO, 1440/390/360/1280×640
-PW_PATH=… node scripts/preview-tema.mjs --headed --allow-cart --capturar-carrinho <dir> # carrinho REAL montado à mão; Enter no terminal fotografa a gaveta
+PW_PATH=… node scripts/preview-tema.mjs --headed --allow-cart [--incentivo-exemplo] --capturar-carrinho <dir> # carrinho REAL montado à mão; Enter fotografa a gaveta
+PW_PATH=… node scripts/ajustes-finais.mjs --fase antes|depois --out <dir> [--checkout <uuid>] # rodapé do carrinho antes/depois, medidas e custo de abrir o carrinho
+PW_PATH=… node scripts/validacao-checkout.mjs --checkout <uuid de teste> --out <json>     # resposta REAL: Pix/cartão (só payment_discount), parcelas, "Editar"
 ```
 
 **Trava:** no navegador da prévia, qualquer requisição não-GET para `/checkout` é abortada (nada de pedido, pagamento ou cobrança); as do carrinho também, salvo `--allow-cart` (uso manual). Nas capturas, campos e endereço do checkout saem mascarados. `--checkout` deve ser um carrinho de **teste**.
@@ -85,3 +87,17 @@ PW_PATH=… node scripts/preview-tema.mjs --headed --allow-cart --capturar-carri
 ## Testes
 
 `test/theme.unit.test.js` (contrato, contraste, escopo do CSS, `display`, telas do checkout), `test/theme.workerd.test.js` (HTMLRewriter real: injeção, painel × feature, fail-open, checkout só CSS, POST/Turbo-Frame/dry-run intactos, cache do CSS), `test/theme-ui.dom.test.js` (barra fixa, toque na barra inerte, Esc, Turbo, idempotência).
+
+## Carrinho: cupom recolhido e incentivo de frete (theme-cart, cart-incentive)
+
+- **Cupom.** Com o carrinho tematizado, o `theme-ui` põe `data-origens-collapsed` na linha do cupom da INK (`.cart-drawer__footer__coupon`) e um botão
+  "Adicionar cupom" no lugar. Isso só acontece quando o campo está vazio, sem foco, sem cupom aplicado (ações `clearCoupon`/`removeCoupon`) e sem erro
+  (`cartErrors`). Depois de aberto pelo cliente, fica aberto até a próxima página. Sem o código (falhou, tema desligado), o campo da INK aparece. Com o
+  cupom recolhido e o CEP fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (grade do rodapé por `:has()`, só CSS).
+- **Incentivo.** Regra publicada pelo painel (`incentive` no contrato v1, só ligada e confirmada pelo dono), validada pelo Worker (`normalizeIncentive`:
+  frete grátis por peças, 2–20, UFs da região) e escrita no `<body>` como `data-origens-incentive="2|PR,SC,RS"`, só com `cart-incentive` no deploy e o
+  carrinho tematizado. O `theme-ui` lê a contagem em `#quantity-header[data-quantityheader]` e a linha do frete da INK (`.cart-drawer__footer__cep`:
+  "Grátis" = disponível; "R$ …" = cobrado) e mostra uma caixa de duas linhas no topo do rodapé. Entre `turbo:submit-start` e a resposta (rodapé ou
+  contagem novos), o conteúdo some sem mudar a altura; erro no envio = volta o estado atual. A barra nativa da INK (por valor) com meta > 0 tira o nosso
+  incentivo (um aviso só). Nenhuma requisição a mais.
+

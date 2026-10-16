@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTheme, activeSurfaces, buildThemeCss, checkoutPageKind, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES } from '../src/theme.js';
+import { normalizeTheme, normalizeIncentive, incentiveAttr, activeSurfaces, buildThemeCss, checkoutPageKind, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES } from '../src/theme.js';
 import { STORES } from '../src/stores.js';
 import { parseFeatures } from '../src/features.js';
 
@@ -46,7 +46,7 @@ test('activeSurfaces: a surface needs BOTH the panel switch and the deploy featu
 test('features: the three theme flags parse; unknown theme name still discards the whole list', () => {
   assert.deepEqual(parseFeatures('return-link,theme-pdp,theme-cart,theme-checkout').features, ['return-link', 'theme-pdp', 'theme-cart', 'theme-checkout']);
   assert.equal(parseFeatures('theme-pdp,theme-home').status, 'invalid');
-  const all = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit,theme-pdp,theme-cart,theme-checkout';
+  const all = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit,theme-pdp,theme-cart,theme-checkout,cart-incentive';
   assert.equal(parseFeatures(all).status, 'ok', 'the full list (production + theme) fits the length guard');
 });
 
@@ -79,9 +79,20 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   const selectorsWith = (re) => (css.replace(/@keyframes o-[a-z-]+\{(?:[^{}]*\{[^}]*\})*\}/g, '').match(new RegExp('[^{}]+\\{[^}]*' + re + '[^}]*\\}', 'g')) || []).map((r) => { const head = r.slice(0, r.lastIndexOf('{')); return head.slice(head.lastIndexOf('{') + 1); }); // tira o @media em volta
   // `display` só onde a INK nunca alterna visibilidade (grades dos seletores, o "Continuar Comprando" do carrinho vazio, o link da marca no checkout). Os
   // `display:none`: a frase da INK que repete o nosso "Seu carrinho está vazio" (só quando o nosso bloco existe), a setinha do nosso "Guia de medidas" e o
-  // rótulo/texto de apoio do NOSSO bloco no pós-adição.
+  // rótulo/texto de apoio do NOSSO bloco no pós-adição e o cupom da INK recolhido — só com o atributo NOSSO que o theme-ui põe quando o campo está vazio
+  // e sem nada a dizer (sem o código, o campo aparece). Os demais `display` são dos nossos nós (botão "Adicionar cupom", incentivo) e do "Continuar
+  // comprando" (que a INK nunca esconde).
   assert.deepEqual(selectorsWith('display:').sort(), [
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart [data-action*="closeDrawer"]',
+    'body[data-origens-theme~="cart"] .cart-drawer__footer__keep-shopping',
+    'body[data-origens-theme~="cart"] .cart-drawer__footer__coupon[data-origens-collapsed]',
+    'body[data-origens-theme~="cart"] .cart-drawer .o-coupon-toggle',
+    'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box]',
+    'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar i',
+    // A linha "Adicionar cupom" + "Frete · Inserir CEP" (grade do rodapé só com o nosso botão no lugar do cupom e o CEP fechado) e o alvo de 44 px do
+    // "Inserir CEP" (a INK alterna o campo do CEP, não este link).
+    'body[data-origens-theme~="cart"] .cart-drawer__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))',
+    'body[data-origens-theme~="cart"] .cart-drawer__footer__cep [data-action*="insertCep"]',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
@@ -93,12 +104,15 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   ].sort());
   assert.deepEqual(selectorsWith('display:\\s*none').sort(), [
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
+    'body[data-origens-theme~="cart"] .cart-drawer__footer__coupon[data-origens-collapsed]',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
   ].sort());
-  // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com as miniaturas no lugar), flutuantes durante a escolha.
+  // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com as miniaturas no lugar), flutuantes durante a escolha
+  // e o conteúdo do NOSSO incentivo enquanto a INK responde (a caixa fica, a altura não muda).
   const vis = selectorsWith('visibility:hidden');
-  assert.equal(vis.length, 3);
+  assert.equal(vis.length, 4);
+  assert.ok(vis.some((v) => v.endsWith('[data-origens-incentive-box][data-loading] > *')));
   assert.ok(vis.some((v) => v.includes(':is(.o-cta-inview,.o-typing)') && v.includes('.form-product-options__add-to-cart-mobile')));
   assert.ok(vis.some((v) => v.includes('.o-thumbs') && v.includes('ul.absolute.z-30')), 'native dots hidden only once the thumbnail grid is mounted');
   assert.ok(vis.some((v) => v.includes('.o-choosing') && v.includes('ink-store--help-button')));
@@ -118,6 +132,22 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   // Carrinho: preço de cada item numa linha; botões de quantidade/remover com 44 px.
   const c = buildThemeCss(t, ['cart']);
   assert.ok(c.includes(':is(.price,.price span,.price del){white-space:nowrap}') && c.includes('.item-details__quantity button{width:44px!important;height:44px!important}'));
+});
+
+test('incentive: só ligado, frete grátis por PEÇAS, meta 2–20, UFs desta região; inválido = sem incentivo (o tema continua); atributo só com números e siglas', () => {
+  const ok = { enabled: true, kind: 'free-shipping', unit: 'items', threshold: 2, ufs: ['RS', 'PR', 'SC'] };
+  assert.deepEqual(normalizeIncentive(ok), { threshold: 2, ufs: ['PR', 'SC', 'RS'] }, 'ordem da região');
+  for (const bad of [{ ...ok, enabled: false }, { ...ok, kind: 'discount' }, { ...ok, unit: 'value' }, { ...ok, threshold: 1 }, { ...ok, threshold: 21 }, { ...ok, threshold: '2' },
+    { ...ok, ufs: [] }, { ...ok, ufs: ['SP'] }, { ...ok, ufs: ['PR', 'PR'] }, { ...ok, ufs: ['pr'] }, { ...ok, ufs: 'PR' }, null, 'x']) {
+    assert.equal(normalizeIncentive(bad), null, JSON.stringify(bad));
+  }
+  const themed = normalizeTheme(clone({ incentive: ok }));
+  assert.deepEqual(themed.incentive, { threshold: 2, ufs: ['PR', 'SC', 'RS'] });
+  assert.equal(incentiveAttr(themed), '2|PR,SC,RS');
+  const broken = normalizeTheme(clone({ incentive: { ...ok, ufs: ['SP'] } }));
+  assert.ok(broken && broken.incentive === null, 'incentivo inválido não derruba o tema');
+  assert.equal(incentiveAttr(broken), '');
+  assert.equal(incentiveAttr(null), '');
 });
 
 test('themeQuery: changes with the published tokens and with the surfaces; parseSurfaceParam keeps only known names in canonical order', () => {

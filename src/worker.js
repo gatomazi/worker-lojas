@@ -10,7 +10,7 @@ import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommenda
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
 import { resolveStore, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
-import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind } from './theme.js';
+import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, incentiveAttr } from './theme.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
 // declarou a variável). STORE_ID desconhecido = fail-closed: só o health responde e todo o resto vai direto à INK.
@@ -137,9 +137,13 @@ async function pageThemeFor(themeSource, features, surfaces) {
 // <body data-origens-theme="pdp cart"> (o escopo de todo o CSS e o sinal do estado EFETIVO para o loader) e o <link> no fim do <head>. É no <body> porque
 // o Turbo troca o <body> a cada visita: o atributo é sempre o da resposta atual, conforme o painel publicado (o <html> e os <link> do <head> sobrevivem às
 // visitas e poderiam religar uma superfície já desligada).
+// Com o carrinho tematizado e cart-incentive no deploy, a regra publicada do incentivo vai junto, no mesmo <body> (nenhuma requisição a mais no navegador).
 class ThemeBodyMarker {
-  constructor(value) { this.value = value; }
-  element(body) { body.setAttribute('data-origens-theme', this.value); }
+  constructor(value, incentive = '') { this.value = value; this.incentive = incentive; }
+  element(body) {
+    body.setAttribute('data-origens-theme', this.value);
+    if (this.incentive) body.setAttribute('data-origens-incentive', this.incentive);
+  }
 }
 class ThemeLinkInjector {
   constructor(tag) { this.tag = tag; }
@@ -154,8 +158,8 @@ class CheckoutBrand {
     link.append('<span data-origens-brand aria-hidden="true">Use Origens</span>', { html: true });
   }
 }
-const withTheme = (rewriter, pageTheme) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
-  .on('body', new ThemeBodyMarker(pageTheme.surfaces.join(' ')))
+const withTheme = (rewriter, pageTheme, features) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
+  .on('body', new ThemeBodyMarker(pageTheme.surfaces.join(' '), pageTheme.surfaces.includes('cart') && features.includes('cart-incentive') ? incentiveAttr(pageTheme.theme) : ''))
   .on('head', new ThemeLinkInjector(themeLinkTag(pageTheme.theme, pageTheme.surfaces))));
 
 async function injectLoader(request, url, mode, allowlist, features, scope, store, upstream, themeSource) {
@@ -197,13 +201,13 @@ async function injectLoader(request, url, mode, allowlist, features, scope, stor
     transformed = withTheme(new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderMarker(state))
       .on(shell ? 'nav.navbar' : 'form[id^="form-product-"]', shell ? new ShellHeaderDetector(state) : new ProductFormDetector(state))
-      .on('body', new BodyLoaderInjector(state)), pageTheme)
+      .on('body', new BodyLoaderInjector(state)), pageTheme, features.features)
       .transform(response);
   } else {
     const injector = new LoaderInjector(loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode, store)));
     transformed = withTheme(new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderDetector(injector))
-      .on('head', injector), pageTheme)
+      .on('head', injector), pageTheme, features.features)
       .transform(response);
   }
 
