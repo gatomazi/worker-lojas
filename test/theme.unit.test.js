@@ -137,14 +137,16 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
 
 test('incentive: só ligado, frete grátis por PEÇAS, meta 2–20, UFs desta região; inválido = sem incentivo (o tema continua); atributo só com números e siglas', () => {
   const ok = { enabled: true, kind: 'free-shipping', unit: 'items', threshold: 2, ufs: ['RS', 'PR', 'SC'] };
-  assert.deepEqual(normalizeIncentive(ok), { threshold: 2, ufs: ['PR', 'SC', 'RS'] }, 'ordem da região');
+  assert.deepEqual(normalizeIncentive(ok), { threshold: 2, ufs: ['PR', 'SC', 'RS'], where: 'no Sul' }, 'ordem da região; a região inteira = "no Sul"');
+  assert.deepEqual(normalizeIncentive({ ...ok, ufs: ['SC', 'PR'] }), { threshold: 2, ufs: ['PR', 'SC'], where: '' }, 'parte da região: o carrinho lista as UFs');
   for (const bad of [{ ...ok, enabled: false }, { ...ok, kind: 'discount' }, { ...ok, unit: 'value' }, { ...ok, threshold: 1 }, { ...ok, threshold: 21 }, { ...ok, threshold: '2' },
     { ...ok, ufs: [] }, { ...ok, ufs: ['SP'] }, { ...ok, ufs: ['PR', 'PR'] }, { ...ok, ufs: ['pr'] }, { ...ok, ufs: 'PR' }, null, 'x']) {
     assert.equal(normalizeIncentive(bad), null, JSON.stringify(bad));
   }
   const themed = normalizeTheme(clone({ incentive: ok }));
-  assert.deepEqual(themed.incentive, { threshold: 2, ufs: ['PR', 'SC', 'RS'] });
-  assert.equal(incentiveAttr(themed), '2|PR,SC,RS');
+  assert.deepEqual(themed.incentive, { threshold: 2, ufs: ['PR', 'SC', 'RS'], where: 'no Sul' });
+  assert.equal(incentiveAttr(themed), '2|PR,SC,RS|no Sul');
+  assert.equal(incentiveAttr(normalizeTheme(clone({ incentive: { ...ok, ufs: ['PR'] } }))), '2|PR');
   const broken = normalizeTheme(clone({ incentive: { ...ok, ufs: ['SP'] } }));
   assert.ok(broken && broken.incentive === null, 'incentivo inválido não derruba o tema');
   assert.equal(incentiveAttr(broken), '');

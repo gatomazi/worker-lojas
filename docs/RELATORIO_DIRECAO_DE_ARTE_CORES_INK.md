@@ -58,8 +58,12 @@ As duas mexem **só nos papéis de cor** do carrinho e do checkout (seção 6), 
 - **Opção escolhida:** borda de **1 px** sem o anel extra. A cor fica no cabeçalho, e a área aberta do cartão é branca, então os campos aparecem e há pouco fundo colorido.
 - **O que não muda:** erro em vermelho (`#b42318`), sucesso da INK em verde (`#1f6f43`) e o contorno de foco grosso (2 px na cor do texto).
 - **Seleção de texto e cursor:** seguem a paleta da proposta.
-- **Texto da meta atingida, CEP pendente:** passou a "**Você já tem a quantidade necessária.**", com "Confirme seu CEP para verificar o frete grátis (PR, SC e RS)." embaixo. A régua cheia não promete o frete.
-- **Altura da faixa:** igual nas três versões; o círculo da B ocupa as duas linhas.
+- **Faixa de frete compacta** (pedido seu, com a sacola da Aphago como referência): **uma linha e a régua fina** logo abaixo, com cerca de 44 px; antes eram cerca de 95 px. As mensagens:
+  - abaixo da meta: "Falta **1 peça** para o **frete grátis** no Sul" (o rótulo "no Sul" vem do Worker quando a regra cobre a região inteira; senão, "em PR e SC");
+  - meta atingida: "Agora é só **confirmar o CEP** para o frete grátis", com a régua cheia, sem prometer o frete;
+  - a INK mostra "Grátis": "**Frete grátis** para o seu CEP!";
+  - a INK cobra frete: "O frete grátis vale só para **PR, SC e RS**", sem régua.
+- **Altura da faixa:** igual nas três versões; o círculo da B tem 22 px.
 
 ## 4. Recomendação: B
 
@@ -101,4 +105,4 @@ Todas as comparações usam o mesmo código, os mesmos dados, o mesmo estado e o
 - **Simulado:** todas as capturas de carrinho (gaveta reconstruída, código real do tema), com a **regra de exemplo** (2 peças, PR/SC/RS) ainda **não confirmada**. Ela não foi promovida a regra de produção.
 - **Checkout:** estrutura real, com os dados pessoais trocados por fictícios antes do navegador. A mensagem de erro é a validação real da INK no navegador. Os envios de pagamento, contato e entrega ficaram abortados.
 - **Pendente:** carrinho real (itens, quantidade, remoção, cupom, CEP e elegibilidade). Adicionar pela automação foi recusado; não tentei de outro jeito. Nenhum pedido ou pagamento foi feito.
-- **Testes:** Worker `npm test` 585/585; QA geral com checkout 65/65; liga/desliga 21/21; galeria 163/163; detector do Impeccable limpo.
+- **Testes:** Worker `npm test` 586/586; QA geral com checkout 65/65; liga/desliga 21/21; galeria 163/163; detector do Impeccable limpo.

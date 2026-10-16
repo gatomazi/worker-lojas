@@ -90,34 +90,42 @@ test('sem o carrinho tematizado (painel desligado ou sem theme-cart no deploy): 
   }
 });
 
-test('incentivo: no TOPO da lista (abaixo do título, antes dos produtos, rola com eles); falta peça (régua), quantidade atingida com CEP pendente, frete grátis da INK, CEP pago — um bloco só', async () => {
-  const t = setup();
+test('incentivo: no TOPO da lista (abaixo do título, antes dos produtos, rola com eles); UMA linha + régua fina; falta peça, quantidade atingida com CEP pendente, frete grátis da INK, CEP pago', async () => {
+  const t = setup({ incentive: '2|PR,SC,RS|no Sul' });
   await tick();
   assert.equal(boxes(t).length, 1);
   const list = t.doc.querySelector('.cart-drawer__main ul');
   const slot = boxes(t)[0].parentElement;
   assert.ok(slot.matches('li[role="none"][data-origens-incentive-slot]') && list.firstElementChild === slot, 'primeiro item da lista rolável');
   assert.ok(!t.doc.querySelector('.cart-drawer__footer [data-origens-incentive-box]'), 'nada no rodapé');
-  assert.deepEqual(say(t), ['Falta 1 peça para o frete grátis', 'Vale para PR, SC e RS; confirme pelo CEP.']);
+  assert.deepEqual(say(t), ['Falta 1 peça para o frete grátis no Sul', ''], 'uma linha só');
   assert.deepEqual([...boxes(t)[0].querySelectorAll('strong')].map((b) => b.textContent), ['1 peça', 'frete grátis'], 'o que falta e o benefício em destaque');
   assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.transform, 'scaleX(0.5)', 'régua por transform (sem animar layout)');
   assert.equal(boxes(t)[0].getAttribute('role'), 'status');
   rerender(t, { qty: 2 });
   await tick();
-  assert.deepEqual(say(t), ['Você já tem a quantidade necessária.', 'Confirme seu CEP para verificar o frete grátis (PR, SC e RS).']);
+  assert.deepEqual(say(t), ['Agora é só confirmar o CEP para o frete grátis', '']);
   assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.transform, 'scaleX(1)', 'régua cheia, mas o texto não promete o frete');
   rerender(t, { qty: 3, shipping: 'Grátis' });
   await tick();
-  assert.deepEqual(say(t), ['Frete grátis disponível para o seu CEP', 'Valor calculado pela INK para o CEP informado.']);
+  assert.deepEqual(say(t), ['Frete grátis para o seu CEP!', '']);
   rerender(t, { qty: 3, shipping: 'R$ 27,49' });
   await tick();
-  assert.deepEqual(say(t), ['O frete grátis com 2 peças vale para PR, SC e RS.', 'Para este CEP, o frete é cobrado.'], 'nunca sucesso com frete cobrado');
+  assert.deepEqual(say(t), ['O frete grátis vale só para PR, SC e RS', ''], 'nunca sucesso com frete cobrado');
   assert.equal(boxes(t)[0].querySelector('.o-incentive-bar'), null);
   rerender(t, { qty: 1 });
   await tick();
-  assert.deepEqual(say(t)[0], 'Falta 1 peça para o frete grátis', 'removeu: volta a faltar');
-  assert.equal(boxes(t).length, 1);
+  assert.deepEqual(say(t)[0], 'Falta 1 peça para o frete grátis no Sul', 'removeu: volta a faltar');
   assert.equal(t.doc.querySelectorAll('[data-origens-incentive-slot]').length, 1);
+});
+
+test('incentivo: regra só para parte da região = as UFs na mensagem; rótulo de região desconhecido é recusado', async () => {
+  let t = setup({ incentive: '2|PR,SC' });
+  await tick();
+  assert.deepEqual(say(t)[0], 'Falta 1 peça para o frete grátis em PR e SC');
+  t = setup({ incentive: '2|PR,SC,RS|<b>x</b>' });
+  await tick();
+  assert.equal(boxes(t).length, 0);
 });
 
 test('incentivo: some sem regra, sem a feature, com carrinho vazio ou quando a régua NATIVA da INK aparece (um aviso só)', async () => {
@@ -136,13 +144,13 @@ test('incentivo durante a resposta da INK: conteúdo escondido (sem mensagem vel
   rerender(t, { qty: 2 });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Você já tem a quantidade necessária/);
+  assert.match(say(t)[0], /^Agora é só confirmar o CEP/);
   submit(t, 'turbo:submit-start');
   assert.ok(boxes(t)[0].hasAttribute('data-loading'));
   submit(t, 'turbo:submit-end', { success: false });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Você já tem a quantidade necessária/);
+  assert.match(say(t)[0], /^Agora é só confirmar o CEP/);
 });
 
 test('Turbo: página nova sem o carrinho tematizado = nenhum botão, nenhum incentivo, cupom à mostra; com tema = um de cada (sem duplicar)', async () => {

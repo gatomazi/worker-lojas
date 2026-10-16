@@ -65,7 +65,7 @@ test('incentivo: com theme-cart + cart-incentive e regra válida publicada, a re
   // Uma instância por cenário (a configuração fica 60 s em cache por isolate).
   storefront = () => Response.json({ ...themeOf({ pdp: true, cart: true, checkout: true }), incentive: rule });
   let html = await (await get(INC, PDP, {}, { CASE: 'ok' })).text();
-  assert.match(html, /<body class="font-poppins" data-origens-theme="pdp cart" data-origens-incentive="2\|PR,SC,RS">/);
+  assert.match(html, /<body class="font-poppins" data-origens-theme="pdp cart" data-origens-incentive="2\|PR,SC,RS\|no Sul">/);
   const k = await (await get(INC, PAYMENT, {}, { CASE: 'ok' })).text();
   assert.doesNotMatch(k, /data-origens-incentive/, 'checkout: nada além do tema');
   html = await (await get(ALL, PDP, {}, { CASE: 'no-feature' })).text();

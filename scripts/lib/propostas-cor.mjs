@@ -49,8 +49,8 @@ export const PROPOSTAS = {
       'incentive-soft': ['#5a5340', 'Ressalva: tinta quente derivada da palha (6,7:1)'],
       'incentive-icon': ['#2f4b28', 'Ícone do caminhão: verde escuro'],
       'incentive-icon-bg': ['#d6ba8d', 'ACENTO: círculo dourado-areia atrás do ícone (o acento oficial da Sul; ícone sobre ele 5,2:1)'],
-      'incentive-icon-size': ['26px', '—'],
-      'incentive-icon-pad': ['4px', '—'],
+      'incentive-icon-size': ['22px', '—'],
+      'incentive-icon-pad': ['3px', '—'],
       'incentive-track': ['#fffaf1', 'Trilho da régua'],
       'incentive-fill': ['#2f4b28', 'Progresso: verde escuro'],
       'choice-line': ['#3a5a30', 'Borda de 1 px da opção escolhida'],
@@ -71,6 +71,5 @@ export function propostaCss(id) {
   return CART + ',' + CHECKOUT + '{' + vars + '}' +
     CART + ' ::selection,' + CHECKOUT + ' ::selection{background:' + (id === 'A' ? '#cfe3c2' : '#ecdcb8') + ';color:#1b1d19}' +
     CHECKOUT + ' :is(input,textarea){caret-color:' + p.papeis.selected[0] + '}' +
-    // Ícone maior (círculo do acento): ocupa as duas linhas, a faixa não cresce.
-    (p.papeis['incentive-icon-size'] ? CART + ' [data-origens-incentive-box] > svg{grid-row:1 / span 2;align-self:center;margin-top:0}' : '');
+    '';
 }

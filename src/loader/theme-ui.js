@@ -325,8 +325,8 @@ export const THEME_UI = String.raw`
     row.before(toggle);
   }
   function themeIncentiveRule() {
-    const m = /^(\d{1,2})\|([A-Z]{2}(?:,[A-Z]{2})*)$/.exec((themeBody() && themeBody().getAttribute('data-origens-incentive')) || '');
-    return THEME_INCENTIVE && m ? { threshold: Number(m[1]), ufs: m[2].split(',') } : null;
+    const m = /^(\d{1,2})\|([A-Z]{2}(?:,[A-Z]{2})*)(?:\|(no (?:Sul|Norte|Centro-Oeste)))?$/.exec((themeBody() && themeBody().getAttribute('data-origens-incentive')) || '');
+    return THEME_INCENTIVE && m ? { threshold: Number(m[1]), ufs: m[2].split(','), where: m[3] || '' } : null;
   }
   const themeUfs = (ufs) => (ufs.length > 1 ? ufs.slice(0, -1).join(', ') + ' e ' + ufs[ufs.length - 1] : ufs[0]);
   const themePieces = (n) => n + (n === 1 ? ' peça' : ' peças');
@@ -342,15 +342,16 @@ export const THEME_UI = String.raw`
     const free = /gr[aá]tis/i.test(shipping);
     const paid = !free && /R\$\s*\d/.test(shipping);
     const ufs = themeUfs(rule.ufs);
+    const where = rule.where || 'em ' + ufs;
     const pct = Math.min(100, Math.round((count / rule.threshold) * 100));
-    // Linha principal (o que falta ou o estado, com o essencial em destaque) e a ressalva; a cor só complementa o texto.
-    if (free) return { key: 'free', parts: [['b', 'Frete grátis'], ['', ' disponível para o seu CEP']], sub: 'Valor calculado pela INK para o CEP informado.', bar: 100 };
+    // UMA linha (o essencial em destaque) e a régua fina: compacto como a referência. A cor só complementa o texto; a régua cheia nunca promete o frete.
+    if (free) return { key: 'free', parts: [['b', 'Frete grátis'], ['', ' para o seu CEP!']], sub: '', bar: 100 };
     if (count < rule.threshold) {
       const n = rule.threshold - count;
-      return { key: 'need-' + count, parts: [['', n === 1 ? 'Falta ' : 'Faltam '], ['b', themePieces(n)], ['', ' para o '], ['b', 'frete grátis']], sub: 'Vale para ' + ufs + '; confirme pelo CEP.', bar: pct };
+      return { key: 'need-' + count, parts: [['', n === 1 ? 'Falta ' : 'Faltam '], ['b', themePieces(n)], ['', ' para o '], ['b', 'frete grátis'], ['', ' ' + where]], sub: '', bar: pct };
     }
-    if (paid) return { key: 'paid-' + count, parts: [['', 'O frete grátis com ' + themePieces(rule.threshold) + ' vale para ' + ufs + '.']], sub: 'Para este CEP, o frete é cobrado.', bar: -1 };
-    return { key: 'reached-' + count, parts: [['b', 'Você já tem a quantidade necessária.']], sub: 'Confirme seu CEP para verificar o frete grátis (' + ufs + ').', bar: 100 };
+    if (paid) return { key: 'paid-' + count, parts: [['', 'O frete grátis vale só para '], ['b', ufs]], sub: '', bar: -1 };
+    return { key: 'reached-' + count, parts: [['', 'Agora é só '], ['b', 'confirmar o CEP'], ['', ' para o frete grátis']], sub: '', bar: 100 };
   }
   const THEME_TRUCK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>';
   function themeIncentive() {

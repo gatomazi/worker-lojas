@@ -64,8 +64,10 @@ export function sanitizeCheckout(html, learned = new Map()) {
 // allowPaymentDiscount: deixa passar SÓ o POST de recálculo do desconto ao trocar Pix/cartão (<loja>/checkout/payment_discount/<id>), que não cria pedido
 // nem cobrança; a resposta também é sanitizada. Pagamento (process_payment), contato e entrega continuam abortados.
 // proposta: 'A' | 'B' injeta a proposta de cor (scripts/lib/propostas-cor.mjs) no fim do <head> das páginas reescritas: SÓ na prévia, para comparar.
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false, proposta = null } = {}) {
-  const propostaStyle = proposta ? '<style data-origens-proposta="' + proposta + '">' + propostaCss(proposta) + '</style>' : '';
+// rotulo: etiqueta fixa no canto (só na prévia aberta à mão), para distinguir janelas de versões diferentes.
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false, proposta = null, rotulo = null } = {}) {
+  const etiqueta = rotulo ? 'body::before{content:' + JSON.stringify(rotulo) + ';position:fixed;top:6px;left:6px;z-index:2147483647;padding:3px 8px;background:#1b1d19;color:#fff;font:700 11px/1.3 system-ui;letter-spacing:.04em;pointer-events:none;opacity:.88}' : '';
+  const propostaStyle = proposta || etiqueta ? '<style data-origens-proposta="' + (proposta || 'atual') + '">' + (proposta ? propostaCss(proposta) : '') + etiqueta + '</style>' : '';
   const require = createRequire((process.env.PW_PATH || '.') + '/');
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');

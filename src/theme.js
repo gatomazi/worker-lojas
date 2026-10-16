@@ -67,10 +67,13 @@ export function normalizeIncentive(raw, store = ACTIVE_STORE) {
   const allowed = store.ufs || [];
   if (!Array.isArray(raw.ufs) || raw.ufs.length === 0 || raw.ufs.length > allowed.length || new Set(raw.ufs).size !== raw.ufs.length) return null;
   if (!raw.ufs.every((uf) => typeof uf === 'string' && UF.test(uf) && allowed.includes(uf))) return null;
-  return { threshold: raw.threshold, ufs: allowed.filter((uf) => raw.ufs.includes(uf)) };
+  const ufs = allowed.filter((uf) => raw.ufs.includes(uf));
+  // Regra que vale para a região inteira: a mensagem diz "no Sul" (curta); senão o carrinho lista as UFs.
+  return { threshold: raw.threshold, ufs, where: ufs.length === allowed.length ? REGION_WHERE[store.region] || '' : '' };
 }
-// Valor do atributo do <body> (só números e siglas validados): "2|PR,SC,RS".
-export const incentiveAttr = (theme) => (theme && theme.incentive ? theme.incentive.threshold + '|' + theme.incentive.ufs.join(',') : '');
+const REGION_WHERE = Object.freeze({ sul: 'no Sul', norte: 'no Norte', 'centro-oeste': 'no Centro-Oeste' });
+// Valor do atributo do <body> (só números, siglas e o rótulo fixo da região): "2|PR,SC,RS|no Sul".
+export const incentiveAttr = (theme) => (theme && theme.incentive ? theme.incentive.threshold + '|' + theme.incentive.ufs.join(',') + (theme.incentive.where ? '|' + theme.incentive.where : '') : '');
 
 // Superfícies que valem AGORA: ligadas no painel E liberadas no deploy. Ordem fixa (a URL do CSS e o atributo do <html> não variam por ordem).
 export const activeSurfaces = (theme, features) => (theme ? SURFACES.filter((s) => theme.surfaces[s] && features.includes(SURFACE_FEATURE[s])) : []);
@@ -155,7 +158,7 @@ function tokensCss(tokens) {
     '--o-incentive-track:color-mix(in srgb,var(--o-selected) 8%,var(--o-surface))', '--o-incentive-fill:var(--o-selected)',
     '--o-choice-line:var(--o-selected)', '--o-choice-ring:var(--o-selected)', '--o-choice-bg:color-mix(in srgb,var(--o-selected) 10%,var(--o-surface))',
     '--o-choice-body:var(--o-choice-bg)', '--o-choice-head:transparent', '--o-choice-mark:var(--o-selected)',
-    '--o-incentive-icon-bg:transparent', '--o-incentive-icon-size:18px', '--o-incentive-icon-pad:0px'
+    '--o-incentive-icon-bg:transparent', '--o-incentive-icon-size:16px', '--o-incentive-icon-pad:0px'
   ].join(';') + '}';
 }
 
@@ -379,13 +382,14 @@ function cartCss() {
     // Incentivo de frete (cart-incentive): no TOPO da lista, logo abaixo do título (rola com os produtos; nenhuma área fixa a mais). Fundo da cor de
     // seleção da marca, perceptível no branco do carrinho; o que falta e o benefício em destaque na mesma cor; a ressalva (destinos, CEP) numa linha
     // menor; régua fina só com meta numérica. Altura mínima de duas linhas + régua: trocar de estado não empurra os produtos. Sem animação contínua.
-    D + ' [data-origens-incentive-slot]{flex:0 0 auto;width:100%;margin:0;padding:12px 16px 4px;list-style:none}',
-    D + ' [data-origens-incentive-box]{display:grid;grid-template-columns:var(--o-incentive-icon-size) minmax(0,1fr);column-gap:8px;row-gap:3px;align-content:center;min-height:76px;padding:10px 12px 12px;border:1px solid var(--o-incentive-line);border-radius:var(--o-radius);background:var(--o-incentive-bg);color:var(--o-incentive-text);font-family:var(--o-font)}',
-    D + ' [data-origens-incentive-box] > svg{grid-row:1;align-self:start;width:var(--o-incentive-icon-size);height:var(--o-incentive-icon-size);margin-top:1px;padding:var(--o-incentive-icon-pad);border-radius:50%;background:var(--o-incentive-icon-bg);color:var(--o-incentive-icon)}',
-    D + ' [data-origens-incentive-box] > p{grid-column:2;margin:0;font-size:14px;line-height:1.35;color:var(--o-incentive-text)}',
+    D + ' [data-origens-incentive-slot]{flex:0 0 auto;width:100%;margin:0;padding:10px 16px 2px;list-style:none}',
+    // Compacto (como a referência): uma linha de texto e a régua fina logo abaixo, ~45 px. Altura mínima igual nos estados com e sem régua.
+    D + ' [data-origens-incentive-box]{display:grid;grid-template-columns:var(--o-incentive-icon-size) minmax(0,1fr);column-gap:8px;align-items:center;align-content:center;min-height:46px;padding:8px 12px 9px;border:1px solid var(--o-incentive-line);border-radius:var(--o-radius);background:var(--o-incentive-bg);color:var(--o-incentive-text);font-family:var(--o-font)}',
+    D + ' [data-origens-incentive-box] > svg{grid-row:1;align-self:center;width:var(--o-incentive-icon-size);height:var(--o-incentive-icon-size);padding:var(--o-incentive-icon-pad);border-radius:50%;background:var(--o-incentive-icon-bg);color:var(--o-incentive-icon)}',
+    D + ' [data-origens-incentive-box] > p{grid-column:2;margin:0;font-size:13.5px;line-height:1.35;color:var(--o-incentive-text)}',
     D + ' [data-origens-incentive-box] > p strong{font-weight:700;color:var(--o-incentive-ink)}',
     D + ' [data-origens-incentive-box] > small{grid-column:2;font-size:12.5px;line-height:1.3;color:var(--o-incentive-soft)}',
-    D + ' [data-origens-incentive-box] .o-incentive-bar{display:block;grid-column:1 / -1;height:6px;margin-top:6px;border-radius:3px;overflow:hidden;background:var(--o-incentive-track)}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar{display:block;grid-column:1 / -1;height:5px;margin-top:7px;border-radius:3px;overflow:hidden;background:var(--o-incentive-track)}',
     D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;width:100%;height:100%;border-radius:3px;background:var(--o-incentive-fill);transform-origin:left center;transition:transform .25s ease}',
     D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
     '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
