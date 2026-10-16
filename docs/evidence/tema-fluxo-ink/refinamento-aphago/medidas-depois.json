@@ -1,0 +1,498 @@
+{
+ "geradoEm": "2026-10-16T15:14:27.440Z",
+ "fase": "depois",
+ "medidas": [
+  {
+   "fase": "depois",
+   "viewport": "390",
+   "estado": "1 item",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 261,
+   "lista": 526,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 54,
+   "sw": 390,
+   "cw": 390
+  },
+  {
+   "fase": "depois",
+   "viewport": "390",
+   "estado": "6 peças",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 261,
+   "lista": 526,
+   "itensInteiros": 2,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 54,
+   "sw": 390,
+   "cw": 390
+  },
+  {
+   "fase": "depois",
+   "viewport": "390",
+   "estado": "ordem de foco (6 peças)",
+   "controles": 21,
+   "foraDeOrdem": []
+  },
+  {
+   "fase": "depois",
+   "viewport": "390x420",
+   "estado": "teclado aberto (cupom em foco)",
+   "campoEmFocoVisivel": true,
+   "focado": "cart[coupon][code]",
+   "ultimoItemAlcancavel": true
+  },
+  {
+   "fase": "depois",
+   "viewport": "390",
+   "estado": "validação do contato",
+   "mensagens": [
+    "Insira um número válido"
+   ],
+   "ficouNoContato": true
+  },
+  {
+   "fase": "depois",
+   "viewport": "390",
+   "estado": "checkout pagamento",
+   "overflowHorizontal": 0
+  },
+  {
+   "fase": "depois",
+   "viewport": "360",
+   "estado": "1 item",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 238,
+   "lista": 445,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 48,
+   "sw": 360,
+   "cw": 360
+  },
+  {
+   "fase": "depois",
+   "viewport": "360",
+   "estado": "6 peças",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 238,
+   "lista": 445,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 48,
+   "sw": 360,
+   "cw": 360
+  },
+  {
+   "fase": "depois",
+   "viewport": "360",
+   "estado": "ordem de foco (6 peças)",
+   "controles": 21,
+   "foraDeOrdem": []
+  },
+  {
+   "fase": "depois",
+   "viewport": "360x420",
+   "estado": "teclado aberto (cupom em foco)",
+   "campoEmFocoVisivel": true,
+   "focado": "cart[coupon][code]",
+   "ultimoItemAlcancavel": true
+  },
+  {
+   "fase": "depois",
+   "viewport": "360",
+   "estado": "validação do contato",
+   "mensagens": [
+    "Insira um número válido"
+   ],
+   "ficouNoContato": true
+  },
+  {
+   "fase": "depois",
+   "viewport": "360",
+   "estado": "checkout pagamento",
+   "overflowHorizontal": 0
+  },
+  {
+   "fase": "depois",
+   "viewport": "1280x640",
+   "estado": "1 item",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 238,
+   "lista": 345,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 48,
+   "sw": 1280,
+   "cw": 1280
+  },
+  {
+   "fase": "depois",
+   "viewport": "1280x640",
+   "estado": "6 peças",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 238,
+   "lista": 345,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 48,
+   "sw": 1280,
+   "cw": 1280
+  },
+  {
+   "fase": "depois",
+   "viewport": "1280x640",
+   "estado": "ordem de foco (6 peças)",
+   "controles": 21,
+   "foraDeOrdem": []
+  },
+  {
+   "fase": "depois",
+   "viewport": "1440",
+   "estado": "1 item",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 261,
+   "lista": 582,
+   "itensInteiros": 1,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 54,
+   "sw": 1440,
+   "cw": 1440
+  },
+  {
+   "fase": "depois",
+   "viewport": "1440",
+   "estado": "6 peças",
+   "incentivoVisivelAoAbrir": true,
+   "incentivoNoRodape": false,
+   "rodape": 261,
+   "lista": 582,
+   "itensInteiros": 2,
+   "menorToque": 44,
+   "finalizarVisivel": true,
+   "finalizarAltura": 54,
+   "sw": 1440,
+   "cw": 1440
+  },
+  {
+   "fase": "depois",
+   "viewport": "1440",
+   "estado": "ordem de foco (6 peças)",
+   "controles": 21,
+   "foraDeOrdem": []
+  },
+  {
+   "fase": "depois",
+   "viewport": "1440",
+   "estado": "validação do contato",
+   "mensagens": [
+    "Insira um número válido"
+   ],
+   "ficouNoContato": true
+  },
+  {
+   "fase": "depois",
+   "viewport": "1440",
+   "estado": "checkout pagamento",
+   "overflowHorizontal": 0
+  }
+ ],
+ "custo": {
+  "fase": "depois",
+  "loaderBytes": 271076,
+  "requisicoesAoAbrirCarrinho": 1,
+  "urls": [
+   "/__origens/discovery.js"
+  ]
+ },
+ "capturas": [
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_01-carrinho-1-item_abaixo-da-meta.png",
+   "detail": "1 item · incentivo abaixo da meta (regra de EXEMPLO: 2 peças, PR/SC/RS) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_02-carrinho-6-pecas_topo_meta-atingida-cep-pendente.png",
+   "detail": "5 linhas / 6 peças, ao abrir · quantidade atingida, CEP pendente · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_03-carrinho-6-pecas_fim-da-lista.png",
+   "detail": "fim da lista: último item inteiro, total e finalizar · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_04-carrinho-frete-gratis-da-ink.png",
+   "detail": "a INK mostra \"Grátis\" para o CEP (texto reconstruído) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_05-carrinho-cep-com-frete-cobrado.png",
+   "detail": "quantidade atingida, mas a INK cobra frete para o CEP: sem sucesso · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_06-carrinho-item-removido.png",
+   "detail": "depois de remover: volta a faltar 1 peça · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_07-cupom-aberto.png",
+   "detail": "cupom aberto pelo cliente, foco no campo da INK · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_08-cupom-aplicado.png",
+   "detail": "cupom aplicado: código, remover e desconto à mostra · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_09-cupom-com-erro.png",
+   "detail": "erro de cupom (mensagem reconstruída): o campo fica à mostra · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_10-teclado-aberto_cupom-em-foco.png",
+   "detail": "área útil de ~420 px (teclado aberto), cupom em foco · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_20-checkout-contato-e-entrega.png",
+   "detail": "contato e entrega · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_21-checkout-selecao-de-frete.png",
+   "detail": "formas de entrega: a escolhida em destaque · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_22-checkout-validacao.png",
+   "detail": "número apagado + \"Ir para o pagamento\": mensagem da INK, fica no contato (nada salvo) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_23-checkout-pix.png",
+   "detail": "Pix selecionado (o POST de desconto foi abortado nesta captura) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_24-checkout-cartao-parcelas.png",
+   "detail": "cartão aberto, parcela 3x · 390 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_01-carrinho-1-item_abaixo-da-meta.png",
+   "detail": "1 item · incentivo abaixo da meta (regra de EXEMPLO: 2 peças, PR/SC/RS) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_02-carrinho-6-pecas_topo_meta-atingida-cep-pendente.png",
+   "detail": "5 linhas / 6 peças, ao abrir · quantidade atingida, CEP pendente · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_03-carrinho-6-pecas_fim-da-lista.png",
+   "detail": "fim da lista: último item inteiro, total e finalizar · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_04-carrinho-frete-gratis-da-ink.png",
+   "detail": "a INK mostra \"Grátis\" para o CEP (texto reconstruído) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_05-carrinho-cep-com-frete-cobrado.png",
+   "detail": "quantidade atingida, mas a INK cobra frete para o CEP: sem sucesso · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_06-carrinho-item-removido.png",
+   "detail": "depois de remover: volta a faltar 1 peça · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_07-cupom-aberto.png",
+   "detail": "cupom aberto pelo cliente, foco no campo da INK · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_08-cupom-aplicado.png",
+   "detail": "cupom aplicado: código, remover e desconto à mostra · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_09-cupom-com-erro.png",
+   "detail": "erro de cupom (mensagem reconstruída): o campo fica à mostra · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_10-teclado-aberto_cupom-em-foco.png",
+   "detail": "área útil de ~420 px (teclado aberto), cupom em foco · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_20-checkout-contato-e-entrega.png",
+   "detail": "contato e entrega · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_21-checkout-selecao-de-frete.png",
+   "detail": "formas de entrega: a escolhida em destaque · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_22-checkout-validacao.png",
+   "detail": "número apagado + \"Ir para o pagamento\": mensagem da INK, fica no contato (nada salvo) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_23-checkout-pix.png",
+   "detail": "Pix selecionado (o POST de desconto foi abortado nesta captura) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_24-checkout-cartao-parcelas.png",
+   "detail": "cartão aberto, parcela 3x · 360 px"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_01-carrinho-1-item_abaixo-da-meta.png",
+   "detail": "1 item · incentivo abaixo da meta (regra de EXEMPLO: 2 peças, PR/SC/RS) · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_02-carrinho-6-pecas_topo_meta-atingida-cep-pendente.png",
+   "detail": "5 linhas / 6 peças, ao abrir · quantidade atingida, CEP pendente · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_03-carrinho-6-pecas_fim-da-lista.png",
+   "detail": "fim da lista: último item inteiro, total e finalizar · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_04-carrinho-frete-gratis-da-ink.png",
+   "detail": "a INK mostra \"Grátis\" para o CEP (texto reconstruído) · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_05-carrinho-cep-com-frete-cobrado.png",
+   "detail": "quantidade atingida, mas a INK cobra frete para o CEP: sem sucesso · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_06-carrinho-item-removido.png",
+   "detail": "depois de remover: volta a faltar 1 peça · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_07-cupom-aberto.png",
+   "detail": "cupom aberto pelo cliente, foco no campo da INK · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_08-cupom-aplicado.png",
+   "detail": "cupom aplicado: código, remover e desconto à mostra · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/DEPOIS_SIMULACAO-VISUAL_09-cupom-com-erro.png",
+   "detail": "erro de cupom (mensagem reconstruída): o campo fica à mostra · 1280×640"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_01-carrinho-1-item_abaixo-da-meta.png",
+   "detail": "1 item · incentivo abaixo da meta (regra de EXEMPLO: 2 peças, PR/SC/RS) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_02-carrinho-6-pecas_topo_meta-atingida-cep-pendente.png",
+   "detail": "5 linhas / 6 peças, ao abrir · quantidade atingida, CEP pendente · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_03-carrinho-6-pecas_fim-da-lista.png",
+   "detail": "fim da lista: último item inteiro, total e finalizar · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_04-carrinho-frete-gratis-da-ink.png",
+   "detail": "a INK mostra \"Grátis\" para o CEP (texto reconstruído) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_05-carrinho-cep-com-frete-cobrado.png",
+   "detail": "quantidade atingida, mas a INK cobra frete para o CEP: sem sucesso · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_06-carrinho-item-removido.png",
+   "detail": "depois de remover: volta a faltar 1 peça · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_07-cupom-aberto.png",
+   "detail": "cupom aberto pelo cliente, foco no campo da INK · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_08-cupom-aplicado.png",
+   "detail": "cupom aplicado: código, remover e desconto à mostra · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_09-cupom-com-erro.png",
+   "detail": "erro de cupom (mensagem reconstruída): o campo fica à mostra · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_20-checkout-contato-e-entrega.png",
+   "detail": "contato e entrega · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_21-checkout-selecao-de-frete.png",
+   "detail": "formas de entrega: a escolhida em destaque · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_22-checkout-validacao.png",
+   "detail": "número apagado + \"Ir para o pagamento\": mensagem da INK, fica no contato (nada salvo) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_23-checkout-pix.png",
+   "detail": "Pix selecionado (o POST de desconto foi abortado nesta captura) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/DEPOIS_SIMULACAO-VISUAL_checkout-dados-ficticios_24-checkout-cartao-parcelas.png",
+   "detail": "cartão aberto, parcela 3x · 1440 px"
+  }
+ ],
+ "bloqueadas": [
+  "390 POST /usesul/checkout/payment_discount/<id>",
+  "390 POST /usesul/checkout/payment_discount/<id>",
+  "360 POST /usesul/checkout/payment_discount/<id>",
+  "360 POST /usesul/checkout/payment_discount/<id>",
+  "1440 POST /usesul/checkout/payment_discount/<id>",
+  "1440 POST /usesul/checkout/payment_discount/<id>"
+ ]
+}
