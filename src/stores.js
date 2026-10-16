@@ -12,6 +12,7 @@
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
 //   shellPages     home/listagem/coleções/sobre/conta recebem a navbar? (só onde as rotas da zona foram validadas para isso: Sul, Norte e Centro-Oeste)
 //   theme          cor primária da região, a MESMA do storefront (src/lib/theme/region-theme.ts no useorigens): fixa aqui, nunca vinda de parâmetro
+//   nextInk        domínio para onde a loja vai mudar na INK (host + prefixo). Só vale com SINGLE_STORE_DOMAIN=next (ver withInkDomain)
 export const STORES = Object.freeze({
   sul: Object.freeze({
     id: 'sul',
@@ -32,7 +33,9 @@ export const STORES = Object.freeze({
     shellPages: true,
     theme: Object.freeze({ primary: '#4d543d' }),
     ufs: Object.freeze(['PR', 'SC', 'RS']),
-    stateNames: Object.freeze({ PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul' })
+    stateNames: Object.freeze({ PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul' }),
+    // A loja única vai sair de www.usesul.com.br/usesul para loja.useorigens.com.br/useorigens (mesma loja na INK: mesmos produtos, slugs e pedidos).
+    nextInk: Object.freeze({ host: 'loja.useorigens.com.br', base: '/useorigens' })
   }),
   norte: Object.freeze({
     id: 'norte',
@@ -102,7 +105,7 @@ export function parseServedRegions(raw, store) {
 const views = new Map();
 export function storeView(store, region) {
   if (!store || !region || region === store.region) return store;
-  const key = store.id + '@' + region;
+  const key = store.id + '@' + region + (store.formerInk ? '@next' : '');
   if (!views.has(key)) views.set(key, Object.freeze({ ...store, ...PROFILES[region], viewKey: key }));
   return views.get(key);
 }
@@ -129,14 +132,31 @@ export function resolveStore(raw) {
   return { id: null, store: null, status: 'invalid' };
 }
 
+// ── Mudança de domínio da loja na INK ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// SINGLE_STORE_DOMAIN (var do TOML, a MESMA em todos os Workers): ausente/"current" = a loja única está no domínio de hoje; "next" = já mudou para o
+// `nextInk` da Use Sul. No Worker da Sul, "next" troca o host e o prefixo que ele atende e guarda o antigo em `formerInk` (quem chega por ele é redirecionado,
+// ver domain-move.js). Nos Workers das lojas antigas, só muda o destino do redirect (legacy-redirect.js), sem salto pelo domínio antigo.
+// Qualquer outro valor = fail-closed para o domínio de hoje (status "invalid").
+const moved = new Map();
+export function withInkDomain(store, raw) {
+  const value = raw === undefined || raw === null ? '' : String(raw).trim();
+  if (value === '' || value === 'current') return { store, status: value === '' ? 'default' : 'ok' };
+  if (value !== 'next') return { store, status: 'invalid' };
+  if (!store || !store.nextInk) return { store, status: 'ok' };
+  if (!moved.has(store.id)) moved.set(store.id, Object.freeze({ ...store, inkHost: store.nextInk.host, inkBase: store.nextInk.base, formerInk: Object.freeze({ host: store.inkHost, base: store.inkBase }) }));
+  return { store: moved.get(store.id), status: 'ok' };
+}
+// A loja única (a Use Sul) no domínio que SINGLE_STORE_DOMAIN indica: o destino dos redirects das lojas antigas.
+export const singleStore = (env = {}) => withInkDomain(STORES.sul, env.SINGLE_STORE_DOMAIN).store;
+
 // Expressão do caminho de uma PÁGINA de produto da loja: <inkBase>/product/<slug>, sem subcaminhos e sem "__origens". `inkBase` vem só de STORES
 // (letras minúsculas), então não há caractere especial de regex a escapar.
 // Compiladas UMA vez por loja (o Worker as usa a cada pedido).
 const patterns = new Map();
 const compiled = (key, make) => { if (!patterns.has(key)) patterns.set(key, make()); return patterns.get(key); };
-export const productPagePattern = (store) => compiled('page:' + store.id, () => new RegExp('^' + store.inkBase + '/product/(?!__)[^/]+/?$'));
+export const productPagePattern = (store) => compiled('page:' + store.id + store.inkBase, () => new RegExp('^' + store.inkBase + '/product/(?!__)[^/]+/?$'));
 // Slug canônico do catálogo: minúsculas, dígitos, "-" e "_"; sem subcaminho, sem barra final, sem "%", sem ".." e sem placeholders.
-export const catalogProductPattern = (store) => compiled('catalog:' + store.id, () => new RegExp('^' + store.inkBase + '/product/[a-z0-9][a-z0-9_-]{0,127}$'));
+export const catalogProductPattern = (store) => compiled('catalog:' + store.id + store.inkBase, () => new RegExp('^' + store.inkBase + '/product/[a-z0-9][a-z0-9_-]{0,127}$'));
 
 // Parte da configuração que o navegador precisa (URLs já montadas aqui; o loader nunca compõe host de destino sozinho).
 export const clientStore = (store = ACTIVE_STORE) => ({

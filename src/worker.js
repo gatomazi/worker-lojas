@@ -9,7 +9,8 @@ import { createPromotionsGateway, PROMOTIONS_PATH } from './promotions-gateway.j
 import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommendations-gateway.js';
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
-import { resolveStore, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
+import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
+import { onFormerHost, domainMoveRedirect } from './domain-move.js';
 import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
@@ -192,7 +193,7 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
   const services = new Map();
   // Por loja E região (loja única: a loja vista de cada região tem a própria navbar, busca, guia…).
   const servicesOf = (store) => {
-    const key = store.viewKey ?? store.id;
+    const key = (store.viewKey ?? store.id) + '|' + store.inkHost;
     if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }) });
     return services.get(key);
   };
@@ -201,7 +202,9 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       const url = new URL(request.url);
       const mode = widgetMode(env);
       const resolved = resolveStore(env.STORE_ID);
-      const store = resolved.store;
+      // SINGLE_STORE_DOMAIN=next: a Use Sul atende no domínio novo (loja.useorigens.com.br) e o antigo só redireciona.
+      const domain = withInkDomain(resolved.store, env.SINGLE_STORE_DOMAIN);
+      const store = domain.store;
       const allowlist = parseAllowlist(env.WIDGET_ALLOWLIST, store ?? undefined);
       const features = parseFeatures(env.WIDGET_FEATURES);
       const scope = parseScopeMode(env.WIDGET_SCOPE_MODE);
@@ -221,6 +224,9 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
           scope_status: scope.status,
           served_regions: served.regions,
           served_regions_status: served.status,
+          ink_host: store ? store.inkHost : null,
+          ink_domain_status: domain.status,
+          former_ink_host: store?.formerInk ? store.formerInk.host : null,
           // Loja antiga redirecionando para a loja única (legacy-redirect.js) e se o mapa de produtos está ligado (nunca o conteúdo).
           legacy_redirect: legacyRedirectOn(env, store),
           legacy_map_bound: Boolean(env.LEGACY_MAP),
@@ -235,6 +241,9 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
 
       // Loja desconhecida: fail-closed, a INK responde tudo.
       if (!store) return passThrough(request, upstream);
+
+      // Domínio antigo da loja (depois da mudança): tudo vai para o mesmo caminho no domínio novo, com todos os parâmetros.
+      if (onFormerHost(store, url)) return domainMoveRedirect(request, url, store, served.regions, env);
 
       // workers.dev (ou qualquer host que não seja o da loja deste Worker) não é espelho da INK.
       if (url.hostname !== store.inkHost) {

@@ -2,15 +2,16 @@
 // regiões. Com LEGACY_REDIRECT=on, o Worker da loja antiga leva o visitante para o MESMO produto na loja única (mapa slug antigo -> slug novo
 // no KV LEGACY_MAP, gerado da reconciliação), já com a região de origem (?origens_r=), ou para a home da região no storefront.
 // Pedidos, carrinho, checkout e conta NUNCA são redirecionados: quem comprou na loja antiga segue acompanhando o pedido lá.
-import { STORES, REGION_PARAM, productPagePattern } from './stores.js';
+import { STORES, REGION_PARAM, productPagePattern, singleStore } from './stores.js';
 import { shellPageKind } from './scope.js';
 
-const SINGLE = STORES.sul;
+// A loja única é a Use Sul, no domínio que SINGLE_STORE_DOMAIN indica (o de hoje ou o novo, loja.useorigens.com.br): o visitante vai direto, sem salto.
+const SINGLE_ID = STORES.sul.id;
 // Só os parâmetros de campanha seguem para o destino (os da INK — variante, cupom, sessão — não fazem sentido na outra loja).
 const CARRY = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'fbclid', 'gclid', 'gbraid', 'wbraid', 'ttclid'];
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,160}$/;
 
-export const legacyRedirectOn = (env, store) => String(env.LEGACY_REDIRECT ?? '').toLowerCase() === 'on' && Boolean(store) && store.id !== SINGLE.id;
+export const legacyRedirectOn = (env, store) => String(env.LEGACY_REDIRECT ?? '').toLowerCase() === 'on' && Boolean(store) && store.id !== SINGLE_ID;
 
 function withCampaign(target, from) {
   for (const name of CARRY) {
@@ -35,7 +36,8 @@ export async function legacyRedirect(request, url, store, kv, env = {}) {
       try { next = await kv.get(slug); } catch (_) { next = null; } // KV indisponível: a home da região (nunca uma página de erro)
     }
     if (next && SLUG.test(next)) {
-      const target = new URL('https://' + SINGLE.inkHost + SINGLE.inkBase + '/product/' + next);
+      const single = singleStore(env);
+      const target = new URL('https://' + single.inkHost + single.inkBase + '/product/' + next);
       target.searchParams.set(REGION_PARAM, store.region);
       return redirect(withCampaign(target, url), status);
     }
