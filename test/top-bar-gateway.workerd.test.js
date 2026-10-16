@@ -67,6 +67,8 @@ test('gateway: HEAD without a body; POST refused; the visitor cannot choose a re
   assert.deepEqual(await (await get(ON)).json(), { v: 1, style: 'marquee', messages: [] });
   storefront = () => Response.json({ ...GOOD, style: 'rotate' });
   assert.equal((await (await get(ON)).json()).style, 'rotate');
+  storefront = () => Response.json({ ...GOOD, colors: { background: '#B3121F', text: '#FFFFFF' } });
+  assert.deepEqual((await (await get(ON)).json()).colors, { background: '#b3121f', text: '#ffffff' });
   reset();
 });
 
@@ -76,6 +78,8 @@ test('gateway fail-open: invalid JSON, wrong schema, another region, markup, a l
     () => Response.json({ ...GOOD, v: 2 }),
     () => Response.json({ ...GOOD, region: 'norte' }),
     () => Response.json({ ...GOOD, style: 'blink' }),
+    () => Response.json({ ...GOOD, colors: { background: 'red', text: '#ffffff' } }),
+    () => Response.json({ ...GOOD, colors: { background: '#000000' } }),
     () => Response.json({ ...GOOD, messages: [{ ...PARCELE, text: '<img src=x onerror=alert(1)>' }] }),
     () => Response.json({ ...GOOD, messages: [{ ...PARCELE, text: 'x'.repeat(121) }] }),
     () => Response.json({ ...GOOD, messages: [{ ...BF, href: '/norte/h/black-friday' }] }),

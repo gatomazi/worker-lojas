@@ -4,7 +4,8 @@
 // repassar Cookie/Authorization, timeout, limite de tamanho, validação ESTRITA de esquema e só os campos de exibição. Cache curto (30 s: uma mensagem
 // agendada entra ou sai em cerca de um minuto). Falha => 503 e o cliente simplesmente NÃO troca a faixa (a da INK segue intacta).
 // O texto já vem preenchido pelo storefront ({producao}, {faltam}); aqui nada é calculado.
-// Contrato v1: { v:1, region, style?:'marquee'|'rotate', messages:[{ id, text, href?, endsAt? }] } (style ausente = 'marquee', o letreiro). `href` é um caminho do storefront DESTA região; sai como URL absoluta do storefront.
+// Contrato v1: { v:1, region, style?:'marquee'|'rotate', colors?:{ background, text }, messages:[{ id, text, href?, endsAt? }] } (style ausente = 'marquee', o
+// letreiro; colors ausente = a faixa preta de sempre; o contraste já foi conferido no painel). `href` é um caminho do storefront DESTA região; sai como URL absoluta do storefront.
 import { ACTIVE_STORE } from './stores.js';
 
 export const TOP_BAR_PATH = '/__origens/top-bar';
@@ -14,6 +15,7 @@ export const MAX_MESSAGES = 10; // o mesmo teto do storefront
 export const MAX_TEXT = 120; // 90 digitados + o que {producao}/{faltam} acrescentam
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const SEGMENTS = /^(\/[a-z0-9-]+){1,4}$/;
+const HEX = /^#[0-9a-fA-F]{6}$/;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
 // Texto puro de uma linha; `<` e `>` também são recusados (o cliente usa textContent, isto é defesa em profundidade).
 const CONTROL = /[\u0000-\u001f\u007f<>]/;
@@ -61,7 +63,13 @@ export function normalizeTopBar(data, store = ACTIVE_STORE, now = Date.now()) {
     ids.add(message.id);
     messages.push(message);
   }
-  return { v: 1, style: data.style === 'rotate' ? 'rotate' : 'marquee', messages };
+  const out = { v: 1, style: data.style === 'rotate' ? 'rotate' : 'marquee', messages };
+  const c = data.colors;
+  if (c !== undefined) {
+    if (!c || typeof c !== 'object' || !HEX.test(c.background) || !HEX.test(c.text)) return null;
+    out.colors = { background: c.background.toLowerCase(), text: c.text.toLowerCase() };
+  }
+  return out;
 }
 
 export function createTopBarGateway({ upstream = (request, init) => fetch(request, init), store = ACTIVE_STORE } = {}) {

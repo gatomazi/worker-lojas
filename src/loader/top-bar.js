@@ -6,6 +6,7 @@
 //             altura mínima. Estilo "marquee" (padrão, como o letreiro da Aphago): todas numa linha que corre sem parar, separadas por um ponto, com a mesma
 //             velocidade com uma ou dez mensagens; "rotate": uma de cada vez, a cada 5 s. As duas param sob o ponteiro ou com o foco; com
 //             prefers-reduced-motion nada se move (fica a 1ª).
+//             Cores (opcional, do painel): fundo e fonte da faixa inteira enquanto há mensagem; sem elas, a faixa preta de sempre.
 //             Link opcional = a página do storefront da região (o gateway já devolve a URL absoluta, aqui só se confere a origem).
 //   Turbo:    a cada navegação o Turbo troca o <body> (e o cabeçalho com ele). Com dados em cache, a faixa nova é trocada ANTES de ser pintada
 //             (turbo:before-render, no corpo novo): sem "piscar" a frase da INK entre uma página e outra.
@@ -19,9 +20,10 @@ export const TOP_BAR = String.raw`
   const BAR_ROTATE_MS = 5000;
   const BAR_SPEED = 45; // px/s do letreiro, o mesmo do storefront
   const BAR_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  const BAR_HEX = /^#[0-9a-fA-F]{6}$/;
   const BAR_CONTROL = /[\u0000-\u001f\u007f<>]/;
   const BAR_CSS = [
-    '.header-benefits[data-origens-top-bar]{height:auto!important;min-height:30px}',
+    '.header-benefits[data-origens-top-bar]{height:auto!important;min-height:30px;background-color:var(--o-top-bar-bg,#000)!important;color:var(--o-top-bar-fg,#fff)!important}',
     '.header-benefits[data-origens-top-bar]>span{display:none!important}',
     '.o-top-bar{display:flex;align-items:center;justify-content:center;width:100%;min-height:30px;padding:4px 12px;text-align:center;font-size:13px;line-height:1.3;color:inherit}',
     '.o-top-bar a{color:inherit;text-decoration:underline;text-underline-offset:2px}',
@@ -65,7 +67,9 @@ export const TOP_BAR = String.raw`
       ids.add(raw.id);
       messages.push({ id: raw.id, text: text, href: href });
     }
-    return { style: data.style === 'rotate' ? 'rotate' : 'marquee', messages: messages };
+    const c = data.colors;
+    if (c !== undefined && (!c || typeof c !== 'object' || !BAR_HEX.test(c.background) || !BAR_HEX.test(c.text))) return null;
+    return { style: data.style === 'rotate' ? 'rotate' : 'marquee', colors: c ? { background: c.background, text: c.text } : null, messages: messages };
   }
   function barReadCache() {
     try {
@@ -106,6 +110,8 @@ export const TOP_BAR = String.raw`
 
   function barBox(host) {
     const doc = host.ownerDocument;
+    const colors = barState.data && barState.data.colors;
+    if (colors) { host.style.setProperty('--o-top-bar-bg', colors.background); host.style.setProperty('--o-top-bar-fg', colors.text); }
     let box = host.querySelector(':scope > .o-top-bar');
     if (!box) {
       if (!doc.getElementById('o-top-bar-css')) { const css = doc.createElement('style'); css.id = 'o-top-bar-css'; css.textContent = BAR_CSS; doc.head.appendChild(css); }
@@ -184,6 +190,8 @@ export const TOP_BAR = String.raw`
     const box = host.querySelector(':scope > .o-top-bar');
     if (box) box.remove();
     host.removeAttribute('data-origens-top-bar');
+    host.style.removeProperty('--o-top-bar-bg');
+    host.style.removeProperty('--o-top-bar-fg');
   }
 
   // Estado do módulo (não do widget): o Turbo desmonta tudo em turbo:before-cache, ANTES de turbo:before-render, e a faixa do corpo novo ainda precisa
