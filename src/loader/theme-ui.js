@@ -350,7 +350,7 @@ export const THEME_UI = String.raw`
       return { key: 'need-' + count, parts: [['', n === 1 ? 'Falta ' : 'Faltam '], ['b', themePieces(n)], ['', ' para o '], ['b', 'frete grátis']], sub: 'Vale para ' + ufs + '; confirme pelo CEP.', bar: pct };
     }
     if (paid) return { key: 'paid-' + count, parts: [['', 'O frete grátis com ' + themePieces(rule.threshold) + ' vale para ' + ufs + '.']], sub: 'Para este CEP, o frete é cobrado.', bar: -1 };
-    return { key: 'reached-' + count, parts: [['b', 'Quantidade atingida!'], ['', ' Confirme seu CEP para verificar o frete grátis.']], sub: 'Vale para ' + ufs + '.', bar: 100 };
+    return { key: 'reached-' + count, parts: [['b', 'Você já tem a quantidade necessária.']], sub: 'Confirme seu CEP para verificar o frete grátis (' + ufs + ').', bar: 100 };
   }
   const THEME_TRUCK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>';
   function themeIncentive() {
@@ -383,7 +383,7 @@ export const THEME_UI = String.raw`
     if (state.sub) { const small = document.createElement('small'); small.textContent = state.sub; box.appendChild(small); }
     if (state.bar >= 0) {
       const bar = document.createElement('span'); bar.className = 'o-incentive-bar'; bar.setAttribute('aria-hidden', 'true');
-      const fill = document.createElement('i'); fill.style.width = state.bar + '%'; bar.appendChild(fill); box.appendChild(bar);
+      const fill = document.createElement('i'); fill.style.transform = 'scaleX(' + state.bar / 100 + ')'; bar.appendChild(fill); box.appendChild(bar);
     }
   }
   function themeCartRelease(render) {

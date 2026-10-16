@@ -43,7 +43,12 @@ async function shot(page, file, full = false) {
 
 if (flag('--headed')) {
   const opened = [];
-  for (const vp of VIEWPORTS) { const s = await session(vp); opened.push(s.page); await s.page.goto(HOST + PDP, { waitUntil: 'domcontentloaded', timeout: 60000 }); }
+  for (const vp of VIEWPORTS) {
+    const s = await session(vp); opened.push(s.page);
+    await s.page.goto(HOST + PDP, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Com --checkout: uma segunda aba na tela de pagamento do carrinho de teste (o POST de pagamento continua abortado).
+    if (UUID) { const k = await s.ctx.newPage(); await k.goto(HOST + store.inkBase + '/checkout/payment_methods/' + UUID, { waitUntil: 'domcontentloaded', timeout: 60000 }); await s.page.bringToFront(); }
+  }
   console.log('Prévia aberta (computador e celular)' + (OFF ? ' SEM tema' : ' COM tema') + '. Checkout: só GET; Ctrl+C encerra.');
   const dir = opt('--capturar-carrinho');
   if (dir) {

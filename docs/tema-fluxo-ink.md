@@ -107,3 +107,14 @@ PW_PATH=… node scripts/validacao-checkout.mjs --checkout <uuid de teste> --out
 - **Checkout, frete e pagamento**: a opção escolhida tem fundo leve e borda na cor de seleção da marca, e o indicador nativo nessa cor; as outras ficam
   neutras. O contorno azul nativo da INK (`peer-checked:border-blue-600`) sai. Os controles desabilitados ficam esmaecidos e sem cursor de clique.
 
+## Papéis de cor do carrinho e do checkout (direção de arte)
+
+As cores do carrinho e do checkout saem de **papéis** derivados dos tokens publicados (`tokensCss`): `--o-cta`/`--o-on-cta` (botão principal),
+`--o-panel` (rodapé do carrinho, resumo do checkout), `--o-incentive-*` (fundo, linha, destaque, texto, ressalva, ícone e círculo, trilho e progresso
+do incentivo) e `--o-choice-*` (linha, anel, fundo, cabeçalho, área aberta e rádio da opção escolhida). O padrão reproduz o tema aprovado: as cores
+calculadas foram comparadas antes e depois da refatoração e saíram idênticas. Uma direção de arte nova troca os papéis, não as regras.
+
+Propostas em comparação (`scripts/lib/propostas-cor.mjs`, A e B) existem **só na prévia**: o harness injeta com `createHarness({ proposta: 'A' })`,
+e `scripts/direcao-de-arte.mjs` gera Atual / A / B com o mesmo código, os mesmos dados e o mesmo enquadramento. Aplicar a escolhida é trocar os valores
+padrão dos papéis no `theme.js` (ou, se fizer sentido, criar um preset no painel).
+

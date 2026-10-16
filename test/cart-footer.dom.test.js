@@ -100,12 +100,12 @@ test('incentivo: no TOPO da lista (abaixo do título, antes dos produtos, rola c
   assert.ok(!t.doc.querySelector('.cart-drawer__footer [data-origens-incentive-box]'), 'nada no rodapé');
   assert.deepEqual(say(t), ['Falta 1 peça para o frete grátis', 'Vale para PR, SC e RS; confirme pelo CEP.']);
   assert.deepEqual([...boxes(t)[0].querySelectorAll('strong')].map((b) => b.textContent), ['1 peça', 'frete grátis'], 'o que falta e o benefício em destaque');
-  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.width, '50%');
+  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.transform, 'scaleX(0.5)', 'régua por transform (sem animar layout)');
   assert.equal(boxes(t)[0].getAttribute('role'), 'status');
   rerender(t, { qty: 2 });
   await tick();
-  assert.deepEqual(say(t), ['Quantidade atingida! Confirme seu CEP para verificar o frete grátis.', 'Vale para PR, SC e RS.']);
-  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.width, '100%', 'régua cheia, mas o texto não promete o frete');
+  assert.deepEqual(say(t), ['Você já tem a quantidade necessária.', 'Confirme seu CEP para verificar o frete grátis (PR, SC e RS).']);
+  assert.equal(boxes(t)[0].querySelector('.o-incentive-bar i').style.transform, 'scaleX(1)', 'régua cheia, mas o texto não promete o frete');
   rerender(t, { qty: 3, shipping: 'Grátis' });
   await tick();
   assert.deepEqual(say(t), ['Frete grátis disponível para o seu CEP', 'Valor calculado pela INK para o CEP informado.']);
@@ -136,13 +136,13 @@ test('incentivo durante a resposta da INK: conteúdo escondido (sem mensagem vel
   rerender(t, { qty: 2 });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Quantidade atingida!/);
+  assert.match(say(t)[0], /^Você já tem a quantidade necessária/);
   submit(t, 'turbo:submit-start');
   assert.ok(boxes(t)[0].hasAttribute('data-loading'));
   submit(t, 'turbo:submit-end', { success: false });
   await tick();
   assert.ok(!boxes(t)[0].hasAttribute('data-loading'));
-  assert.match(say(t)[0], /^Quantidade atingida!/);
+  assert.match(say(t)[0], /^Você já tem a quantidade necessária/);
 });
 
 test('Turbo: página nova sem o carrinho tematizado = nenhum botão, nenhum incentivo, cupom à mostra; com tema = um de cada (sem duplicar)', async () => {

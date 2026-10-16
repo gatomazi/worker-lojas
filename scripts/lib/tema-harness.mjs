@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { shellPageKind } from '../../src/scope.js';
 import { STORES } from '../../src/stores.js';
 import { checkoutPageKind } from '../../src/theme.js';
+import { propostaCss } from './propostas-cor.mjs';
 
 export const REFERENCE_THEME = {
   v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: true },
@@ -62,7 +63,9 @@ export function sanitizeCheckout(html, learned = new Map()) {
 
 // allowPaymentDiscount: deixa passar SÓ o POST de recálculo do desconto ao trocar Pix/cartão (<loja>/checkout/payment_discount/<id>), que não cria pedido
 // nem cobrança; a resposta também é sanitizada. Pagamento (process_payment), contato e entrega continuam abortados.
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false } = {}) {
+// proposta: 'A' | 'B' injeta a proposta de cor (scripts/lib/propostas-cor.mjs) no fim do <head> das páginas reescritas: SÓ na prévia, para comparar.
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false, proposta = null } = {}) {
+  const propostaStyle = proposta ? '<style data-origens-proposta="' + proposta + '">' + propostaCss(proposta) + '</style>' : '';
   const require = createRequire((process.env.PW_PATH || '.') + '/');
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
@@ -130,7 +133,9 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
       if (req.headers()['turbo-frame']) fwd['turbo-frame'] = req.headers()['turbo-frame'];
       const out = await mf.dispatchFetch(req.url(), { headers: fwd });
       const headers = { ...res.headers() }; delete headers['content-length']; delete headers['content-encoding']; delete headers.etag;
-      await route.fulfill({ status: out.status, headers, body: await out.text() });
+      let body = await out.text();
+      if (propostaStyle && body.includes('</head>')) body = body.replace('</head>', propostaStyle + '</head>');
+      await route.fulfill({ status: out.status, headers, body });
     });
     const page = await ctx.newPage();
     return { ctx, page, mobile, name };

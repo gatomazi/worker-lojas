@@ -147,15 +147,23 @@ function tokensCss(tokens) {
     '--o-ink-mute:' + tokens.inkMute, '--o-line:' + tokens.line, '--o-radius:' + tokens.radius + 'px', '--o-font:' + font.stack,
     // Linha fina dos estados normais: a tinta a 16% (mais leve que --o-line, que fica para campos). Navegador sem color-mix usa --o-line.
     '--o-line-soft:var(--o-line)', '--o-line-soft:color-mix(in srgb,var(--o-ink) 16%,transparent)',
-    '--o-ok:#1f6f43', '--o-error:#b42318', '--o-ease:cubic-bezier(.22,1,.36,1)', '--o-word:"Big Shoulders Display","Arial Narrow",Impact,sans-serif'
+    '--o-ok:#1f6f43', '--o-error:#b42318', '--o-ease:cubic-bezier(.22,1,.36,1)', '--o-word:"Big Shoulders Display","Arial Narrow",Impact,sans-serif',
+    // Papéis de cor do carrinho e do checkout, derivados dos tokens (o visual aprovado). Uma direção de arte nova troca estes papéis, não as regras.
+    '--o-cta:var(--o-action)', '--o-on-cta:var(--o-on-action)', '--o-panel:var(--o-paper)',
+    '--o-incentive-bg:color-mix(in srgb,var(--o-selected) 20%,var(--o-surface))', '--o-incentive-line:color-mix(in srgb,var(--o-selected) 35%,var(--o-surface))',
+    '--o-incentive-ink:var(--o-selected)', '--o-incentive-icon:var(--o-selected)', '--o-incentive-text:var(--o-ink)', '--o-incentive-soft:var(--o-ink-soft)',
+    '--o-incentive-track:color-mix(in srgb,var(--o-selected) 8%,var(--o-surface))', '--o-incentive-fill:var(--o-selected)',
+    '--o-choice-line:var(--o-selected)', '--o-choice-ring:var(--o-selected)', '--o-choice-bg:color-mix(in srgb,var(--o-selected) 10%,var(--o-surface))',
+    '--o-choice-body:var(--o-choice-bg)', '--o-choice-head:transparent', '--o-choice-mark:var(--o-selected)',
+    '--o-incentive-icon-bg:transparent', '--o-incentive-icon-size:18px', '--o-incentive-icon-pad:0px'
   ].join(';') + '}';
 }
 
 // Botão principal: reto como o .btn do storefront, 54 px, maiúsculas. Nunca `display` (a INK esconde/mostra botões com classes).
 // Os seletores passados aqui não usam vírgula dentro de :is() (a lista é separada por vírgula para gerar :hover/:focus).
 const each = (sel, suffix) => sel.split(',').map((s) => s + suffix).join(',');
-const btn = (sel) => sel + '{align-items:center;justify-content:center;gap:10px;min-height:54px;height:auto;padding:0 24px;border:2px solid var(--o-action)!important;border-radius:var(--o-radius)!important;background:var(--o-action)!important;color:var(--o-on-action)!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
-  '@media (hover:hover){' + each(sel, ':hover') + '{background:transparent!important;color:var(--o-action)!important}}' +
+const btn = (sel, role = 'action') => sel + '{align-items:center;justify-content:center;gap:10px;min-height:54px;height:auto;padding:0 24px;border:2px solid var(--o-' + role + ')!important;border-radius:var(--o-radius)!important;background:var(--o-' + role + ')!important;color:var(--o-on-' + role + ')!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
+  '@media (hover:hover){' + each(sel, ':hover') + '{background:transparent!important;color:var(--o-' + role + ')!important}}' +
   each(sel, ':focus-visible') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
 // Ação secundária: linha fina, sem maiúsculas pesadas.
 const ghost = (sel) => sel + '{align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;box-shadow:none!important}' +
@@ -349,7 +357,7 @@ function cartCss() {
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
-    D + '__footer{background:var(--o-paper)!important;border-top:1px solid var(--o-line-soft);padding:10px 16px calc(12px + env(safe-area-inset-bottom))!important}',
+    D + '__footer{background:var(--o-panel)!important;border-top:1px solid var(--o-line-soft);padding:10px 16px calc(12px + env(safe-area-inset-bottom))!important}',
     D + '__footer .footer-details{margin:4px 0 10px!important;gap:4px}',
     D + '__footer .footer-details ul > li{font-size:14px;font-weight:400;color:var(--o-ink-soft)}',
     D + '__footer .footer-details ul > li:last-child{font-size:20px;font-weight:700;color:var(--o-ink);padding-top:6px}',
@@ -359,7 +367,7 @@ function cartCss() {
     D + '__footer__cep input:focus,' + D + '__footer__coupon input:focus{border-color:var(--o-ink)!important;outline:2px solid var(--o-ink);outline-offset:0}',
     D + '__footer__cep .btn-apply,' + D + '__footer__coupon .btn-apply{min-width:44px;min-height:44px}',
     D + '__footer__cep label,' + D + '__footer__coupon label,' + D + '__footer__cep span,' + D + '__footer__coupon span{color:var(--o-ink-soft);font-weight:500;font-size:14px}',
-    btn(D + ' #checkout-btn,' + D + '__footer__submit'),
+    btn(D + ' #checkout-btn,' + D + '__footer__submit', 'cta'),
     D + ' #checkout-btn{width:100%}',
     // "Continuar comprando": ação de texto (44 px de toque, foco visível), abaixo da ação principal; mesmo controle da INK, só a aparência.
     D + '__footer__keep-shopping{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:2px!important;padding:0 12px!important;border:0!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;box-shadow:none!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;text-decoration:underline;text-underline-offset:3px}',
@@ -372,13 +380,13 @@ function cartCss() {
     // seleção da marca, perceptível no branco do carrinho; o que falta e o benefício em destaque na mesma cor; a ressalva (destinos, CEP) numa linha
     // menor; régua fina só com meta numérica. Altura mínima de duas linhas + régua: trocar de estado não empurra os produtos. Sem animação contínua.
     D + ' [data-origens-incentive-slot]{flex:0 0 auto;width:100%;margin:0;padding:12px 16px 4px;list-style:none}',
-    D + ' [data-origens-incentive-box]{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:8px;row-gap:3px;align-content:center;min-height:76px;padding:10px 12px 12px;border:1px solid var(--o-line-soft);border-color:color-mix(in srgb,var(--o-selected) 35%,var(--o-surface));border-radius:var(--o-radius);background:var(--o-paper);background:color-mix(in srgb,var(--o-selected) 20%,var(--o-surface));color:var(--o-ink);font-family:var(--o-font)}',
-    D + ' [data-origens-incentive-box] > svg{grid-row:1;align-self:start;width:18px;height:18px;margin-top:1px;color:var(--o-selected)}',
-    D + ' [data-origens-incentive-box] > p{grid-column:2;margin:0;font-size:14px;line-height:1.35;color:var(--o-ink)}',
-    D + ' [data-origens-incentive-box] > p strong{font-weight:700;color:var(--o-selected)}',
-    D + ' [data-origens-incentive-box] > small{grid-column:2;font-size:12.5px;line-height:1.3;color:var(--o-ink-soft)}',
-    D + ' [data-origens-incentive-box] .o-incentive-bar{display:block;grid-column:1 / -1;height:6px;margin-top:6px;border-radius:3px;overflow:hidden;background:var(--o-surface);background:color-mix(in srgb,var(--o-selected) 8%,var(--o-surface))}',
-    D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;height:100%;border-radius:3px;background:var(--o-selected);transition:width .25s ease}',
+    D + ' [data-origens-incentive-box]{display:grid;grid-template-columns:var(--o-incentive-icon-size) minmax(0,1fr);column-gap:8px;row-gap:3px;align-content:center;min-height:76px;padding:10px 12px 12px;border:1px solid var(--o-incentive-line);border-radius:var(--o-radius);background:var(--o-incentive-bg);color:var(--o-incentive-text);font-family:var(--o-font)}',
+    D + ' [data-origens-incentive-box] > svg{grid-row:1;align-self:start;width:var(--o-incentive-icon-size);height:var(--o-incentive-icon-size);margin-top:1px;padding:var(--o-incentive-icon-pad);border-radius:50%;background:var(--o-incentive-icon-bg);color:var(--o-incentive-icon)}',
+    D + ' [data-origens-incentive-box] > p{grid-column:2;margin:0;font-size:14px;line-height:1.35;color:var(--o-incentive-text)}',
+    D + ' [data-origens-incentive-box] > p strong{font-weight:700;color:var(--o-incentive-ink)}',
+    D + ' [data-origens-incentive-box] > small{grid-column:2;font-size:12.5px;line-height:1.3;color:var(--o-incentive-soft)}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar{display:block;grid-column:1 / -1;height:6px;margin-top:6px;border-radius:3px;overflow:hidden;background:var(--o-incentive-track)}',
+    D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;width:100%;height:100%;border-radius:3px;background:var(--o-incentive-fill);transform-origin:left center;transition:transform .25s ease}',
     D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
     '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
     // Com o cupom recolhido e o CEP ainda fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (os dois são ações curtas): uma linha de
@@ -466,9 +474,11 @@ function checkoutCss() {
     // espessura de borda nos dois estados (nada pula ao escolher).
     L + ' .shipping-types__item,' + L + ' #formPaymentMethods > ul > li{border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;background:var(--o-surface);box-shadow:none}',
     L + ' .shipping-types__item{padding:12px 14px;min-height:56px}',
-    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border-color:var(--o-selected);background:var(--o-paper);background:color-mix(in srgb,var(--o-selected) 10%,var(--o-surface));box-shadow:inset 0 0 0 1px var(--o-selected)}',
-    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]{accent-color:var(--o-selected)}',
-    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]:checked{color:var(--o-selected)!important;border-color:var(--o-selected)!important}',
+    L + ' .shipping-types__item:has(input:checked),' + L + ' #formPaymentMethods > ul > li:has(> label input:checked){border-color:var(--o-choice-line);background:var(--o-choice-bg);box-shadow:inset 0 0 0 1px var(--o-choice-ring)}',
+    L + ' #formPaymentMethods > ul > li:has(> label input:checked){background:var(--o-choice-body)}',
+    L + ' #formPaymentMethods > ul > li:has(> label input:checked) > label{background-color:var(--o-choice-head)!important}',
+    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]{accent-color:var(--o-choice-mark)}',
+    L + ' :is(.shipping-types__item,#formPaymentMethods) input[type="radio"]:checked{color:var(--o-choice-mark)!important;border-color:var(--o-choice-mark)!important}',
     L + ' #formPaymentMethods > ul{gap:8px;border:0!important;border-radius:0!important}',
     L + ' #formPaymentMethods > ul > li > label{min-height:56px}',
     L + ' #formPaymentMethods label{background-color:transparent!important;border-color:transparent!important}',
@@ -486,14 +496,14 @@ function checkoutCss() {
     PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg :is(span,h3){color:var(--o-ink-soft)!important}',
     PAY + ' > div[role="alert"].p-4.text-sm.rounded-lg .mt-2{margin:2px 0 0!important}',
     // Botões de seguir e "Finalizar compra" (que já processa o pagamento: não há revisão depois). Na barra do celular, uma linha só.
-    btn(L + ' button.bg-green-500,' + L + ' button[type="submit"][data-action*="validateAndSubmit"],' + L + ' a.bg-green-500'),
+    btn(L + ' button.bg-green-500,' + L + ' button[type="submit"][data-action*="validateAndSubmit"],' + L + ' a.bg-green-500', 'cta'),
     L + ' button.bg-green-500.md\\:hidden{white-space:nowrap;padding:0 16px;letter-spacing:.02em;font-size:14px}',
     // Campo em foco (Tab, ou o navegador levando ao campo com erro) nunca para atrás da faixa fixa do topo nem, no celular, atrás da barra fixa
     // "Total · Finalizar compra" (79 px): o navegador respeita o scroll-padding ao rolar até o foco.
     'html:has(> ' + K + '){scroll-padding-top:48px}',
     '@media (max-width:767px){html:has(> ' + K + ' div.fixed.bottom-0 button.md\\:hidden){scroll-padding-bottom:104px}}',
     // Resumo: itens, subtotal, desconto, prazo, frete e total; total em destaque, desconto em verde AA.
-    K + ' turbo-frame#cart_summary > section{background:var(--o-paper)!important}',
+    K + ' turbo-frame#cart_summary > section{background:var(--o-panel)!important}',
     K + ' turbo-frame#cart_summary img{border-radius:var(--o-radius)!important;border-color:var(--o-line-soft)!important;background:var(--o-photo)}',
     K + ' turbo-frame#cart_summary h3{font-weight:600;color:var(--o-ink)}',
     K + ' turbo-frame#cart_summary p.font-medium.text-gray-900{font-weight:700;color:var(--o-ink)}',
