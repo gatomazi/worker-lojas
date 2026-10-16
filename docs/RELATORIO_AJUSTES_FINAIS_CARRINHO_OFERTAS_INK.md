@@ -6,7 +6,7 @@ Os PRs ativos são worker-lojas #24 e useorigens-storefront #83. Não houve merg
 
 - **Worker #24.** Estava em conflito com a loja única (#25), em 4 trechos do `src/worker.js`. Resolvi seguindo o padrão da própria loja única: o tema é **por região do visitante**, como a navbar e as promoções (serviço por `viewKey`, `inkThemeApi` nos campos da região). Um teste novo garante que o visitante do Norte lê `/api/ink-theme/norte` e nunca recebe o tema da Sul.
 - **Storefront #83.** Estava 32 commits atrás, com 5 arquivos em conflito. Eram todos casos em que os dois lados acrescentaram algo (`statePage` da `main` e `inkTheme` deste PR), e os dois ficaram. O menu do painel agora é por grupos, e "Tema da INK" entrou em Configuração.
-- **Falha que já existe na `main`, fora deste escopo:** `wrangler dev and production ship the same safe defaults`. O `wrangler.production.toml` ganhou `SERVE_REGIONS` com a loja única, e o de dev não. Ela falha igual na `main` pura.
+- **Worker de novo (`e0b2a47`):** a `main` ganhou os PRs #26 e #27 (redirecionar as lojas antigas, preparar a troca de domínio, coleções). Merge feito: as importações e a chave de serviço nova (região + domínio da INK) ganharam o serviço do tema. Com esse merge, a falha do teste `wrangler dev and production ship the same safe defaults`, que vinha da `main`, foi corrigida por ela mesma. Agora são **585/585**, e as QAs de navegador foram repetidas depois do merge: geral 65/65, liga/desliga 21/21.
 
 ## 2. Incentivo de frete
 
@@ -171,4 +171,4 @@ O checkout continua travado na prévia: "Finalizar compra" não segue, sem pedid
   - ferramentas: `scripts/lib/tema-harness.mjs`, `scripts/lib/store-lib.mjs`, `scripts/preview-tema.mjs`, `scripts/ajustes-finais.mjs` (novo), `scripts/validacao-checkout.mjs` (novo);
   - documentação: `docs/tema-fluxo-ink.md`.
 - **Storefront #83:** `src/lib/site-config/ink-theme-schema.ts`, `ink-theme.ts`, `src/lib/admin/diff.ts`, `src/app/admin/actions.ts`, `src/app/admin/(panel)/tema-ink/page.tsx`, `tests/unit/ink-theme.test.ts`.
-- **Resultados:** Worker `npm test` 576 aprovados e 1 falha que já existe na `main` (seção 1); QA geral com checkout 65/65; liga/desliga com checkout 21/21; galeria 163/163; validação com resposta real do checkout 8/8. Storefront: `tsc` e lint limpos, vitest 1570/1570.
+- **Resultados:** Worker `npm test` 585/585 (depois do segundo merge da `main`); QA geral com checkout 65/65; liga/desliga com checkout 21/21; galeria 163/163; validação com resposta real do checkout 8/8. Storefront: `tsc` e lint limpos, vitest 1570/1570.
