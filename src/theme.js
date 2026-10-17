@@ -53,10 +53,13 @@ export function normalizeTheme(data, store = ACTIVE_STORE) {
   if (!Object.hasOwn(FONTS, t.font)) return null;
   tokens.radius = t.radius; tokens.font = t.font;
   const incentive = normalizeIncentive(data.incentive, store);
+  // Paleta do carrinho e do checkout (opcional): "acento" = verde com acento ocre (a direção escolhida em 17/10/2026). Ausente, desconhecida ou de outra
+  // região = os papéis derivados dos tokens, como antes (um valor novo do painel nunca derruba o tema: só não é aplicado).
+  const palette = data.palette === 'acento' && Object.hasOwn(PALETTES.acento, store.region) ? 'acento' : 'neutra';
   // Defesa em profundidade (o CMS já confere): texto do botão e do selecionado legíveis, texto da página legível no fundo e nas superfícies.
   if (contrast(tokens.action, tokens.onAction) < 4.5 || contrast(tokens.selected, tokens.onSelected) < 4.5) return null;
   for (const bg of ['ground', 'surface', 'paper']) if (contrast(tokens.ink, tokens[bg]) < 4.5 || contrast(tokens.inkMute, tokens[bg]) < 4.5) return null;
-  return { surfaces, tokens, incentive };
+  return { surfaces, tokens, incentive, palette, region: store.region };
 }
 
 // Incentivo do carrinho: só ligado, só frete grátis por quantidade de peças, meta de 2 a 20, destinos = UFs DESTA região (sem repetição).
@@ -527,7 +530,38 @@ export function buildThemeCss(theme, surfaces) {
   const font = FONTS[theme.tokens.font];
   return '/* Use Origens · tema da compra na INK v' + THEME_VERSION + ' (' + list.join(',') + ') */' +
     (font.import ? '@import url("' + font.import + '");' : '') +
-    tokensCss(theme.tokens) + ((list.includes('pdp') || list.includes('checkout')) ? STRIP_KEYFRAMES : '') + list.map((s) => SURFACE_CSS[s]()).join('');
+    tokensCss(theme.tokens) + ((list.includes('pdp') || list.includes('checkout')) ? STRIP_KEYFRAMES : '') + list.map((s) => SURFACE_CSS[s]()).join('') +
+    paletteCss(theme, list);
+}
+
+// ── Paletas do carrinho e do checkout ─────────────────────────────────────────────────────────────────────────────────────────
+// "acento" (verde com acento ocre, a proposta B da direção de arte, escolhida em 17/10/2026): os PAPÉIS de cor do carrinho e do checkout trocados por
+// valores fixos e medidos (contraste AA). As regras não mudam, só os papéis. O botão é carvão, em continuidade com o botão escuro da PDP. As escolhas e o
+// progresso ficam no verde da identidade, um tom mais vivo. A faixa de frete é palha, com o ícone num círculo dourado-areia (o acento oficial da Sul). As
+// superfícies de apoio são off-white quente. Por região: só existe para a Sul; as outras ficam na paleta derivada dos tokens.
+export const PALETTES = Object.freeze({
+  acento: Object.freeze({
+    sul: Object.freeze({
+      cta: '#1b1d19', 'on-cta': '#ffffff', selected: '#3a5a30', ink: '#1b1d19', paper: '#fbf8f2', panel: '#fbf8f2',
+      'incentive-bg': '#f4ecda', 'incentive-line': '#e3d3b0', 'incentive-ink': '#2f4b28', 'incentive-text': '#1b1d19', 'incentive-soft': '#5a5340',
+      'incentive-icon': '#2f4b28', 'incentive-icon-bg': '#d6ba8d', 'incentive-icon-size': '22px', 'incentive-icon-pad': '3px',
+      'incentive-track': '#fffaf1', 'incentive-fill': '#2f4b28',
+      'choice-line': '#3a5a30', 'choice-ring': 'transparent', 'choice-bg': '#f1f5ec', 'choice-head': '#eef3e7', 'choice-body': '#ffffff', 'choice-mark': '#3a5a30'
+    })
+  })
+});
+const PALETTE_SELECTION = Object.freeze({ acento: '#ecdcb8' });
+
+function paletteCss(theme, list) {
+  const roles = theme.palette && theme.palette !== 'neutra' ? PALETTES[theme.palette]?.[theme.region] : null;
+  if (!roles) return '';
+  const scopes = [list.includes('cart') ? 'body[data-origens-theme~="cart"] .cart-drawer' : null, list.includes('checkout') ? 'body[data-origens-theme~="checkout"]' : null].filter(Boolean);
+  if (scopes.length === 0) return '';
+  const vars = Object.entries(roles).map(([role, value]) => '--o-' + role + ':' + value).join(';');
+  const sel = scopes.join(',');
+  return sel + '{' + vars + '}' +
+    scopes.map((s) => s + ' ::selection').join(',') + '{background:' + PALETTE_SELECTION[theme.palette] + ';color:' + roles.ink + '}' +
+    (list.includes('checkout') ? 'body[data-origens-theme~="checkout"] :is(input,textarea){caret-color:' + roles.selected + '}' : '');
 }
 
 // URL do CSS: superfícies + hash do conteúdo (mudou o tema publicado ou o código = URL nova; o navegador guarda por um ano).
