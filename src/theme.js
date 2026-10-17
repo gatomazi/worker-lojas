@@ -563,6 +563,8 @@ function accountCss() {
     A + ' :is(button,input,select,textarea){font-family:inherit}',
     // Cartões (pedidos, detalhe, avaliação): superfície branca com linha fina, sem sombra, cantos do tema.
     CARD + '{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important;box-shadow:none!important;background:var(--o-surface)!important}',
+    // O cartão do formulário de rastreio (sem borda na INK, com sombra): a mesma linha fina, sem sombra.
+    A + ' div.bg-white.rounded-lg:has(> form[action$="/orders/trackings/search"]){border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;box-shadow:none!important}',
     // Títulos: "Compras" e o número do pedido na hierarquia do site (o mesmo peso dos títulos do checkout).
     A + ' h1.text-4xl{font-weight:700;font-size:clamp(28px,3vw,40px);line-height:1.1;letter-spacing:-.015em;color:var(--o-ink)!important}',
     A + ' div.container > nav p.text-2xl{font-weight:700;font-size:clamp(22px,2.4vw,28px);letter-spacing:-.01em;color:var(--o-ink)}',

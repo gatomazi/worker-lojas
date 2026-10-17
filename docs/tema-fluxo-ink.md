@@ -32,6 +32,27 @@ Entra no loader com `theme-pdp` ou `theme-cart`; o checkout nunca recebe o loade
 
 Nada nele clica em compra, presume variante, cria item, lê carrinho, envia evento ou toca formulário. Inicialização idempotente (um observador; listeners removidos no `unmount`), testada em `test/theme-ui.dom.test.js`.
 
+## Conta (`theme-account`)
+
+O mesmo tema nas páginas de conta, com a superfície **Conta** do painel. O contrato aceita `surfaces.account` ausente (= desligada): o storefront anterior não manda o campo e o tema no ar segue igual.
+
+| Página | Caminho | Como entra |
+|---|---|---|
+| Login | `/useorigens/store_sessions/new` | rota própria (`store_sessions/new*`; o POST `/store_sessions` não casa); **só CSS**, nenhum script nosso; "Voltar" e o símbolo levam à home do storefront |
+| Compras, detalhe, rastreio | `/orders`, `/orders/<pedido>`, `/orders/trackings` | páginas de casca (rota de pedidos): `account` junto com `pdp cart`, loader e navbar como antes |
+| Avaliação | `/orders/<pedido>/review/<id>`, `/orders/guest_reviews/new` | fora da casca: só CSS |
+| Trocas e devoluções | `/exchanges_and_returns` | rota própria; página de **casca** (conteúdo, como "sobre"): navbar + `account` |
+
+Com `theme-account`, as páginas da conta são pedidas à INK sem compressão (a INK entrega em brotli). Paleta "acento" também na conta.
+
+```
+bash scripts/release-tema.sh --check --add=theme-account     # avisa se a "Conta" está desligada no painel
+RELEASE_CONFIRM=PUBLICAR-TEMA-INK bash scripts/release-tema.sh --deploy --add=theme-account   # cria as 2 rotas (TOML), smoke e sonda
+node scripts/checkout-routes.mjs probe --conta                # login e trocas executam; POST do login, sessão, carrinho e checkout não
+node scripts/checkout-routes.mjs remove --conta               # desfaz sem deploy (o próximo deploy recria pelo TOML)
+PW_PATH=… node scripts/tema-conta.mjs --out docs/evidence/tema-conta   # prova visual (Compras e detalhe com estrutura real e textos fictícios)
+```
+
 ## Checkout: as duas rotas da zona (`scripts/checkout-routes.mjs`)
 
 A zona exclui `loja.useorigens.com.br/useorigens/*` do Worker (rota sem script): login, carrinho e checkout vão direto para a INK. Para o tema do checkout, **duas** rotas com o Worker, e só estas, mais específicas que a exclusão:
