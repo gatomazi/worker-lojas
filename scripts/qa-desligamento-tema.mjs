@@ -3,14 +3,14 @@
 // Worker lê do storefront) e/ou muda as features do deploy, e confere o que de fato acontece na PDP, no carrinho e (com --checkout) no checkout.
 // O último cenário muda a configuração NO MEIO da sessão e confere a visita Turbo seguinte, o voltar (cache do Turbo) e o recarregar.
 //   PW_PATH=… node scripts/qa-desligamento-tema.mjs [--checkout <uuid de teste>] [--rapido]   (--rapido pula o cenário que espera o cache de 60 s)
-import { createHarness, REFERENCE_THEME, DEFAULT_PDP } from './lib/tema-harness.mjs';
+import { createHarness, REFERENCE_THEME, DEFAULT_PDP, STORE } from './lib/tema-harness.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
 const UUID = opt('--checkout');
 const results = [];
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  — ' + String(detail).slice(0, 240) : '')); };
-const OTHER_PDP = '/usesul/product/scharlau-origem-localidade-rs';
+const OTHER_PDP = STORE.inkBase + '/product/scharlau-origem-localidade-rs';
 const theme = (surfaces) => ({ ...structuredClone(REFERENCE_THEME), surfaces: { pdp: false, cart: false, checkout: false, ...surfaces } });
 const wait = (p, ms) => p.waitForTimeout(ms);
 
@@ -36,7 +36,7 @@ async function cartWidth(page) {
 }
 async function checkoutAttr(page) {
   if (!UUID) return null;
-  await page.goto(`https://www.usesul.com.br/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 });
+  await page.goto(`https://${STORE.inkHost}${STORE.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 });
   return page.evaluate(() => ({ attr: document.body.getAttribute('data-origens-theme'), brand: !!document.querySelector('[data-origens-brand]'), loader: !!document.querySelector('script[data-use-origens-widget]') }));
 }
 

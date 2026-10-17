@@ -4,17 +4,17 @@
 //   PW_PATH=… node scripts/qa-galeria-tema.mjs [--config tema.json] [--shots <dir>]
 // Exit 1 se algo falhar.
 import { mkdirSync, readFileSync } from 'node:fs';
-import { createHarness, REFERENCE_THEME } from './lib/tema-harness.mjs';
+import { createHarness, REFERENCE_THEME, STORE } from './lib/tema-harness.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
 const SHOTS = opt('--shots'); if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const H = await createHarness({ config: opt('--config') ? JSON.parse(readFileSync(opt('--config'), 'utf8')) : REFERENCE_THEME });
 const PRODUCTS = [
-  { name: 'muitas (17)', path: '/usesul/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4' },
-  { name: 'muitas (19)', path: '/usesul/product/scharlau-origem-localidade-rs' },
-  { name: 'poucas (3)', path: '/usesul/product/florianopolis-legado-sc-32f02051-5f2c-4acf-b977-358ee2d55acb' },
-  { name: 'poucas (5)', path: '/usesul/product/florianopolis-legado-sc-1d635aca-6559-428c-a5e0-5c58150d2f59' }
+  { name: 'muitas (17)', path: STORE.inkBase + '/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4' },
+  { name: 'muitas (19)', path: STORE.inkBase + '/product/scharlau-origem-localidade-rs' },
+  { name: 'poucas (3)', path: STORE.inkBase + '/product/florianopolis-legado-sc-32f02051-5f2c-4acf-b977-358ee2d55acb' },
+  { name: 'poucas (5)', path: STORE.inkBase + '/product/florianopolis-legado-sc-1d635aca-6559-428c-a5e0-5c58150d2f59' }
 ];
 const PRODUCTS0 = PRODUCTS[0].path;
 const VIEWPORTS = [{ name: '360', width: 360, height: 740 }, { name: '375', width: 375, height: 812 }, { name: '390', width: 390, height: 844 }, { name: '768', width: 768, height: 1024 }, { name: '1440', width: 1440, height: 900 }, { name: '1440-baixa', width: 1440, height: 680 }];

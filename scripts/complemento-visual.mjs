@@ -153,14 +153,14 @@ for (const vp of VPS) {
 
   // ── Checkout: estrutura real sanitizada ──
   const full = mobile && vp.width === 390;
-  await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1200);
+  await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1200);
   const c1 = await page.evaluate(() => ({ status: document.title, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, btn: [...document.querySelectorAll('[data-controller="ink-store--checkout"] button')].filter((b) => b.getClientRects().length && /pagamento/i.test(b.textContent)).map((b) => Math.round(b.getBoundingClientRect().height)) }));
   console.log(`[${tag}] checkout contato`, JSON.stringify(c1));
   await shot(page, vp.folder, '10-checkout-contato-e-entrega' + (mobile ? '_primeira-tela' : ''), SAN, `contato e entrega · ${tag}`);
   if (full || !mobile) await shot(page, vp.folder, '11-checkout-contato-e-entrega_pagina-inteira', SAN, `contato e entrega, página inteira · ${tag}`, { fullPage: true });
   await page.evaluate(() => document.querySelector('turbo-frame#delivery_options')?.scrollIntoView({ block: 'center', behavior: 'instant' })); await wait(page, 500);
   await shot(page, vp.folder, '12-checkout-opcoes-de-entrega', SAN, `opções de entrega (frete/prazo da INK, a escolhida em destaque) e resumo · ${tag}`);
-  await page.goto(`${H.HOST}/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1200);
+  await page.goto(`${H.HOST}${H.store.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1200);
   await page.evaluate(() => document.getElementById('pix')?.click()); await wait(page, 1200);
   await shot(page, vp.folder, '13-checkout-pix-selecionado', SAN, `Pix selecionado (o POST de desconto foi ABORTADO: totais não recalculados) · ${tag}`, { fullPage: !mobile || full });
   await page.evaluate(() => document.getElementById('credit_card')?.click()); await wait(page, 1000);

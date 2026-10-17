@@ -116,7 +116,7 @@ if (flag('--qa')) {
     } else check(`${width}px sem tema quando a feature está desligada`, m.attr === null && m.links === 0, JSON.stringify({ attr: m.attr, links: m.links }));
     if (width === 390 && themed) {
       // Turbo de verdade (Turbo.visit, a API dos links da INK) para outra PDP e volta; o tema e o loader não se multiplicam.
-      const href = await page.evaluate((u) => { if (!window.Turbo || typeof window.Turbo.visit !== 'function') return null; window.Turbo.visit(u); return u; }, HOST + '/usesul/product/scharlau-origem-localidade-rs');
+      const href = await page.evaluate((u) => { if (!window.Turbo || typeof window.Turbo.visit !== 'function') return null; window.Turbo.visit(u); return u; }, HOST + store.inkBase + '/product/scharlau-origem-localidade-rs');
       if (href) {
         await page.waitForURL((u) => u.href !== HOST + PDP, { timeout: 30000 }).catch(() => {});
         await page.waitForTimeout(2500);
