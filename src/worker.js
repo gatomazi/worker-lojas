@@ -241,7 +241,12 @@ async function serveThemeCss(request, url, mode, features, themeSource) {
 // Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <body>, o <link> do CSS e o nome ao lado do logo. Nenhum script nosso, nenhum nó da INK tocado, nada
 // guardado; o caminho (que leva o uuid do carrinho) nunca vai para log. Qualquer falha = a página original da INK.
 async function injectCheckoutTheme(request, upstream, themeSource, features, store) {
-  const [response, theme] = await Promise.all([passThrough(request, upstream), themeSource.get().catch(() => null)]);
+  // A INK entrega as telas do checkout comprimidas (brotli), e um corpo ainda codificado não pode ser reescrito (medido em 17/10/2026: a página de
+  // produto vem sem compressão, o checkout não). Só aqui, pede-se a página sem compressão; a Cloudflare comprime de novo para o cliente. Os demais
+  // cabeçalhos (cookie de sessão incluído) vão como vieram.
+  const plain = new Request(request, { headers: new Headers(request.headers) });
+  plain.headers.set('accept-encoding', 'identity');
+  const [response, theme] = await Promise.all([passThrough(plain, upstream), themeSource.get().catch(() => null)]);
   if (!activeSurfaces(theme, features).includes('checkout')) return response;
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html') || response.headers.get('content-encoding')) return response;

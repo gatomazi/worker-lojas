@@ -27,7 +27,7 @@ async function worker(features, extra = {}) {
       ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'], bindings,
       outboundService: async (request) => {
         const url = new URL(request.url);
-        calls.push({ host: url.host, path: url.pathname, method: request.method, cookie: request.headers.get('cookie') });
+        calls.push({ host: url.host, path: url.pathname, method: request.method, cookie: request.headers.get('cookie'), encoding: request.headers.get('accept-encoding') });
         if (url.host === 'useorigens.com.br') return url.pathname === '/api/ink-theme/sul' ? storefront() : new Response('{}', { status: 404 });
         if (url.pathname.includes('/checkout/')) return new Response(CHECKOUT_HTML, { headers: inkHeaders() });
         return new Response(PRODUCT_HTML, { headers: inkHeaders() });
@@ -56,7 +56,7 @@ test('product page: <html data-origens-theme="pdp cart">, ONE theme link in <hea
   assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
   assert.equal(res.headers.get('cache-control'), 'private, no-store');
   const read = calls.find((c) => c.host === 'useorigens.com.br');
-  assert.deepEqual(read, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null }, 'fixed URL, no visitor cookie');
+  assert.deepEqual({ ...read, encoding: undefined }, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null, encoding: undefined }, 'fixed URL, no visitor cookie');
 });
 
 test('incentivo: com theme-cart + cart-incentive e regra válida publicada, a regra vai no <body>; sem a feature, sem o carrinho ou regra inválida, não', async () => {
@@ -182,4 +182,15 @@ test('theme.css: same hash = immutable for a year; other hash = current CSS with
   res = await get(ALL, '/__origens/theme.css?s=pdp', { method: 'POST' });
   assert.equal(res.status, 405);
   reset();
+});
+
+test('checkout screens: the page is asked UNCOMPRESSED (INK sends the checkout in brotli, which cannot be rewritten) and the session cookie goes along', async () => {
+  reset();
+  await (await get(ALL, PAYMENT, { headers: { 'accept-encoding': 'gzip, br', cookie: '_ink_session=abc' } })).text();
+  const ink = calls.find((c) => c.path.includes('/checkout/'));
+  assert.equal(ink.encoding, 'identity');
+  assert.equal(ink.cookie, '_ink_session=abc');
+  // Fora do checkout nada muda: a página de produto vai com o que o navegador pediu.
+  await (await get(ALL, PDP, { headers: { 'accept-encoding': 'gzip, br' } })).text();
+  assert.notEqual(calls.find((c) => c.path === PDP).encoding, 'identity');
 });
