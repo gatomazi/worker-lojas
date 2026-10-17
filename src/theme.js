@@ -594,6 +594,9 @@ function accountCss() {
     // Resumo do pedido (detalhe): miniaturas no cinza das fotos, cantos do tema.
     CARD + ' img{border-radius:var(--o-radius)!important;background:var(--o-photo)}',
     // Trocas e devoluções: título e perguntas na tipografia do site, linhas finas entre as perguntas.
+    // A página de trocas carrega o CSS do "new layout" da INK, que força a Poppins: a fonte do site volta com !important só aqui (ícones fora).
+    A + ' main.main-faq,' + A + ' main.main-faq :where(*:not(i):not(svg):not(svg *)),' + A + ':has(main.main-faq) .o-nav :where(*:not(i):not(svg):not(svg *)){font-family:var(--o-font)!important}',
+    A + ':has(main.main-faq) .o-nav-word{font-family:var(--o-word)!important}',
     A + ' main.main-faq h4{font-weight:700;font-size:clamp(26px,2.8vw,36px);letter-spacing:-.015em;color:var(--o-ink)}',
     A + ' main.main-faq details{border-bottom:1px solid var(--o-line-soft)}',
     A + ' main.main-faq summary{min-height:48px;font-weight:600;color:var(--o-ink);cursor:pointer}',
