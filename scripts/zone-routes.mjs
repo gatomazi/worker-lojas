@@ -39,6 +39,12 @@ const body = ({ pattern, worker, script }) => ((worker ?? !!script) ? { pattern,
 
 const arg = (n) => (process.argv.find((a) => a.startsWith('--' + n + '=')) || '').split('=').slice(1).join('=') || null;
 const cmd = process.argv[2];
+// Desde 16/10/2026 a loja única está em loja.useorigens.com.br (docs/mudanca-dominio-loja-unica.md): este script ainda modela as rotas de www.usesul.com.br,
+// que hoje só tem www.usesul.com.br/* (redirect). Escrever com ele recriaria o roteamento antigo; só a leitura continua liberada.
+if (['apply', 'restore', 'rehearse'].includes(cmd) && /^SINGLE_STORE_DOMAIN = "next"$/m.test(readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8'))) {
+  console.error('recusado: a Use Sul mudou para loja.useorigens.com.br. Rotas: scripts/domain-move-routes.mjs (e atualizar scripts/lib/routes-lib.mjs para o host novo antes de usar este).');
+  process.exit(1);
+}
 const Z = await zoneId();
 
 async function verify(stage) {

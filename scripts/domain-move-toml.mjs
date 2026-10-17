@@ -11,7 +11,7 @@ const { inkHost, inkBase, nextInk } = STORES.sul;
 const oldZone = inkHost.replace(/^www\./, '');
 const newZone = nextInk.host.split('.').slice(-3).join('.');
 let toml = readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8');
-if (/SINGLE_STORE_DOMAIN/.test(toml)) { console.error('wrangler.production.toml já tem SINGLE_STORE_DOMAIN: confira antes de gerar'); process.exit(1); }
+if (/SINGLE_STORE_DOMAIN/.test(toml)) { console.error('a mudança já foi feita (16/10/2026): o wrangler.production.toml já é o do domínio novo. Faça o deploy com ele direto.'); process.exit(1); }
 const routes = [...toml.matchAll(/^pattern = "([^"]+)"\nzone_name = "([^"]+)"$/gm)];
 if (!routes.length || routes.some(([, p, z]) => z !== oldZone || !p.startsWith(inkHost + '/'))) { console.error('rotas inesperadas no wrangler.production.toml'); process.exit(1); }
 for (const [line, pattern] of routes) {

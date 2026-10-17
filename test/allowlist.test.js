@@ -66,16 +66,19 @@ test('wrangler dev and production ship the same safe defaults', () => {
   assert.equal(prod.WIDGET_ALLOWLIST, '');
 });
 
-test('production TOML declares exactly the authorised Worker routes (all www); the zone-level exclusion is NOT in the TOML; staging has none', () => {
+// Desde 16/10/2026 a loja única está em loja.useorigens.com.br/useorigens (SINGLE_STORE_DOMAIN=next, docs/mudanca-dominio-loja-unica.md): as rotas do
+// TOML são as do plano final (scripts/lib/routes-lib.mjs) no host novo, mais o host antigo INTEIRO, que o Worker só redireciona (src/domain-move.js).
+test('production TOML declares exactly the authorised Worker routes on the new domain plus the old host (redirect only); the exclusion is NOT in the TOML; staging has none', () => {
   const prod = readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8');
   const patterns = [...prod.matchAll(/^pattern\s*=\s*"([^"]+)"/gm)].map((m) => m[1]);
-  assert.deepEqual([...patterns].sort(), [...TOML_ROUTES].sort(), 'the TOML is the with-Worker half of the final route plan (scripts/lib/routes-lib.mjs)');
-  assert.ok(patterns.every((p) => p.startsWith('www.usesul.com.br/')), 'every route is restricted to www');
-  // Nunca uma rota que ponha o Worker no caminho da compra ou do login; a exclusão (`/usesul/*`, sem Worker) vive na zona, não no deploy.
+  const moved = TOML_ROUTES.map((p) => p.replace('www.usesul.com.br/usesul', 'loja.useorigens.com.br/useorigens').replace('www.usesul.com.br/', 'loja.useorigens.com.br/'));
+  assert.deepEqual([...patterns].sort(), [...moved, 'www.usesul.com.br/*'].sort(), 'the with-Worker half of the final route plan, on the new host, plus the old host');
+  assert.match(prod, /^SINGLE_STORE_DOMAIN = "next"$/m, 'the old host only redirects with the domain switch on');
+  // Nunca uma rota que ponha o Worker no caminho da compra ou do login; a exclusão (`/useorigens/*`, sem Worker) vive na zona, não no deploy.
   for (const pattern of patterns) assert.doesNotMatch(pattern, /cart|checkout|store_sessions/, pattern);
-  assert.ok(!patterns.includes('www.usesul.com.br/usesul/*'), 'the exclusion route has no Worker and can only be created at the zone level');
-  assert.ok(!patterns.includes('www.usesul.com.br/*'), 'no wildcard over the whole host');
-  assert.ok(patterns.includes('www.usesul.com.br/usesul*') && patterns.includes('www.usesul.com.br/usesul/'), 'broad route and home with trailing slash');
+  assert.ok(!patterns.includes('loja.useorigens.com.br/useorigens/*'), 'the exclusion route has no Worker and can only be created at the zone level');
+  assert.ok(!patterns.includes('loja.useorigens.com.br/*'), 'no wildcard over the whole new host');
+  assert.ok(patterns.includes('loja.useorigens.com.br/useorigens*') && patterns.includes('loja.useorigens.com.br/useorigens/'), 'broad route and home with trailing slash');
   assert.ok(patterns.every((p) => !p.includes('?')), 'Cloudflare refuses query strings in route patterns (error 10022)');
   const dev = readFileSync(new URL('../wrangler.dev.toml', import.meta.url), 'utf8');
   assert.doesNotMatch(dev, /^\s*(pattern|\[\[routes\]\])/m);

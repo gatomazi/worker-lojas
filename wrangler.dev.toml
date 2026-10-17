@@ -13,3 +13,5 @@ WIDGET_FEATURES = "return-link"
 WIDGET_ALLOWLIST = ""
 # Loja única: igual a produção (dormente sem ?origens_r= nos links; ver wrangler.production.toml).
 SERVE_REGIONS = "sul,norte,centro-oeste"
+# A loja única está em loja.useorigens.com.br/useorigens desde 16/10/2026 (src/stores.js withInkDomain). Mesmo valor da produção.
+SINGLE_STORE_DOMAIN = "next"
