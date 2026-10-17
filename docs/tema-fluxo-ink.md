@@ -32,16 +32,26 @@ Entra no loader com `theme-pdp` ou `theme-cart`; o checkout nunca recebe o loade
 
 Nada nele clica em compra, presume variante, cria item, lê carrinho, envia evento ou toca formulário. Inicialização idempotente (um observador; listeners removidos no `unmount`), testada em `test/theme-ui.dom.test.js`.
 
-## Checkout: rota da zona (PENDENTE — não aplicada)
+## Checkout: as duas rotas da zona (`scripts/checkout-routes.mjs`)
 
-Hoje a zona exclui `/usesul/*` do Worker (rota sem script), então as telas do checkout **não** passam pelo Worker e `theme-checkout` não tem efeito em produção. Para ligar, criar **duas** rotas com o Worker, e só estas:
+A zona exclui `loja.useorigens.com.br/useorigens/*` do Worker (rota sem script): login, carrinho e checkout vão direto para a INK. Para o tema do checkout, **duas** rotas com o Worker, e só estas, mais específicas que a exclusão:
 
-```text
-www.usesul.com.br/usesul/checkout/contact_and_shipping_details*
-www.usesul.com.br/usesul/checkout/payment_methods*
+```
+loja.useorigens.com.br/useorigens/checkout/contact_and_shipping_details*
+loja.useorigens.com.br/useorigens/checkout/payment_methods*
 ```
 
-Elas são mais específicas que a exclusão `/usesul/*` e não cobrem os POSTs do checkout (`/checkout/buyer/…`, `/checkout/shipping_address/…`, `/checkout/process_payment`, `/checkout/payment_discount/…`), que seguem direto para a INK. `scripts/lib/routes-lib.mjs` (`safetyProblems`) ainda recusa qualquer rota em `checkout` de propósito: a liberação dessas duas deve ser um PR próprio, com `probe` do `zone-routes.mjs` mostrando que os POSTs não invocam o Worker. No Worker, o ramo do checkout só age em `GET` de documento inteiro (sem `Turbo-Frame`), chama `ctx.passThroughOnException()` (exceção = a Cloudflare entrega a origem) e nunca registra o caminho (o uuid do carrinho fica fora dos logs).
+Elas não cobrem os envios do checkout (`/checkout/buyer/…`, `/checkout/shipping_address/…`, `/checkout/process_payment`, `/checkout/payment_discount/…`), que seguem direto para a INK. Vivem na zona, fora do TOML (como a exclusão); o `release-tema.sh` as aceita, e só elas, como extras ao comparar as rotas. No Worker, o ramo do checkout só age com `theme-checkout`, em `GET` de documento inteiro (sem `Turbo-Frame`), chama `ctx.passThroughOnException()` (exceção = a Cloudflare entrega a origem) e nunca registra o caminho (o uuid do carrinho fica fora dos logs).
+
+```
+node scripts/checkout-routes.mjs plan     # SOMENTE LEITURA: rotas do host e o que apply/remove fariam
+node scripts/checkout-routes.mjs apply    # cria as duas (recusa sem a exclusão, ou com outra rota com Worker no caminho da compra/login)
+node scripts/checkout-routes.mjs probe    # wrangler tail: as duas telas executam; envios, /checkout, carrinho e login NÃO (só GET)
+TEMA_CHECKOUT_UUID=<carrinho de TESTE> bash scripts/release-tema.sh --deploy --add=theme-checkout   # liga a chave; smoke nas duas telas (só GET)
+node scripts/checkout-routes.mjs remove   # desfaz: o checkout volta inteiro para a INK (sem deploy)
+```
+
+Ordem: `apply` → `probe` → release com `--add=theme-checkout`. Entre o `apply` e o release, o Worker já é chamado nas duas telas, mas sem a chave só repassa a página da INK.
 
 ## Rodada 2 (composição)
 

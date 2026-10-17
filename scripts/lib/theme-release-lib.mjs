@@ -104,3 +104,55 @@ export function evaluateThemePage(html, css) {
   }
   return { ok: problems.length === 0, problems, cssPath: link ? link[1].replace(/&amp;/g, '&') : null };
 }
+
+// ── Checkout: as DUAS rotas da zona que trazem as telas do checkout ao Worker (docs/tema-fluxo-ink.md) ─────────────────────────────────────────────
+// Só as telas de documento (contato/entrega e pagamento), mais específicas que a exclusão `<host><base>/*` (sem Worker). Os envios do checkout
+// (buyer, shipping_address, process_payment, payment_discount), o carrinho e o login continuam na exclusão: direto na INK.
+export const checkoutRoutes = (host, base) => [`${host}${base}/checkout/contact_and_shipping_details*`, `${host}${base}/checkout/payment_methods*`];
+
+/**
+ * O estado das rotas do checkout num host, a partir das rotas da zona ([{ pattern, script }]). `problems` = o que impede criar/manter as duas com
+ * segurança: a exclusão ausente, ou qualquer OUTRA rota com Worker no caminho da compra ou do login.
+ */
+export function checkoutRoutesState(routes, { host, base, worker }) {
+  const ours = (routes || []).filter((r) => r && typeof r.pattern === 'string' && r.pattern.startsWith(host + '/'));
+  const wanted = checkoutRoutes(host, base);
+  const have = wanted.filter((p) => ours.some((r) => r.pattern === p && r.script === worker));
+  const problems = [];
+  if (!ours.some((r) => r.pattern === `${host}${base}/*` && !r.script)) problems.push(`falta a exclusão ${host}${base}/* (sem Worker): sem ela o Worker ficaria no caminho da compra`);
+  for (const r of ours) {
+    if (!r.script || wanted.includes(r.pattern)) continue;
+    if (/\/(checkout|cart|store_sessions|login|sign_in)/.test(r.pattern)) problems.push(`rota com Worker no caminho da compra/login fora das duas autorizadas: ${r.pattern}`);
+  }
+  for (const p of wanted) { const r = ours.find((x) => x.pattern === p); if (r && r.script !== worker) problems.push(`${p} aponta para ${r.script || '(sem Worker)'}, não para ${worker}`); }
+  return { wanted, have, missing: wanted.filter((p) => !have.includes(p)), problems };
+}
+
+/** As sondas de execução do checkout: as duas telas EXECUTAM; os envios, o checkout sem tela, o carrinho e o login NÃO. Só GET (ver tail-probe.mjs). */
+export function checkoutProbeSet(base) {
+  const id = '00000000-0000-4000-8000-000000000000';
+  return [
+    { url: `${base}/checkout/contact_and_shipping_details/${id}`, exec: true },
+    { url: `${base}/checkout/payment_methods/${id}`, exec: true },
+    { url: `${base}/checkout/buyer/${id}`, exec: false },
+    { url: `${base}/checkout/shipping_address/${id}`, exec: false },
+    { url: `${base}/checkout/process_payment`, exec: false },
+    { url: `${base}/checkout/payment_discount/${id}`, exec: false },
+    { url: `${base}/checkout`, exec: false },
+    { url: `${base}/cart`, exec: false },
+    { url: `${base}/store_sessions/new`, exec: false },
+    { url: `${base}/product/serra-catarinense`, exec: true },
+  ];
+}
+
+/** Smoke de uma tela do checkout com o tema: o <body> sinaliza o checkout, o <link> pede só a superfície do checkout, e NENHUM loader (o checkout nunca recebe JS nosso). */
+export function evaluateCheckoutPage(html) {
+  const problems = [];
+  const text = String(html || '');
+  const loaders = (text.match(/\/__origens\/loader\.js\?v=/g) || []).length;
+  if (loaders !== 0) problems.push(`loaders no checkout: ${loaders} (esperado nenhum)`);
+  const signal = /<body[^>]*\sdata-origens-theme="([^"]*)"/.exec(text);
+  if (!signal || !signal[1].split(/\s+/).includes('checkout')) problems.push('o <body> não sinaliza o tema do checkout');
+  if (!/href="\/__origens\/theme\.css\?s=checkout&(amp;)?v=/.test(text)) problems.push('sem o <link> do CSS do tema do checkout');
+  return { ok: problems.length === 0, problems };
+}

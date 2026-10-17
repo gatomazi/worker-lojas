@@ -10,7 +10,7 @@ import { createTopBarGateway, TOP_BAR_PATH } from './top-bar-gateway.js';
 import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommendations-gateway.js';
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
-import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
+import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie, clientStore } from './stores.js';
 import { onFormerHost, domainMoveRedirect } from './domain-move.js';
 import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
 import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, incentiveAttr } from './theme.js';
@@ -154,10 +154,12 @@ class ThemeLinkInjector {
 }
 // Assinatura no cabeçalho do checkout: o nome ao lado do símbolo (o logo da loja), como no storefront. Texto fixo, decorativo (o link já tem o nome no alt).
 class CheckoutBrand {
-  constructor() { this.done = false; }
+  constructor(home) { this.done = false; this.home = home; }
   element(link) {
     if (this.done) return;
     this.done = true;
+    // O logo leva à home do storefront da região do visitante (a INK manda para a home dela, que a loja única não usa como vitrine).
+    if (this.home) link.setAttribute('href', this.home);
     link.append('<span data-origens-brand aria-hidden="true">Use Origens</span>', { html: true });
   }
 }
@@ -238,7 +240,7 @@ async function serveThemeCss(request, url, mode, features, themeSource) {
 
 // Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <body>, o <link> do CSS e o nome ao lado do logo. Nenhum script nosso, nenhum nó da INK tocado, nada
 // guardado; o caminho (que leva o uuid do carrinho) nunca vai para log. Qualquer falha = a página original da INK.
-async function injectCheckoutTheme(request, upstream, themeSource, features) {
+async function injectCheckoutTheme(request, upstream, themeSource, features, store) {
   const [response, theme] = await Promise.all([passThrough(request, upstream), themeSource.get().catch(() => null)]);
   if (!activeSurfaces(theme, features).includes('checkout')) return response;
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
@@ -246,7 +248,7 @@ async function injectCheckoutTheme(request, upstream, themeSource, features) {
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
   const transformed = new HTMLRewriter()
     .on('body', new ThemeBodyMarker('checkout'))
-    .on('nav.bg-store-primary a[href]', new CheckoutBrand())
+    .on('nav.bg-store-primary a[href]', new CheckoutBrand(clientStore(store).home))
     .on('head', new ThemeLinkInjector(themeLinkTag(theme, ['checkout'])))
     .transform(response);
   const headers = new Headers(response.headers);
@@ -391,7 +393,7 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
         if (mode !== 'true' || !features.features.includes('theme-checkout') || request.method !== 'GET' || request.headers.has('Turbo-Frame')) return passThrough(request, upstream);
         if (ctx && typeof ctx.passThroughOnException === 'function') ctx.passThroughOnException();
         try {
-          return await injectCheckoutTheme(request, upstream, servicesOf(view).theme, features.features);
+          return await injectCheckoutTheme(request, upstream, servicesOf(view).theme, features.features, view);
         } catch (_) {
           logEvent('error', 'checkout-theme-failed', {});
           return passThrough(request, upstream);

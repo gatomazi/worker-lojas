@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# RELEASE DO TEMA DA COMPRA NA INK (Sul): liga `theme-pdp` e `theme-cart` no Worker use-sul-widget PRESERVANDO o que está em produção agora.
+# RELEASE DO TEMA DA COMPRA NA INK (Sul): liga as chaves do tema (theme-pdp, theme-cart; theme-checkout com --add) no Worker use-sul-widget PRESERVANDO o que está em produção.
 #
 #   bash scripts/release-tema.sh --check     <- SOMENTE LEITURA: tema publicado no storefront, health, rotas da zona x TOML, captura da versão ativa,
 #                                               plano e dry-run com as variáveis capturadas.
 #   bash scripts/release-tema.sh --deploy    <- ÚNICA forma de publicar. Sem --deploy/--check nada acontece (mostra a ajuda e sai).
+#   --add=theme-checkout                     <- liga o tema do checkout (padrão: theme-pdp,theme-cart). Exige as duas rotas do checkout no ar
+#                                               (node scripts/checkout-routes.mjs apply + probe) e TEMA_CHECKOUT_UUID=<carrinho de TESTE> para o smoke
+#                                               (só GET; o uuid nunca é gravado nem impresso).
 #
 # Trava dupla: o argumento --deploy E a confirmação do proprietário (digite a frase pedida, ou exporte RELEASE_CONFIRM=PUBLICAR-TEMA-INK). Exige
 # `npx wrangler login` FEITO PELO PROPRIETÁRIO na conta esperada. NÃO altera rotas, DNS, KV nem regras: as rotas da zona já estão no estado final
@@ -17,7 +20,7 @@
 #      tema no <body>, <link> do CSS, CSS 200 text/css com as regras, UM loader) + uma página de casca com UM loader
 #   Falha em B ou C => `wrangler rollback` para a versão capturada e confirmação de que o health voltou ao que era.
 #
-# `theme-checkout` NÃO entra: o checkout está fora do Worker (exclusão da zona) até o PR das rotas do checkout.
+# As duas rotas do checkout (scripts/checkout-routes.mjs) vivem na zona, fora do TOML: a conferência de rotas as aceita, e só elas, como extras.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/global-common.sh"
 # A loja única mudou de domínio: o health e o smoke são os do host novo (o global-common ainda fala do www.usesul.com.br, que só redireciona).
@@ -28,8 +31,12 @@ PHRASE="PUBLICAR-TEMA-INK"
 usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
-MODE=""
-for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
+MODE=""; ADD="theme-pdp,theme-cart"
+for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
+printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout' && { log "--add aceita só theme-pdp, theme-cart e theme-checkout (recebido: $ADD)"; exit 2; }
+WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
+CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
+[ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
 [ -n "$MODE" ] || { usage; log ""; log "Nada foi feito (falta --check ou --deploy)."; exit 2; }
 cd "$ROOT" || exit 1
 LIB="$ROOT/scripts/lib/theme-release-lib.mjs"
@@ -49,13 +56,16 @@ storefront_theme() {
 # Rotas COM o Worker na zona == as do TOML (o deploy publica as do TOML; uma divergência mudaria o roteamento junto com o tema).
 routes_match() {
   local live; live=$(node scripts/domain-move-routes.mjs plan 2>/dev/null) || { bad "rotas da zona ilegíveis (domain-move-routes.mjs plan)"; return; }
-  if LIVE="$live" node --input-type=module -e '
+  if LIVE="$live" WITH_CHECKOUT="$WITH_CHECKOUT" node --input-type=module -e '
     import { readFileSync } from "node:fs";
     import(process.argv[1]).then((m) => {
-      const toml = m.parseTomlRoutes(readFileSync(process.argv[2], "utf8")).sort(); const live = m.parseLiveRoutes(process.env.LIVE).sort();
+      const checkout = m.checkoutRoutes("loja.useorigens.com.br", "/useorigens");
+      const all = m.parseLiveRoutes(process.env.LIVE); const extras = all.filter((p) => checkout.includes(p));
+      const toml = m.parseTomlRoutes(readFileSync(process.argv[2], "utf8")).sort(); const live = all.filter((p) => !checkout.includes(p)).sort();
       if (JSON.stringify(toml) !== JSON.stringify(live)) { console.error("TOML [" + toml.join(" ") + "] x zona [" + live.join(" ") + "]"); process.exit(1); }
-      console.log(toml.length);
-    });' "$LIB" "$CFG" >/tmp/tema-routes.$$ 2>&1; then ok "rotas: as $(cat /tmp/tema-routes.$$) rotas COM Worker na zona são exatamente as do TOML (o deploy não muda o roteamento)"; else bad "rotas da zona divergem do TOML: $(cat /tmp/tema-routes.$$)"; fi
+      if (process.env.WITH_CHECKOUT === "1" && extras.length !== checkout.length) { console.error("theme-checkout pede as duas rotas do checkout na zona (há " + extras.length + "): node scripts/checkout-routes.mjs apply e probe"); process.exit(1); }
+      console.log(toml.length + (extras.length ? " + " + extras.length + " do checkout (zona)" : ""));
+    });' "$LIB" "$CFG" >/tmp/tema-routes.$$ 2>&1; then ok "rotas: $(cat /tmp/tema-routes.$$) rotas COM Worker na zona = as do TOML (+ só as duas do checkout, se houver; o deploy não muda o roteamento)"; else bad "rotas da zona divergem do TOML: $(cat /tmp/tema-routes.$$)"; fi
   rm -f /tmp/tema-routes.$$
 }
 
@@ -63,13 +73,13 @@ routes_match() {
 capture_plan() {
   local version="$1" health="$2" view
   view=$(cd "$ROOT" && $WRANGLER_CMD versions view "$version" --name "$WORKER_NAME" --json 2>/dev/null) || { log "não consegui ler a versão ativa ($version) com o Wrangler"; return 1; }
-  T_VIEW="$view" T_HEALTH="$health" node --input-type=module -e '
+  T_VIEW="$view" T_HEALTH="$health" T_ADD="$ADD" node --input-type=module -e '
     import { readFileSync } from "node:fs";
     const rl = await import(process.argv[1] + "/scripts/lib/release-lib.mjs"); const m = await import(process.argv[1] + "/scripts/lib/theme-release-lib.mjs");
     const toml = readFileSync(process.argv[1] + "/" + process.argv[2], "utf8");
     const bindings = [...toml.matchAll(/^binding = "([A-Za-z0-9_]+)"/gm)].map((x) => x[1]);
     let health = null; try { health = JSON.parse(process.env.T_HEALTH); } catch (_) {}
-    const plan = m.planThemeRelease({ health, captured: rl.parseVersionBindings(process.env.T_VIEW), tomlBindings: bindings, tomlVars: m.parseTomlVars(toml) });
+    const plan = m.planThemeRelease({ health, captured: rl.parseVersionBindings(process.env.T_VIEW), tomlBindings: bindings, tomlVars: m.parseTomlVars(toml), add: process.env.T_ADD.split(",") });
     if (!plan.ok) { console.error(plan.problems.join("\n")); process.exit(1); }
     console.log(JSON.stringify(plan.deploy));' "$ROOT" "$CFG"
 }
@@ -83,7 +93,7 @@ deploy_theme() {
   if [ "$mode" = "--dry-run" ]; then
     (cd "$ROOT" && npx wrangler deploy -c "$CFG" --dry-run --outdir "${TMPDIR:-/tmp}/release-tema-dry" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   else
-    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: theme-pdp,theme-cart (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
+    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: $ADD (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   fi
 }
 
@@ -103,6 +113,18 @@ smoke_theme() {
     [ "$i" = 6 ] && { bad "produto: $(printf '%s' "$res" | json_field problems)"; return 1; }
     sleep 10
   done
+  if [ "$WITH_CHECKOUT" = 1 ]; then
+    local step page r
+    for step in contact_and_shipping_details payment_methods; do
+      for i in 1 2 3 4 5 6; do
+        page=$(curl -sS --max-time 20 "$SITE_URL/useorigens/checkout/$step/$CHECKOUT_UUID" 2>/dev/null)
+        r=$(printf '%s' "$page" | node --input-type=module -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const m=await import(process.argv[1]);console.log(JSON.stringify(m.evaluateCheckoutPage(s)))})' "$LIB")
+        [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "checkout ($step): tema no <body>, CSS do checkout, nenhum loader"; break; }
+        [ "$i" = 6 ] && { bad "checkout ($step): $(printf '%s' "$r" | json_field problems)"; return 1; }
+        sleep 10
+      done
+    done
+  fi
   local n; n=$(curl -sS --max-time 20 "$SHELL_PAGE" 2>/dev/null | grep -o '/__origens/loader\.js?v=' | wc -l | tr -d ' ')
   [ "$n" = 1 ] && ok "casca ($SHELL_PAGE): UM loader" || { bad "casca: $n loader(s) (esperado 1)"; return 1; }
 }
@@ -131,9 +153,10 @@ if [ "$MODE" = check ]; then
 fi
 
 [ ${#FAILS[@]} -eq 0 ] || die "pré-condições reprovadas: $(IFS='; '; echo "${FAILS[*]}")"
+[ "$WITH_CHECKOUT" = 0 ] || [ -n "$CHECKOUT_UUID" ] || die "theme-checkout pede TEMA_CHECKOUT_UUID=<uuid de um carrinho de TESTE> para conferir as duas telas (só GET)"
 if [ "${RELEASE_CONFIRM:-}" != "$PHRASE" ]; then
   [ -t 0 ] || die "sem terminal interativo e sem RELEASE_CONFIRM=$PHRASE"
-  read -r -p "Vai ligar o tema da compra (theme-pdp, theme-cart) no Worker da Sul em produção. Digite $PHRASE para continuar: " ANS; [ "$ANS" = "$PHRASE" ] || die "confirmação não digitada"
+  read -r -p "Vai ligar o tema da compra ($ADD) no Worker da Sul em produção. Digite $PHRASE para continuar: " ANS; [ "$ANS" = "$PHRASE" ] || die "confirmação não digitada"
 fi
 
 log "== A. captura =="
@@ -160,10 +183,10 @@ sleep 10
 
 log "== C. conferência =="
 NOW_HEALTH=$(health_json) || fail "health ilegível após o deploy"
-node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" && ok "health: features = as de antes + theme-pdp, theme-cart; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
+node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]),process.argv[4].split(","))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" "$ADD" && ok "health: features = as de antes + $ADD; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
 smoke_theme || fail "smoke do tema reprovado"
 
 log ""
-log "RELEASE DO TEMA CONCLUÍDO: theme-pdp e theme-cart ligados (versão anterior, para voltar: $PREV_VERSION)."
+log "RELEASE DO TEMA CONCLUÍDO: $ADD ligado(s) (versão anterior, para voltar: $PREV_VERSION)."
 log "   Voltar a qualquer momento: npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --yes"
 log "   Ou desligar só a aparência, sem deploy: painel › Tema da INK › desmarcar e Publicar (as chaves do Worker são o teto; o painel decide)."

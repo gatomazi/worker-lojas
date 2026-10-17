@@ -139,8 +139,9 @@ test('checkout screens: ONLY the attribute and the CSS link (no loader, no scrip
     assert.match(html, /<body data-origens-theme="checkout">/, path);
     assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=checkout&/);
     assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on checkout');
-    assert.match(html, /<a href="\/usesul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, inside the same link');
-    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', ''), CHECKOUT_HTML, 'nothing else changed');
+    // O logo leva à home do storefront da região (não à home da INK), com o nome ao lado, dentro do mesmo link.
+    assert.match(html, /<a href="https:\/\/useorigens\.com\.br\/sul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, link to the storefront home');
+    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', '').replace('href="https://useorigens.com.br/sul"', 'href="/usesul"'), CHECKOUT_HTML, 'nothing else changed');
     assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
     assert.equal(res.headers.get('cache-control'), 'private, no-store');
   }
