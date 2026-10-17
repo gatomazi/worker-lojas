@@ -37,10 +37,10 @@ const read = () => page.evaluate(() => {
 });
 const settle = async () => { await page.waitForLoadState('networkidle').catch(() => {}); await wait(1500); };
 
-await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(1000);
+await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(1000);
 let r = await read(); steps.push({ step: 'contato', ...r });
 check('contato: tela da INK com o tema (atributo checkout) e resumo com total', r.theme === 'checkout' && money(r.rows.Total) > 0, JSON.stringify(r.rows));
-await page.goto(`${H.HOST}/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(1000);
+await page.goto(`${H.HOST}${H.store.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(1000);
 r = await read(); steps.push({ step: 'pagamento (inicial)', ...r });
 const original = r.selected;
 check('pagamento: forma escolhida e total lidos', !!money(r.rows.Total), `forma inicial: ${original} · ${JSON.stringify(r.rows)}`);

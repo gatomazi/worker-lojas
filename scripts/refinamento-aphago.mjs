@@ -170,7 +170,7 @@ for (const vp of VPS) {
   // Checkout (estrutura real, dados fictícios): contato, validação, frete, Pix, cartão com parcelas.
   if (UUID && vp.name !== '1280x640') {
     const full = { fullPage: true };
-    await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
+    await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
     await shot(page, vp.folder, '20-checkout-contato-e-entrega', SAN, `contato e entrega · ${tag}`, mobile ? {} : full);
     await page.evaluate(() => document.querySelector('turbo-frame#delivery_options, .shipping-types__item')?.scrollIntoView({ block: 'center' })); await wait(page, 400);
     await shot(page, vp.folder, '21-checkout-selecao-de-frete', SAN, `formas de entrega: a escolhida em destaque · ${tag}`);
@@ -184,7 +184,7 @@ for (const vp of VPS) {
     metrics.push({ fase: FASE, viewport: vp.name, estado: 'validação do contato', mensagens: msgs, ficouNoContato: page.url().includes('contact_and_shipping_details') });
     console.log(`[${FASE} ${vp.name}] validação`, JSON.stringify(msgs));
     await shot(page, vp.folder, '22-checkout-validacao', SAN, `número apagado + "Ir para o pagamento": mensagem da INK, fica no contato (nada salvo) · ${tag}`);
-    await page.goto(`${H.HOST}/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
+    await page.goto(`${H.HOST}${H.store.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
     await page.evaluate(() => document.getElementById('pix')?.click()); await wait(page, 900);
     await page.evaluate(() => document.getElementById('formPaymentMethods')?.scrollIntoView({ block: 'start' })); await wait(page, 300);
     await shot(page, vp.folder, '23-checkout-pix', SAN, `Pix selecionado (o POST de desconto foi abortado nesta captura) · ${tag}`);

@@ -131,12 +131,12 @@ for (const v of VARIANTES) {
     await page.evaluate(() => { document.querySelector('.cart-drawer')?.classList.remove('open'); document.querySelector('turbo-frame#cart').innerHTML = ''; });
     // 4: contato/entrega com a forma de frete escolhida.
     if (vp.name !== '360') {
-      await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
+      await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
       if (mobile) { await page.evaluate(() => document.querySelector('.shipping-types__item')?.scrollIntoView({ block: 'center' })); await wait(page, 300); }
       await shot(page, '4-checkout-entrega-frete-escolhido@' + vp.name, SAN, `contato e entrega, frete escolhido · ${tag}`);
     }
     // 5: pagamento com o cartão aberto; 6: Pix escolhido e erro/foco.
-    await page.goto(`${H.HOST}/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
+    await page.goto(`${H.HOST}${H.store.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
     await page.evaluate(() => document.getElementById('credit_card')?.click()); await wait(page, 700);
     await page.selectOption('#cart_card_installments', { index: 2 }).catch(() => {});
     await page.evaluate(() => document.getElementById('formPaymentMethods')?.scrollIntoView({ block: 'start' })); await wait(page, 300);
@@ -145,7 +145,7 @@ for (const v of VARIANTES) {
       await page.evaluate(() => document.getElementById('pix')?.click()); await wait(page, 700);
       await page.evaluate(() => document.getElementById('formPaymentMethods')?.scrollIntoView({ block: 'start' })); await wait(page, 300);
       await shot(page, '6a-checkout-pix@390', SAN, `Pix escolhido · ${tag}`);
-      await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
+      await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 900);
       const num = 'input[name="cart[shipping_address][number]"]';
       await page.fill(num, '').catch(() => {}); await page.press(num, 'Tab').catch(() => {}); await wait(page, 500);
       await page.evaluate((sel) => document.querySelector(sel)?.scrollIntoView({ block: 'center' }), num); await wait(page, 300);

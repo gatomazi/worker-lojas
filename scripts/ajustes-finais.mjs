@@ -158,9 +158,9 @@ for (const vp of VPS) {
 
   // Checkout (só na fase depois): composição preservada, dados fictícios.
   if (AFTER && UUID && (vp.name === '390' || vp.name === '1440')) {
-    await page.goto(`${H.HOST}/usesul/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
+    await page.goto(`${H.HOST}${H.store.inkBase}/checkout/contact_and_shipping_details/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
     await shot(page, vp.folder, '20-checkout-contato-e-entrega', SAN, `contato e entrega · ${tag}`, { fullPage: true });
-    await page.goto(`${H.HOST}/usesul/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
+    await page.goto(`${H.HOST}${H.store.inkBase}/checkout/payment_methods/${UUID}`, { waitUntil: 'networkidle', timeout: 90000 }); await wait(page, 1000);
     await page.evaluate(() => document.getElementById('credit_card')?.click()); await wait(page, 800);
     await shot(page, vp.folder, '21-checkout-pagamento-cartao', SAN, `pagamento, cartão aberto (campos vazios; o POST de desconto foi abortado) · ${tag}`, { fullPage: true });
   }

@@ -3,7 +3,7 @@
 // TRAVA: no navegador, qualquer não-GET para <loja>/checkout é ABORTADA (nunca chega à INK); as do carrinho também, salvo allowCart.
 import { createRequire } from 'node:module';
 import { shellPageKind } from '../../src/scope.js';
-import { STORES } from '../../src/stores.js';
+import { STORES, withInkDomain } from '../../src/stores.js';
 import { checkoutPageKind } from '../../src/theme.js';
 import { propostaCss } from './propostas-cor.mjs';
 
@@ -12,7 +12,11 @@ export const REFERENCE_THEME = {
   tokens: { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#ffffff', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
 };
 export const LIVE_FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
-export const DEFAULT_PDP = '/usesul/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4';
+// A loja única atende em loja.useorigens.com.br/useorigens desde 16/10/2026 (SINGLE_STORE_DOMAIN=next em produção; o domínio antigo só redireciona).
+// A prévia segue a produção; SINGLE_STORE_DOMAIN=current no ambiente volta ao domínio antigo.
+export const SINGLE_STORE_DOMAIN = process.env.SINGLE_STORE_DOMAIN ?? 'next';
+export const STORE = withInkDomain(STORES.sul, SINGLE_STORE_DOMAIN).store;
+export const DEFAULT_PDP = STORE.inkBase + '/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4';
 export const VIEWPORTS = [{ name: 'desktop', width: 1440, height: 900 }, { name: 'mobile', width: 390, height: 844 }];
 // Campos e blocos com dados pessoais do checkout: mascarados em TODA captura (inclusive "antes").
 // Campos com valor vindo do servidor (contato/endereço) são mascarados; os VAZIOS (cartão, cobrança) ficam visíveis para avaliar o estilo — nada é digitado.
@@ -72,13 +76,13 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
   const { chromium } = require('playwright-core');
   const { Miniflare } = await import(process.env.MINIFLARE || 'miniflare');
   const { workerModules } = await import('../../test/helpers.js');
-  const store = STORES.sul;
+  const store = STORE;
   const HOST = 'https://' + store.inkHost;
   const features = off || !themeFeatures ? LIVE_FEATURES : LIVE_FEATURES + ',' + themeFeatures;
   const upstream = { html: '', status: 200 };
   const mf = new Miniflare({
     ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS', 'NORTE_CART_REFS', 'CENTRO_CART_REFS'],
-    bindings: { STORE_ID: 'sul', ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: features },
+    bindings: { STORE_ID: 'sul', ENABLE_WIDGET: 'true', WIDGET_SCOPE_MODE: 'product-catalog', WIDGET_ALLOWLIST: '', WIDGET_FEATURES: features, SINGLE_STORE_DOMAIN },
     outboundService: async (req) => {
       const url = new URL(req.url);
       if (url.host === 'useorigens.com.br' && url.pathname === store.inkThemeApi) return Response.json(config);
