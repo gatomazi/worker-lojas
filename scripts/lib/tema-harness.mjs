@@ -7,8 +7,9 @@ import { STORES, withInkDomain } from '../../src/stores.js';
 import { checkoutPageKind } from '../../src/theme.js';
 import { propostaCss } from './propostas-cor.mjs';
 
+// A paleta "acento" (verde com acento ocre, a proposta B escolhida em 17/10/2026) é o padrão do painel; `palette: 'neutra'` volta à derivada dos tokens.
 export const REFERENCE_THEME = {
-  v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: true },
+  v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: true }, palette: 'acento',
   tokens: { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#ffffff', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
 };
 export const LIVE_FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';

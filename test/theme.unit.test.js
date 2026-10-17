@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTheme, normalizeIncentive, incentiveAttr, activeSurfaces, buildThemeCss, checkoutPageKind, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES } from '../src/theme.js';
+import { normalizeTheme, normalizeIncentive, incentiveAttr, activeSurfaces, buildThemeCss, checkoutPageKind, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES, PALETTES } from '../src/theme.js';
 import { STORES } from '../src/stores.js';
 import { parseFeatures } from '../src/features.js';
 
@@ -185,4 +185,29 @@ test('createThemeSource: fixed storefront URL without visitor headers; 60 s fres
   clock = 25 * 3600 * 1000; assert.equal(await src.get(), null, 'too old: no theme');
   const empty = createThemeSource({ store: STORES.sul, upstream: async () => Response.json({ ...GOOD, region: 'norte' }) });
   assert.equal(await empty.get(), null, 'wrong region = no theme');
+});
+
+test('palette "acento" (proposta B, escolhida em 17/10/2026): só na Sul, só carrinho e checkout, e um valor estranho nunca derruba o tema', () => {
+  const acento = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true }, palette: 'acento' }), STORES.sul);
+  assert.equal(acento.palette, 'acento');
+  assert.equal(normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }), STORES.sul).palette, 'neutra', 'sem paleta = a derivada dos tokens, como antes');
+  assert.equal(normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true }, palette: 'neon' }), STORES.sul).palette, 'neutra', 'paleta desconhecida = ignorada, o tema continua');
+  const css = buildThemeCss(acento, ['pdp', 'cart', 'checkout']);
+  const roles = PALETTES.acento.sul;
+  for (const [role, value] of Object.entries(roles)) assert.ok(css.includes('--o-' + role + ':' + value), role);
+  assert.ok(css.includes('body[data-origens-theme~="cart"] .cart-drawer,body[data-origens-theme~="checkout"]{'), 'escopo: gaveta do carrinho e checkout');
+  assert.ok(css.includes('::selection{background:#ecdcb8'), 'seleção de texto na paleta');
+  assert.ok(css.includes('caret-color:#3a5a30'), 'cursor dos campos do checkout no verde das escolhas');
+  // Só a PDP: nada da paleta (ela é do carrinho e do checkout).
+  assert.ok(!buildThemeCss(acento, ['pdp']).includes('#f4ecda'));
+  // A neutra continua byte a byte a de antes; e a paleta muda a URL do CSS (o navegador não reaproveita o arquivo antigo).
+  const neutra = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }), STORES.sul);
+  assert.ok(!buildThemeCss(neutra, ['cart', 'checkout']).includes('#f4ecda'));
+  assert.notEqual(themeQuery(acento, ['cart']), themeQuery(neutra, ['cart']));
+  // Contraste dos pares de texto da paleta (AA).
+  assert.ok(contrast(roles['on-cta'], roles.cta) >= 4.5);
+  assert.ok(contrast(roles['incentive-ink'], roles['incentive-bg']) >= 4.5);
+  assert.ok(contrast(roles['incentive-soft'], roles['incentive-bg']) >= 4.5);
+  assert.ok(contrast(roles['incentive-icon'], roles['incentive-icon-bg']) >= 3);
+  assert.ok(contrast(roles.ink, roles.panel) >= 4.5);
 });
