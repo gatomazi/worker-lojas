@@ -56,7 +56,8 @@ test('TOML and zone routes: the production TOML declares the routes the zone has
   assert.deepEqual(parseLiveRoutes(live), ['www.usesul.com.br/*', 'loja.useorigens.com.br/__origens/*', 'loja.useorigens.com.br/useorigens/product/*']);
   const toml = parseTomlRoutes(TOML);
   assert.ok(toml.includes('www.usesul.com.br/*') && toml.includes('loja.useorigens.com.br/useorigens/product/*'));
-  assert.ok(!toml.some((p) => /checkout|cart|store_sessions/.test(p)), 'nenhuma rota de compra ou login no TOML');
+  const purchase = toml.filter((p) => /checkout|cart|store_sessions/.test(p));
+  assert.deepEqual(purchase.sort(), checkoutRoutes('loja.useorigens.com.br', '/useorigens').sort(), 'no caminho da compra, só as duas telas do checkout');
   assert.equal(parseTomlVars(TOML).SINGLE_STORE_DOMAIN, 'next');
 });
 

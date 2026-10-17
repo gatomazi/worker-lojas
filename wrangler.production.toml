@@ -14,6 +14,18 @@ zone_name = "usesul.com.br"
 pattern = "loja.useorigens.com.br/useorigens/product/*"
 zone_name = "useorigens.com.br"
 
+# As DUAS telas de documento do checkout (tema do checkout: só CSS, só com theme-checkout, só GET de documento inteiro; em exceção a Cloudflare entrega a
+# origem). Mais específicas que a exclusão `/useorigens/*` da zona; os envios do checkout (buyer, shipping_address, process_payment, payment_discount), o
+# carrinho e o login continuam fora do Worker. Ficam AQUI, não só na zona: o `wrangler deploy` apaga as rotas do Worker que o TOML não declara (medido em
+# 17/10/2026). Sem theme-checkout o Worker só repassa a página. Prova de execução: node scripts/checkout-routes.mjs probe.
+[[routes]]
+pattern = "loja.useorigens.com.br/useorigens/checkout/contact_and_shipping_details*"
+zone_name = "useorigens.com.br"
+
+[[routes]]
+pattern = "loja.useorigens.com.br/useorigens/checkout/payment_methods*"
+zone_name = "useorigens.com.br"
+
 [[routes]]
 pattern = "loja.useorigens.com.br/__origens/*"
 zone_name = "useorigens.com.br"

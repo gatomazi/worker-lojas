@@ -3,6 +3,8 @@
 // Worker. Ele só age com `theme-checkout` e em GET de documento inteiro (sem Turbo-Frame); em exceção a Cloudflare entrega a origem. Os envios do
 // checkout (buyer, shipping_address, process_payment, payment_discount), o carrinho e o login continuam na exclusão `/useorigens/*`: direto na INK.
 // Só toca nestas duas rotas; nunca em DNS, KV, regras, outras rotas ou outras lojas. Plano e decisões: docs/tema-fluxo-ink.md.
+// As duas estão DECLARADAS no wrangler.production.toml: o deploy as cria e as mantém (ele apaga as rotas do Worker que o TOML não declara). `apply` e
+// `remove` servem para conferir/desfazer sem deploy (o rollback do release-tema.sh usa o `remove`; o próximo deploy as recria pelo TOML).
 //   node scripts/checkout-routes.mjs plan     as rotas do host e o que apply/remove fariam — SOMENTE LEITURA
 //   node scripts/checkout-routes.mjs apply    cria as duas rotas com o Worker (recusa sem a exclusão ou com outra rota no caminho da compra)
 //   node scripts/checkout-routes.mjs remove   apaga as duas (o checkout volta inteiro para a INK)

@@ -4,9 +4,9 @@
 #   bash scripts/release-tema.sh --check     <- SOMENTE LEITURA: tema publicado no storefront, health, rotas da zona x TOML, captura da versão ativa,
 #                                               plano e dry-run com as variáveis capturadas.
 #   bash scripts/release-tema.sh --deploy    <- ÚNICA forma de publicar. Sem --deploy/--check nada acontece (mostra a ajuda e sai).
-#   --add=theme-checkout                     <- liga o tema do checkout (padrão: theme-pdp,theme-cart). Exige as duas rotas do checkout no ar
-#                                               (node scripts/checkout-routes.mjs apply + probe) e TEMA_CHECKOUT_UUID=<carrinho de TESTE> para o smoke
-#                                               (só GET; o uuid nunca é gravado nem impresso).
+#   --add=theme-checkout                     <- liga o tema do checkout (padrão: theme-pdp,theme-cart). As duas rotas do checkout vêm do TOML com este
+#                                               deploy; depois, smoke nas duas telas com TEMA_CHECKOUT_UUID=<carrinho de TESTE> (só GET; o uuid nunca é
+#                                               gravado nem impresso) e a sonda de execução (node scripts/checkout-routes.mjs probe).
 #
 # Trava dupla: o argumento --deploy E a confirmação do proprietário (digite a frase pedida, ou exporte RELEASE_CONFIRM=PUBLICAR-TEMA-INK). Exige
 # `npx wrangler login` FEITO PELO PROPRIETÁRIO na conta esperada. NÃO altera rotas, DNS, KV nem regras: as rotas da zona já estão no estado final
@@ -20,7 +20,7 @@
 #      tema no <body>, <link> do CSS, CSS 200 text/css com as regras, UM loader) + uma página de casca com UM loader
 #   Falha em B ou C => `wrangler rollback` para a versão capturada e confirmação de que o health voltou ao que era.
 #
-# As duas rotas do checkout (scripts/checkout-routes.mjs) vivem na zona, fora do TOML: a conferência de rotas as aceita, e só elas, como extras.
+# As duas rotas do checkout estão no TOML (o deploy apaga as do Worker que ele não declara): o deploy com theme-checkout as cria, o rollback as apaga.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/global-common.sh"
 # A loja única mudou de domínio: o health e o smoke são os do host novo (o global-common ainda fala do www.usesul.com.br, que só redireciona).
@@ -53,20 +53,33 @@ storefront_theme() {
   case $rc in 0) ok "storefront: tema da INK publicado (ligado: $out)" ;; 3) warn "storefront: tema publicado, mas página de produto e/ou carrinho DESLIGADOS no painel ($out): o Worker liga as chaves e essas partes seguem nativas" ;; *) bad "storefront: /api/ink-theme/sul indisponível ou fora do contrato v1" ;; esac
 }
 
-# Rotas COM o Worker na zona == as do TOML (o deploy publica as do TOML; uma divergência mudaria o roteamento junto com o tema).
-routes_match() {
-  local live; live=$(node scripts/domain-move-routes.mjs plan 2>/dev/null) || { bad "rotas da zona ilegíveis (domain-move-routes.mjs plan)"; return; }
-  if LIVE="$live" WITH_CHECKOUT="$WITH_CHECKOUT" node --input-type=module -e '
+# Rotas COM o Worker na zona x as do TOML (o deploy publica as do TOML e APAGA as do Worker que ele não declara — medido em 17/10/2026). Iguais = o deploy não
+# muda o roteamento. A zona sem as duas do checkout (que o TOML declara) = o deploy as cria: esperado com --add=theme-checkout; sem ele só avisa (sem a
+# chave o Worker repassa a página). Qualquer outra diferença para o release. `routes_state` imprime equal | creates-checkout | diverge:<detalhe>.
+routes_state() {
+  local live; live=$(node scripts/domain-move-routes.mjs plan 2>/dev/null) || { echo "diverge:rotas da zona ilegíveis (domain-move-routes.mjs plan)"; return; }
+  LIVE="$live" node --input-type=module -e '
     import { readFileSync } from "node:fs";
     import(process.argv[1]).then((m) => {
       const checkout = m.checkoutRoutes("loja.useorigens.com.br", "/useorigens");
-      const all = m.parseLiveRoutes(process.env.LIVE); const extras = all.filter((p) => checkout.includes(p));
-      const toml = m.parseTomlRoutes(readFileSync(process.argv[2], "utf8")).sort(); const live = all.filter((p) => !checkout.includes(p)).sort();
-      if (JSON.stringify(toml) !== JSON.stringify(live)) { console.error("TOML [" + toml.join(" ") + "] x zona [" + live.join(" ") + "]"); process.exit(1); }
-      if (process.env.WITH_CHECKOUT === "1" && extras.length !== checkout.length) { console.error("theme-checkout pede as duas rotas do checkout na zona (há " + extras.length + "): node scripts/checkout-routes.mjs apply e probe"); process.exit(1); }
-      console.log(toml.length + (extras.length ? " + " + extras.length + " do checkout (zona)" : ""));
-    });' "$LIB" "$CFG" >/tmp/tema-routes.$$ 2>&1; then ok "rotas: $(cat /tmp/tema-routes.$$) rotas COM Worker na zona = as do TOML (+ só as duas do checkout, se houver; o deploy não muda o roteamento)"; else bad "rotas da zona divergem do TOML: $(cat /tmp/tema-routes.$$)"; fi
-  rm -f /tmp/tema-routes.$$
+      const toml = m.parseTomlRoutes(readFileSync(process.argv[2], "utf8")).sort(); const live = m.parseLiveRoutes(process.env.LIVE).sort();
+      if (JSON.stringify(toml) === JSON.stringify(live)) return console.log("equal");
+      const without = toml.filter((p) => !checkout.includes(p));
+      if (JSON.stringify(without) === JSON.stringify(live)) return console.log("creates-checkout");
+      console.log("diverge:TOML [" + toml.join(" ") + "] x zona [" + live.join(" ") + "]");
+    });' "$LIB" "$CFG"
+}
+CREATES_CHECKOUT=0
+routes_match() {
+  local st; st=$(routes_state)
+  case "$st" in
+    equal) ok "rotas: as rotas COM Worker na zona são exatamente as do TOML (o deploy não muda o roteamento)" ;;
+    creates-checkout)
+      CREATES_CHECKOUT=1
+      if [ "$WITH_CHECKOUT" = 1 ]; then ok "rotas: zona = TOML menos as duas telas do checkout, que este deploy cria (o rollback as apaga)"
+      else warn "rotas: o deploy vai criar as duas telas do checkout (TOML); sem theme-checkout o Worker só repassa a página"; fi ;;
+    *) bad "rotas da zona divergem do TOML: ${st#diverge:}" ;;
+  esac
 }
 
 # Plano a partir da versão ativa: imprime o JSON do deploy ou os problemas (exit 1).
@@ -116,11 +129,11 @@ smoke_theme() {
   if [ "$WITH_CHECKOUT" = 1 ]; then
     local step page r
     for step in contact_and_shipping_details payment_methods; do
-      for i in 1 2 3 4 5 6; do
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
         page=$(curl -sS --max-time 20 "$SITE_URL/useorigens/checkout/$step/$CHECKOUT_UUID" 2>/dev/null)
         r=$(printf '%s' "$page" | node --input-type=module -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const m=await import(process.argv[1]);console.log(JSON.stringify(m.evaluateCheckoutPage(s)))})' "$LIB")
         [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "checkout ($step): tema no <body>, CSS do checkout, nenhum loader"; break; }
-        [ "$i" = 6 ] && { bad "checkout ($step): $(printf '%s' "$r" | json_field problems)"; return 1; }
+        [ "$i" = 12 ] && { bad "checkout ($step): $(printf '%s' "$r" | json_field problems)"; return 1; }
         sleep 10
       done
     done
@@ -167,6 +180,7 @@ log "   versão de rollback: $PREV_VERSION — captura em $CAP"
 
 rollback() {
   log ""; log "!!! ROLLBACK ($1) → versão capturada $PREV_VERSION"
+  if [ "$CREATES_CHECKOUT" = 1 ]; then node scripts/checkout-routes.mjs remove 2>&1 | sed 's/^/!!! /' || log "!!! as rotas do checkout não foram apagadas: node scripts/checkout-routes.mjs remove"; fi
   if npx wrangler rollback "$PREV_VERSION" --name "$WORKER_NAME" --message "release-tema rollback: $1" --yes; then
     sleep 10
     if NOW=$(health_json) && node -e 'import(process.argv[1]).then((m)=>{const a=JSON.parse(process.argv[2]),b=JSON.parse(process.argv[3]);process.exit(m.sameConfig(a,b)&&a.ink_host===b.ink_host?0:1)})' "$ROOT/scripts/lib/release-lib.mjs" "$PREV_HEALTH" "$NOW"; then
@@ -184,7 +198,11 @@ sleep 10
 log "== C. conferência =="
 NOW_HEALTH=$(health_json) || fail "health ilegível após o deploy"
 node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]),process.argv[4].split(","))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" "$ADD" && ok "health: features = as de antes + $ADD; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
-smoke_theme || fail "smoke do tema reprovado"
+[ "$(routes_state)" = equal ] && ok "rotas: zona = TOML depois do deploy" || fail "as rotas da zona não ficaram iguais às do TOML depois do deploy"
+smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
+if [ "$WITH_CHECKOUT" = 1 ]; then
+  node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
+fi
 
 log ""
 log "RELEASE DO TEMA CONCLUÍDO: $ADD ligado(s) (versão anterior, para voltar: $PREV_VERSION)."

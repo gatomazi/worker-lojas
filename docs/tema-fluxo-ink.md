@@ -41,17 +41,16 @@ loja.useorigens.com.br/useorigens/checkout/contact_and_shipping_details*
 loja.useorigens.com.br/useorigens/checkout/payment_methods*
 ```
 
-Elas não cobrem os envios do checkout (`/checkout/buyer/…`, `/checkout/shipping_address/…`, `/checkout/process_payment`, `/checkout/payment_discount/…`), que seguem direto para a INK. Vivem na zona, fora do TOML (como a exclusão); o `release-tema.sh` as aceita, e só elas, como extras ao comparar as rotas. No Worker, o ramo do checkout só age com `theme-checkout`, em `GET` de documento inteiro (sem `Turbo-Frame`), chama `ctx.passThroughOnException()` (exceção = a Cloudflare entrega a origem) e nunca registra o caminho (o uuid do carrinho fica fora dos logs).
+Elas não cobrem os envios do checkout (`/checkout/buyer/…`, `/checkout/shipping_address/…`, `/checkout/process_payment`, `/checkout/payment_discount/…`), que seguem direto para a INK. Estão **declaradas no `wrangler.production.toml`**: o `wrangler deploy` apaga as rotas do Worker que o TOML não declara (medido em 17/10/2026, quando as duas tinham sido criadas só na zona). O deploy com `theme-checkout` as cria; o rollback do `release-tema.sh` as apaga com `checkout-routes.mjs remove` (o próximo deploy as recria pelo TOML).
+
+A INK entrega as duas telas comprimidas (brotli) e um corpo codificado não pode ser reescrito: só nelas o Worker pede a página com `Accept-Encoding: identity` (a Cloudflare comprime de novo para o cliente). No Worker, o ramo do checkout só age com `theme-checkout`, em `GET` de documento inteiro (sem `Turbo-Frame`), chama `ctx.passThroughOnException()` (exceção = a Cloudflare entrega a origem) e nunca registra o caminho (o uuid do carrinho fica fora dos logs).
 
 ```
+TEMA_CHECKOUT_UUID=<carrinho de TESTE> bash scripts/release-tema.sh --deploy --add=theme-checkout   # cria as rotas (TOML), liga a chave, smoke nas duas telas e sonda
 node scripts/checkout-routes.mjs plan     # SOMENTE LEITURA: rotas do host e o que apply/remove fariam
-node scripts/checkout-routes.mjs apply    # cria as duas (recusa sem a exclusão, ou com outra rota com Worker no caminho da compra/login)
 node scripts/checkout-routes.mjs probe    # wrangler tail: as duas telas executam; envios, /checkout, carrinho e login NÃO (só GET)
-TEMA_CHECKOUT_UUID=<carrinho de TESTE> bash scripts/release-tema.sh --deploy --add=theme-checkout   # liga a chave; smoke nas duas telas (só GET)
-node scripts/checkout-routes.mjs remove   # desfaz: o checkout volta inteiro para a INK (sem deploy)
+node scripts/checkout-routes.mjs remove   # desfaz sem deploy: o checkout volta inteiro para a INK (o próximo deploy recria pelo TOML)
 ```
-
-Ordem: `apply` → `probe` → release com `--add=theme-checkout`. Entre o `apply` e o release, o Worker já é chamado nas duas telas, mas sem a chave só repassa a página da INK.
 
 ## Rodada 2 (composição)
 
