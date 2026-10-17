@@ -78,7 +78,7 @@ deploy_theme() {
   local plan="$1" mode="${2:-}" allow feats scope
   allow=$(printf '%s' "$plan" | json_field WIDGET_ALLOWLIST); feats=$(printf '%s' "$plan" | json_field WIDGET_FEATURES); scope=$(printf '%s' "$plan" | json_field WIDGET_SCOPE_MODE)
   log "── deploy do tema (${mode:-REAL}) — configuração não secreta ──"
-  log "   ENABLE_WIDGET=true · WIDGET_SCOPE_MODE=$scope · WIDGET_ALLOWLIST=$(printf '%s' "$allow" | tr ',' '\n' | wc -l | tr -d ' ') caminho(s) (preservados)"
+  log "   ENABLE_WIDGET=true · WIDGET_SCOPE_MODE=$scope · WIDGET_ALLOWLIST=$(printf '%s\n' "$allow" | tr ',' '\n' | grep -c .) caminho(s) (preservados)"
   log "   WIDGET_FEATURES=$feats"
   if [ "$mode" = "--dry-run" ]; then
     (cd "$ROOT" && npx wrangler deploy -c "$CFG" --dry-run --outdir "${TMPDIR:-/tmp}/release-tema-dry" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
