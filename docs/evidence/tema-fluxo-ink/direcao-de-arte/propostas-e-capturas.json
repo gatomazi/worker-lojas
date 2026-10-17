@@ -1,0 +1,266 @@
+{
+ "geradoEm": "2026-10-16T17:01:42.349Z",
+ "propostas": {
+  "A": {
+   "nome": "A · verde com mais presença",
+   "resumo": "Verde mais profundo e saturado no botão principal e nas escolhas; faixa de frete verde-clara; base branca e off-white quente no lugar do cinza; carvão no texto.",
+   "papeis": {
+    "cta": [
+     "#2e5b38",
+     "Botão principal (Finalizar compra, Ir para o pagamento): verde-mata no lugar do preto"
+    ],
+    "on-cta": [
+     "#ffffff",
+     "Texto do botão principal (7,9:1)"
+    ],
+    "selected": [
+     "#2e5b38",
+     "Escolhas e rádios"
+    ],
+    "ink": [
+     "#1b1d19",
+     "Texto: carvão no lugar do preto puro"
+    ],
+    "paper": [
+     "#faf7f0",
+     "Superfícies de apoio: off-white quente"
+    ],
+    "panel": [
+     "#faf7f0",
+     "Rodapé do carrinho e resumo do checkout: off-white quente no lugar do cinza #f2f2f0"
+    ],
+    "incentive-bg": [
+     "#e4f0dc",
+     "Fundo da faixa de frete: verde-claro fresco"
+    ],
+    "incentive-line": [
+     "#c7dcb7",
+     "Borda da faixa"
+    ],
+    "incentive-ink": [
+     "#24492b",
+     "Destaque (\"1 peça\", \"frete grátis\"): verde escuro (8,6:1)"
+    ],
+    "incentive-text": [
+     "#1b1d19",
+     "Texto da faixa"
+    ],
+    "incentive-soft": [
+     "#3d4f37",
+     "Ressalva (destinos, CEP): tinta verde, não cinza (7,5:1)"
+    ],
+    "incentive-icon": [
+     "#2e5b38",
+     "Ícone do caminhão"
+    ],
+    "incentive-track": [
+     "#f6faf2",
+     "Trilho da régua"
+    ],
+    "incentive-fill": [
+     "#2e5b38",
+     "Progresso"
+    ],
+    "choice-line": [
+     "#2e5b38",
+     "Borda de 1 px da opção escolhida (sem o anel extra: mais leve)"
+    ],
+    "choice-ring": [
+     "transparent",
+     "—"
+    ],
+    "choice-bg": [
+     "#eef6e9",
+     "Forma de entrega escolhida: fundo verde muito claro"
+    ],
+    "choice-head": [
+     "#e7f1df",
+     "Cabeçalho do pagamento escolhido (Pix/Cartão)"
+    ],
+    "choice-body": [
+     "#ffffff",
+     "Área aberta do cartão: branca (campos em destaque, pouco verde)"
+    ],
+    "choice-mark": [
+     "#2e5b38",
+     "Rádio escolhido"
+    ]
+   }
+  },
+  "B": {
+   "nome": "B · verde com acento ocre",
+   "resumo": "O verde segue como identidade nas escolhas e no progresso; a faixa de frete vira palha/areia com o ícone num círculo dourado-areia (o acento da Sul); o botão principal continua carvão, como na PDP externa.",
+   "papeis": {
+    "cta": [
+     "#1b1d19",
+     "Botão principal: carvão (continuidade com o botão preto da PDP externa)"
+    ],
+    "on-cta": [
+     "#ffffff",
+     "Texto do botão principal (17:1)"
+    ],
+    "selected": [
+     "#3a5a30",
+     "Escolhas e rádios: verde da identidade, um tom mais vivo"
+    ],
+    "ink": [
+     "#1b1d19",
+     "Texto: carvão"
+    ],
+    "paper": [
+     "#fbf8f2",
+     "Superfícies de apoio: off-white quente"
+    ],
+    "panel": [
+     "#fbf8f2",
+     "Rodapé do carrinho e resumo do checkout: off-white quente"
+    ],
+    "incentive-bg": [
+     "#f4ecda",
+     "Fundo da faixa de frete: palha/areia clara"
+    ],
+    "incentive-line": [
+     "#e3d3b0",
+     "Borda da faixa"
+    ],
+    "incentive-ink": [
+     "#2f4b28",
+     "Destaque: verde escuro (8,5:1)"
+    ],
+    "incentive-text": [
+     "#1b1d19",
+     "Texto da faixa"
+    ],
+    "incentive-soft": [
+     "#5a5340",
+     "Ressalva: tinta quente derivada da palha (6,7:1)"
+    ],
+    "incentive-icon": [
+     "#2f4b28",
+     "Ícone do caminhão: verde escuro"
+    ],
+    "incentive-icon-bg": [
+     "#d6ba8d",
+     "ACENTO: círculo dourado-areia atrás do ícone (o acento oficial da Sul; ícone sobre ele 5,2:1)"
+    ],
+    "incentive-icon-size": [
+     "26px",
+     "—"
+    ],
+    "incentive-icon-pad": [
+     "4px",
+     "—"
+    ],
+    "incentive-track": [
+     "#fffaf1",
+     "Trilho da régua"
+    ],
+    "incentive-fill": [
+     "#2f4b28",
+     "Progresso: verde escuro"
+    ],
+    "choice-line": [
+     "#3a5a30",
+     "Borda de 1 px da opção escolhida"
+    ],
+    "choice-ring": [
+     "transparent",
+     "—"
+    ],
+    "choice-bg": [
+     "#f1f5ec",
+     "Forma de entrega escolhida: fundo verde quase branco"
+    ],
+    "choice-head": [
+     "#eef3e7",
+     "Cabeçalho do pagamento escolhido"
+    ],
+    "choice-body": [
+     "#ffffff",
+     "Área aberta do cartão: branca"
+    ],
+    "choice-mark": [
+     "#3a5a30",
+     "Rádio escolhido"
+    ]
+   }
+  }
+ },
+ "capturas": {
+  "1-carrinho-1-item-abaixo-da-meta@390": {
+   "atual": "capturas/390/Atual_1-carrinho-1-item-abaixo-da-meta.png",
+   "A": "capturas/390/Proposta-A_1-carrinho-1-item-abaixo-da-meta.png",
+   "B": "capturas/390/Proposta-B_1-carrinho-1-item-abaixo-da-meta.png"
+  },
+  "2-carrinho-6-pecas-cep-pendente@390": {
+   "atual": "capturas/390/Atual_2-carrinho-6-pecas-cep-pendente.png",
+   "A": "capturas/390/Proposta-A_2-carrinho-6-pecas-cep-pendente.png",
+   "B": "capturas/390/Proposta-B_2-carrinho-6-pecas-cep-pendente.png"
+  },
+  "3a-carrinho-frete-gratis-da-ink@390": {
+   "atual": "capturas/390/Atual_3a-carrinho-frete-gratis-da-ink.png",
+   "A": "capturas/390/Proposta-A_3a-carrinho-frete-gratis-da-ink.png",
+   "B": "capturas/390/Proposta-B_3a-carrinho-frete-gratis-da-ink.png"
+  },
+  "3b-carrinho-cep-nao-elegivel@390": {
+   "atual": "capturas/390/Atual_3b-carrinho-cep-nao-elegivel.png",
+   "A": "capturas/390/Proposta-A_3b-carrinho-cep-nao-elegivel.png",
+   "B": "capturas/390/Proposta-B_3b-carrinho-cep-nao-elegivel.png"
+  },
+  "4-checkout-entrega-frete-escolhido@390": {
+   "atual": "capturas/390/Atual_4-checkout-entrega-frete-escolhido.png",
+   "A": "capturas/390/Proposta-A_4-checkout-entrega-frete-escolhido.png",
+   "B": "capturas/390/Proposta-B_4-checkout-entrega-frete-escolhido.png"
+  },
+  "5-checkout-cartao-aberto@390": {
+   "atual": "capturas/390/Atual_5-checkout-cartao-aberto.png",
+   "A": "capturas/390/Proposta-A_5-checkout-cartao-aberto.png",
+   "B": "capturas/390/Proposta-B_5-checkout-cartao-aberto.png"
+  },
+  "6a-checkout-pix@390": {
+   "atual": "capturas/390/Atual_6a-checkout-pix.png",
+   "A": "capturas/390/Proposta-A_6a-checkout-pix.png",
+   "B": "capturas/390/Proposta-B_6a-checkout-pix.png"
+  },
+  "6b-checkout-erro-e-foco@390": {
+   "atual": "capturas/390/Atual_6b-checkout-erro-e-foco.png",
+   "A": "capturas/390/Proposta-A_6b-checkout-erro-e-foco.png",
+   "B": "capturas/390/Proposta-B_6b-checkout-erro-e-foco.png"
+  },
+  "1-carrinho-1-item-abaixo-da-meta@360": {
+   "atual": "capturas/360/Atual_1-carrinho-1-item-abaixo-da-meta.png",
+   "A": "capturas/360/Proposta-A_1-carrinho-1-item-abaixo-da-meta.png",
+   "B": "capturas/360/Proposta-B_1-carrinho-1-item-abaixo-da-meta.png"
+  },
+  "2-carrinho-6-pecas-cep-pendente@360": {
+   "atual": "capturas/360/Atual_2-carrinho-6-pecas-cep-pendente.png",
+   "A": "capturas/360/Proposta-A_2-carrinho-6-pecas-cep-pendente.png",
+   "B": "capturas/360/Proposta-B_2-carrinho-6-pecas-cep-pendente.png"
+  },
+  "5-checkout-cartao-aberto@360": {
+   "atual": "capturas/360/Atual_5-checkout-cartao-aberto.png",
+   "A": "capturas/360/Proposta-A_5-checkout-cartao-aberto.png",
+   "B": "capturas/360/Proposta-B_5-checkout-cartao-aberto.png"
+  },
+  "1-carrinho-1-item-abaixo-da-meta@1440": {
+   "atual": "capturas/1440/Atual_1-carrinho-1-item-abaixo-da-meta.png",
+   "A": "capturas/1440/Proposta-A_1-carrinho-1-item-abaixo-da-meta.png",
+   "B": "capturas/1440/Proposta-B_1-carrinho-1-item-abaixo-da-meta.png"
+  },
+  "2-carrinho-6-pecas-cep-pendente@1440": {
+   "atual": "capturas/1440/Atual_2-carrinho-6-pecas-cep-pendente.png",
+   "A": "capturas/1440/Proposta-A_2-carrinho-6-pecas-cep-pendente.png",
+   "B": "capturas/1440/Proposta-B_2-carrinho-6-pecas-cep-pendente.png"
+  },
+  "4-checkout-entrega-frete-escolhido@1440": {
+   "atual": "capturas/1440/Atual_4-checkout-entrega-frete-escolhido.png",
+   "A": "capturas/1440/Proposta-A_4-checkout-entrega-frete-escolhido.png",
+   "B": "capturas/1440/Proposta-B_4-checkout-entrega-frete-escolhido.png"
+  },
+  "5-checkout-cartao-aberto@1440": {
+   "atual": "capturas/1440/Atual_5-checkout-cartao-aberto.png",
+   "A": "capturas/1440/Proposta-A_5-checkout-cartao-aberto.png",
+   "B": "capturas/1440/Proposta-B_5-checkout-cartao-aberto.png"
+  }
+ }
+}

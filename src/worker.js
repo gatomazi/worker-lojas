@@ -13,6 +13,7 @@ import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageK
 import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie } from './stores.js';
 import { onFormerHost, domainMoveRedirect } from './domain-move.js';
 import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
+import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, incentiveAttr } from './theme.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
 // declarou a variável). STORE_ID desconhecido = fail-closed: só o health responde e todo o resto vai direto à INK.
@@ -127,14 +128,54 @@ function serveDiscovery(request, url, mode, features) {
   return javascript(request, buildDiscoverySource(discoveryOptions(features.features)), cache);
 }
 
-async function injectLoader(request, url, mode, allowlist, features, scope, store, upstream) {
+// Tema da compra (src/theme.js) nas páginas de produto e de casca: as superfícies da PDP e do carrinho ligadas no painel E no deploy. Lido em PARALELO
+// com a página da INK (não soma latência); sem configuração válida = []. O checkout tem o próprio caminho (injectCheckoutTheme).
+const PAGE_SURFACES = ['pdp', 'cart'];
+const usesTheme = (features, surfaces) => surfaces.some((s) => features.includes(SURFACE_FEATURE[s]));
+async function pageThemeFor(themeSource, features, surfaces) {
+  if (!themeSource || !usesTheme(features, surfaces)) return { theme: null, surfaces: [] };
+  const theme = await themeSource.get();
+  return { theme, surfaces: activeSurfaces(theme, features).filter((s) => surfaces.includes(s)) };
+}
+// <body data-origens-theme="pdp cart"> (o escopo de todo o CSS e o sinal do estado EFETIVO para o loader) e o <link> no fim do <head>. É no <body> porque
+// o Turbo troca o <body> a cada visita: o atributo é sempre o da resposta atual, conforme o painel publicado (o <html> e os <link> do <head> sobrevivem às
+// visitas e poderiam religar uma superfície já desligada).
+// Com o carrinho tematizado e cart-incentive no deploy, a regra publicada do incentivo vai junto, no mesmo <body> (nenhuma requisição a mais no navegador).
+class ThemeBodyMarker {
+  constructor(value, incentive = '') { this.value = value; this.incentive = incentive; }
+  element(body) {
+    body.setAttribute('data-origens-theme', this.value);
+    if (this.incentive) body.setAttribute('data-origens-incentive', this.incentive);
+  }
+}
+class ThemeLinkInjector {
+  constructor(tag) { this.tag = tag; }
+  element(head) { head.onEndTag((end) => { end.before(this.tag, { html: true }); }); }
+}
+// Assinatura no cabeçalho do checkout: o nome ao lado do símbolo (o logo da loja), como no storefront. Texto fixo, decorativo (o link já tem o nome no alt).
+class CheckoutBrand {
+  constructor() { this.done = false; }
+  element(link) {
+    if (this.done) return;
+    this.done = true;
+    link.append('<span data-origens-brand aria-hidden="true">Use Origens</span>', { html: true });
+  }
+}
+const withTheme = (rewriter, pageTheme, features) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
+  .on('body', new ThemeBodyMarker(pageTheme.surfaces.join(' '), pageTheme.surfaces.includes('cart') && features.includes('cart-incentive') ? incentiveAttr(pageTheme.theme) : ''))
+  .on('head', new ThemeLinkInjector(themeLinkTag(pageTheme.theme, pageTheme.surfaces))));
+
+async function injectLoader(request, url, mode, allowlist, features, scope, store, upstream, themeSource) {
   const shell = !productPagePattern(store).test(url.pathname); // só chega aqui uma página de produto ou de casca (isEligibleRequest)
   const allowlisted = shell ? shellEnabled(scope.mode, features.features, store.shellPages) : inScope(scope, allowlist, url.pathname, store);
 
   // Fail-closed: fora do escopo nada é reescrito, e nem sequer se olha a resposta.
   if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
 
-  const response = await passThrough(request, upstream);
+  const [response, pageTheme] = await Promise.all([
+    passThrough(request, upstream),
+    mode === 'true' ? pageThemeFor(themeSource, features.features, PAGE_SURFACES).catch(() => ({ theme: null, surfaces: [] })) : { theme: null, surfaces: [] }
+  ]);
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
@@ -160,20 +201,54 @@ async function injectLoader(request, url, mode, allowlist, features, scope, stor
   let transformed;
   if (scope.mode === CATALOG_MODE) {
     const state = { product: false, alreadyPresent: false, tag: loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode, store)) };
-    transformed = new HTMLRewriter()
+    transformed = withTheme(new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderMarker(state))
       .on(shell ? 'nav.navbar' : 'form[id^="form-product-"]', shell ? new ShellHeaderDetector(state) : new ProductFormDetector(state))
-      .on('body', new BodyLoaderInjector(state))
+      .on('body', new BodyLoaderInjector(state)), pageTheme, features.features)
       .transform(response);
   } else {
     const injector = new LoaderInjector(loaderTag(loaderQuery(allowlist.paths, features.features, scope.mode, store)));
-    transformed = new HTMLRewriter()
+    transformed = withTheme(new HTMLRewriter()
       .on('script[data-use-origens-widget]', new ExistingLoaderDetector(injector))
-      .on('head', injector)
+      .on('head', injector), pageTheme, features.features)
       .transform(response);
   }
 
   // Copia status/headers (incluindo múltiplos Set-Cookie) e remove só o que deixa de valer após reescrever.
+  const headers = new Headers(response.headers);
+  headers.delete('content-length');
+  headers.delete('etag');
+  return new Response(transformed.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+// /__origens/theme.css?s=<superfícies>&v=&c=: o CSS das superfícies pedidas que estão ligadas AGORA (painel + deploy). Hash igual ao da configuração
+// atual = imutável por um ano; diferente (o tema mudou depois de a página ser servida) = conteúdo atual com cache curto. Sem tema = CSS vazio, sem cache.
+async function serveThemeCss(request, url, mode, features, themeSource) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
+  const css = (body, cache) => new Response(request.method === 'HEAD' ? null : body, { status: 200, headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': cache } });
+  const requested = parseSurfaceParam(url.searchParams.get('s'));
+  if (mode !== 'true' || requested.length === 0 || !usesTheme(features, requested)) return css('/* use-origens theme off */', 'no-store');
+  const theme = await themeSource.get();
+  const surfaces = activeSurfaces(theme, features).filter((s) => requested.includes(s));
+  if (surfaces.length === 0) return css('/* use-origens theme off */', 'no-store');
+  const expected = themeQuery(theme, surfaces);
+  const fresh = url.searchParams.get('c') === expected.split('&c=')[1] && url.searchParams.get('v') === expected.split('&v=')[1].split('&')[0] && url.searchParams.get('s') === surfaces.join(',');
+  return css(buildThemeCss(theme, surfaces), fresh ? IMMUTABLE : SHORT);
+}
+
+// Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <body>, o <link> do CSS e o nome ao lado do logo. Nenhum script nosso, nenhum nó da INK tocado, nada
+// guardado; o caminho (que leva o uuid do carrinho) nunca vai para log. Qualquer falha = a página original da INK.
+async function injectCheckoutTheme(request, upstream, themeSource, features) {
+  const [response, theme] = await Promise.all([passThrough(request, upstream), themeSource.get().catch(() => null)]);
+  if (!activeSurfaces(theme, features).includes('checkout')) return response;
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (response.status !== 200 || !contentType.startsWith('text/html') || response.headers.get('content-encoding')) return response;
+  if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
+  const transformed = new HTMLRewriter()
+    .on('body', new ThemeBodyMarker('checkout'))
+    .on('nav.bg-store-primary a[href]', new CheckoutBrand())
+    .on('head', new ThemeLinkInjector(themeLinkTag(theme, ['checkout'])))
+    .transform(response);
   const headers = new Headers(response.headers);
   headers.delete('content-length');
   headers.delete('etag');
@@ -190,12 +265,12 @@ function withRegionCookie(response, region) {
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
 // Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
-export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null } = {}) {
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, themeSource = null } = {}) {
   const services = new Map();
   // Por loja E região (loja única: a loja vista de cada região tem a própria navbar, busca, guia…).
   const servicesOf = (store) => {
     const key = (store.viewKey ?? store.id) + '|' + store.inkHost;
-    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }) });
+    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
     return services.get(key);
   };
   return {
@@ -306,6 +381,22 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       if (url.pathname === GUIDE_PATH) {
         return mode === 'true' && features.features.includes('pdp-guide') ? servicesOf(view).guide.handle(request) : passThrough(request, upstream);
       }
+      // CSS do tema da compra: só com true + ao menos uma feature theme-*; caso contrário a INK responde (404 dela).
+      if (url.pathname === THEME_PATH) {
+        return mode === 'true' && usesTheme(features.features, SURFACES) ? serveThemeCss(request, url, mode, features.features, servicesOf(view).theme) : passThrough(request, upstream);
+      }
+      // Telas do checkout: só com true + theme-checkout, GET de documento inteiro (nunca Turbo-Frame, nunca POST). A rota da zona que traz esses caminhos
+      // ao Worker é separada (ver docs/tema-fluxo-ink.md); sem ela este ramo nunca é alcançado. Em exceção a Cloudflare entrega a origem (fail-open).
+      if (checkoutPageKind(url.pathname, store.inkBase) !== null) {
+        if (mode !== 'true' || !features.features.includes('theme-checkout') || request.method !== 'GET' || request.headers.has('Turbo-Frame')) return passThrough(request, upstream);
+        if (ctx && typeof ctx.passThroughOnException === 'function') ctx.passThroughOnException();
+        try {
+          return await injectCheckoutTheme(request, upstream, servicesOf(view).theme, features.features);
+        } catch (_) {
+          logEvent('error', 'checkout-theme-failed', {});
+          return passThrough(request, upstream);
+        }
+      }
       if (url.pathname === SEARCH_PATH) {
         return mode === 'true' && features.features.includes('city-search') ? servicesOf(view).gateway.handle(request, ctx) : passThrough(request, upstream);
       }
@@ -314,7 +405,7 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       if (mode === 'false' || features.features.length === 0 || !isEligibleRequest(request, url, shellEnabled(scope.mode, features.features, store.shellPages), store)) return remember(await passThrough(request, upstream));
       // Falha ABERTA: qualquer erro nosso ao reescrever devolve a página original da INK (a compra nunca depende do widget).
       try {
-        return remember(await injectLoader(request, url, mode, allowlist, features, scope, view, upstream));
+        return remember(await injectLoader(request, url, mode, allowlist, features, scope, view, upstream, servicesOf(view).theme));
       } catch (_) {
         logEvent('error', 'inject-failed', { path: url.pathname });
         return remember(await passThrough(request, upstream));

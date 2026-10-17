@@ -1,0 +1,45 @@
+PASS [tudo ligado] PDP LIGADA  — {"attr":"pdp cart","links":["pdp,cart"],"font":"Hanken Grotesk","thumbs":17,"dots":"hidden","order":"preco>product_variants_options_frame>delivery_estimates_frame>product_promotions_frame>ink-store--modal","classes":"o-thumbs o-cta-inview",
+PASS [tudo ligado] carrinho LIGADO  — {"w":440,"font":"Hanken Grotesk","empty":true}
+PASS [tudo ligado] checkout LIGADO  — {"attr":"checkout","brand":true,"loader":false}
+PASS [tudo desligado no painel (features no deploy)] PDP desligada  — {"attr":null,"links":[],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":""}
+PASS [tudo desligado no painel (features no deploy)] carrinho desligado  — {"w":390,"font":"Poppins","empty":false}
+PASS [tudo desligado no painel (features no deploy)] checkout desligado  — {"attr":null,"brand":false,"loader":false}
+PASS [PDP desligada, carrinho ligado] PDP desligada  — {"attr":"cart","links":["cart"],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":""}
+PASS [PDP desligada, carrinho ligado] carrinho LIGADO  — {"w":440,"font":"Hanken Grotesk","empty":true}
+PASS [PDP desligada, carrinho ligado] checkout LIGADO  — {"attr":"checkout","brand":true,"loader":false}
+PASS [PDP ligada, carrinho desligado] PDP LIGADA  — {"attr":"pdp","links":["pdp"],"font":"Hanken Grotesk","thumbs":17,"dots":"hidden","order":"preco>product_variants_options_frame>delivery_estimates_frame>product_promotions_frame>ink-store--modal","classes":"o-thumbs o-cta-inview","galTop":"
+PASS [PDP ligada, carrinho desligado] carrinho desligado  — {"w":390,"font":"Poppins","empty":false}
+PASS [PDP ligada, carrinho desligado] checkout LIGADO  — {"attr":"checkout","brand":true,"loader":false}
+PASS [checkout desligado] PDP LIGADA  — {"attr":"pdp cart","links":["pdp,cart"],"font":"Hanken Grotesk","thumbs":17,"dots":"hidden","order":"preco>product_variants_options_frame>delivery_estimates_frame>product_promotions_frame>ink-store--modal","classes":"o-thumbs o-cta-inview",
+PASS [checkout desligado] carrinho LIGADO  — {"w":440,"font":"Hanken Grotesk","empty":true}
+PASS [checkout desligado] checkout desligado  — {"attr":null,"brand":false,"loader":false}
+PASS [features de tema ausentes no deploy (painel tudo ligado)] PDP desligada  — {"attr":null,"links":[],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":""}
+PASS [features de tema ausentes no deploy (painel tudo ligado)] carrinho desligado  — {"w":390,"font":"Poppins","empty":false}
+PASS [features de tema ausentes no deploy (painel tudo ligado)] checkout desligado  — {"attr":null,"brand":false,"loader":false}
+PASS [só theme-cart no deploy (painel tudo ligado)] PDP desligada  — {"attr":"cart","links":["cart"],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":""}
+PASS [só theme-cart no deploy (painel tudo ligado)] carrinho LIGADO  — {"w":440,"font":"Hanken Grotesk","empty":true}
+PASS [só theme-cart no deploy (painel tudo ligado)] checkout desligado  — {"attr":null,"brand":false,"loader":false}
+PASS [mudança no meio] antes: PDP ligada  — {"attr":"pdp cart","thumbs":17}
+INFO aguardando 62 s (cache de 60 s da configuração no Worker)…
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+page.evaluate: TypeError: Cannot read properties of null (reading 'click')
+    at eval (eval at evaluate (:311:30), <anonymous>:1:46)
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /Users/izamoti/projects/use-origens-workers-tema/scripts/qa-desligamento-tema.mjs:81:14 {
+  log: []
+}
+
+Node.js v26.10.0
+PASS [mudança no meio] antes: PDP ligada  — {"attr":"pdp cart","thumbs":17}
+INFO aguardando 62 s (cache de 60 s da configuração no Worker)…
+PASS [mudança no meio] Turbo disponível na página da INK
+PASS [mudança no meio] visita Turbo seguinte: PDP desligada  — {"attr":"cart","links":["cart"],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":"","linkAntigoRetido":false
+PASS [mudança no meio] voltar (página restaurada do cache do Turbo): continua desligada  — {"attr":"cart","links":["cart"],"font":"Poppins","thumbs":0,"dots":"visible","order":"preco>delivery_estimates_frame>product_promotions_frame>ink-store--modal>product_variants_options_frame","classes":"","galTop":""}
+PASS [mudança no meio] recarregar: desligada  — {"attr":"cart","thumbs":0}
+INFO religando; aguardando 62 s…
+PASS [mudança no meio] religada: volta, uma grade só  — {"attr":"pdp cart","thumbs":17}
+6/6 PASS

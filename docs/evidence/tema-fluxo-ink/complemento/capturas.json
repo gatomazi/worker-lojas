@@ -1,0 +1,297 @@
+{
+ "geradoEm": "2026-10-16T03:04:15.673Z",
+ "bloqueadas": [
+  "desktop POST /usesul/checkout/payment_discount/<id>",
+  "desktop POST /usesul/checkout/payment_discount/<id>",
+  "mobile POST /usesul/checkout/payment_discount/<id>",
+  "mobile POST /usesul/checkout/payment_discount/<id>",
+  "360 POST /usesul/checkout/payment_discount/<id>",
+  "360 POST /usesul/checkout/payment_discount/<id>",
+  "baixo POST /usesul/checkout/payment_discount/<id>",
+  "baixo POST /usesul/checkout/payment_discount/<id>"
+ ],
+ "capturas": [
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_01-carrinho-1-item_incentivo-falta-1-peca.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "carrinho com 1 item · incentivo de frete (PROPOSTA) antes da condição · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_02-carrinho-varios-itens_topo_incentivo-atingido.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "5 linhas / 6 peças, topo da lista · incentivo (PROPOSTA) atingido, CEP não informado · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_03-carrinho-varios-itens_fim-da-lista.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "fim da lista: último item, bloco de descoberta depois dos itens, total e finalizar · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_04-carrinho-item-removido_incentivo-volta.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "após remover itens (2 → 1 peça): o incentivo (PROPOSTA) volta a mostrar o que falta · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_05-carrinho-frete-gratis-confirmado.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "CEP informado e frete grátis confirmado pela INK (PROPOSTA de mensagem) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_06-carrinho-sem-incentivo.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "regra indisponível ou loja sem oferta: nenhum bloco de incentivo (estado atual do fluxo real) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_07-confirmacao-apos-adicionar.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "confirmação após adicionar · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_10-checkout-contato-e-entrega.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_11-checkout-contato-e-entrega_pagina-inteira.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega, página inteira · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_12-checkout-opcoes-de-entrega.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "opções de entrega (frete/prazo da INK, a escolhida em destaque) e resumo · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_13-checkout-pix-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "Pix selecionado (o POST de desconto foi ABORTADO: totais não recalculados) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_14-checkout-cartao-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "cartão selecionado: campos vazios, parcela 3x escolhida (opções da INK) · 1440 px"
+  },
+  {
+   "folder": "desktop",
+   "file": "desktop/SIMULACAO-VISUAL_checkout-dados-ficticios_15-checkout-cobranca-diferente.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança diferente (campos vazios) · 1440 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_01-carrinho-1-item_incentivo-falta-1-peca.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "carrinho com 1 item · incentivo de frete (PROPOSTA) antes da condição · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_02-carrinho-varios-itens_topo_incentivo-atingido.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "5 linhas / 6 peças, topo da lista · incentivo (PROPOSTA) atingido, CEP não informado · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_03-carrinho-varios-itens_fim-da-lista.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "fim da lista: último item, bloco de descoberta depois dos itens, total e finalizar · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_04-carrinho-item-removido_incentivo-volta.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "após remover itens (2 → 1 peça): o incentivo (PROPOSTA) volta a mostrar o que falta · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_05-carrinho-frete-gratis-confirmado.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "CEP informado e frete grátis confirmado pela INK (PROPOSTA de mensagem) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_06-carrinho-sem-incentivo.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "regra indisponível ou loja sem oferta: nenhum bloco de incentivo (estado atual do fluxo real) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_07-confirmacao-apos-adicionar.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "confirmação após adicionar · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_10-checkout-contato-e-entrega_primeira-tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_11-checkout-contato-e-entrega_pagina-inteira.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega, página inteira · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_12-checkout-opcoes-de-entrega.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "opções de entrega (frete/prazo da INK, a escolhida em destaque) e resumo · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_13-checkout-pix-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "Pix selecionado (o POST de desconto foi ABORTADO: totais não recalculados) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_14-checkout-cartao-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "cartão selecionado: campos vazios, parcela 3x escolhida (opções da INK) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_14b-checkout-cartao-campos_tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "campos do cartão e parcelas na tela do celular, com a barra fixa real · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_15-checkout-cobranca-diferente.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança diferente (campos vazios) · 390 px"
+  },
+  {
+   "folder": "mobile",
+   "file": "mobile/SIMULACAO-VISUAL_checkout-dados-ficticios_15b-checkout-cobranca_tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança na tela do celular, com a barra fixa real · 390 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_01-carrinho-1-item_incentivo-falta-1-peca.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "carrinho com 1 item · incentivo de frete (PROPOSTA) antes da condição · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_02-carrinho-varios-itens_topo_incentivo-atingido.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "5 linhas / 6 peças, topo da lista · incentivo (PROPOSTA) atingido, CEP não informado · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_03-carrinho-varios-itens_fim-da-lista.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "fim da lista: último item, bloco de descoberta depois dos itens, total e finalizar · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_04-carrinho-item-removido_incentivo-volta.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "após remover itens (2 → 1 peça): o incentivo (PROPOSTA) volta a mostrar o que falta · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_05-carrinho-frete-gratis-confirmado.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "CEP informado e frete grátis confirmado pela INK (PROPOSTA de mensagem) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_06-carrinho-sem-incentivo.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "regra indisponível ou loja sem oferta: nenhum bloco de incentivo (estado atual do fluxo real) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_07-confirmacao-apos-adicionar.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "confirmação após adicionar · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_10-checkout-contato-e-entrega_primeira-tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_12-checkout-opcoes-de-entrega.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "opções de entrega (frete/prazo da INK, a escolhida em destaque) e resumo · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_13-checkout-pix-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "Pix selecionado (o POST de desconto foi ABORTADO: totais não recalculados) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_14-checkout-cartao-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "cartão selecionado: campos vazios, parcela 3x escolhida (opções da INK) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_14b-checkout-cartao-campos_tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "campos do cartão e parcelas na tela do celular, com a barra fixa real · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_15-checkout-cobranca-diferente.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança diferente (campos vazios) · 360 px"
+  },
+  {
+   "folder": "mobile/360",
+   "file": "mobile/360/SIMULACAO-VISUAL_checkout-dados-ficticios_15b-checkout-cobranca_tela.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança na tela do celular, com a barra fixa real · 360 px"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/SIMULACAO-VISUAL_02-carrinho-varios-itens_topo_incentivo-atingido.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "5 linhas / 6 peças, topo da lista · incentivo (PROPOSTA) atingido, CEP não informado · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/SIMULACAO-VISUAL_03-carrinho-varios-itens_fim-da-lista.png",
+   "label": "SIMULAÇÃO VISUAL — integração não validada",
+   "detail": "fim da lista: último item, bloco de descoberta depois dos itens, total e finalizar · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/SIMULACAO-VISUAL_checkout-dados-ficticios_10-checkout-contato-e-entrega.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "contato e entrega · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/SIMULACAO-VISUAL_checkout-dados-ficticios_14-checkout-cartao-selecionado.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "cartão selecionado: campos vazios, parcela 3x escolhida (opções da INK) · 1280×640"
+  },
+  {
+   "folder": "desktop/1280x640",
+   "file": "desktop/1280x640/SIMULACAO-VISUAL_checkout-dados-ficticios_15-checkout-cobranca-diferente.png",
+   "label": "SIMULAÇÃO VISUAL — estrutura real do checkout da INK, dados fictícios; integração não validada",
+   "detail": "endereço de cobrança diferente (campos vazios) · 1280×640"
+  }
+ ]
+}

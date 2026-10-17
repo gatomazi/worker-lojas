@@ -1,0 +1,27 @@
+FAIL 360px PDP sem rolagem horizontal  — 378/360
+PASS 360px sem tema quando a feature está desligada  — {"attr":null,"links":0}
+PASS 360px sem erro de JS na página
+PASS 360px checkout contato/entrega sem rolagem horizontal  — 360/360
+PASS 360px checkout pagamento sem rolagem horizontal  — 360/360
+FAIL 375px PDP sem rolagem horizontal  — 386/375
+PASS 375px sem tema quando a feature está desligada  — {"attr":null,"links":0}
+PASS 375px sem erro de JS na página
+PASS 375px checkout contato/entrega sem rolagem horizontal  — 375/375
+PASS 375px checkout pagamento sem rolagem horizontal  — 375/375
+FAIL 390px PDP sem rolagem horizontal  — 393/390
+PASS 390px sem tema quando a feature está desligada  — {"attr":null,"links":0}
+PASS 390px sem erro de JS na página
+PASS 390px checkout contato/entrega sem rolagem horizontal  — 390/390
+PASS 390px checkout pagamento sem rolagem horizontal  — 390/390
+PASS 768px PDP sem rolagem horizontal  — 768/768
+PASS 768px sem tema quando a feature está desligada  — {"attr":null,"links":0}
+PASS 768px sem erro de JS na página
+PASS 768px checkout contato/entrega sem rolagem horizontal  — 768/768
+PASS 768px checkout pagamento sem rolagem horizontal  — 768/768
+PASS 1440px PDP sem rolagem horizontal  — 1440/1440
+PASS 1440px sem tema quando a feature está desligada  — {"attr":null,"links":0}
+PASS 1440px sem erro de JS na página
+PASS 1440px checkout contato/entrega sem rolagem horizontal  — 1440/1440
+PASS 1440px checkout pagamento sem rolagem horizontal  — 1440/1440
+PASS trava: nenhum POST/PUT para o checkout saiu do navegador  — nenhum tentado
+23/26 PASS
