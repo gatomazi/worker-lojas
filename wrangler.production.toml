@@ -5,13 +5,18 @@ workers_dev = false
 
 # NÃO PUBLICAR até: zona Active, www Proxied, e uma compra nativa validada SEM Worker.
 # Rotas restritas a www. Não há colisão: o loader vive em /__origens/ (fora de /usesul/).
+# Domínio antigo: tudo chama o Worker, que redireciona para loja.useorigens.com.br (src/domain-move.js). A exclusão www.usesul.com.br/usesul/* precisa sair da zona.
 [[routes]]
-pattern = "www.usesul.com.br/usesul/product/*"
+pattern = "www.usesul.com.br/*"
 zone_name = "usesul.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/__origens/*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/product/*"
+zone_name = "useorigens.com.br"
+
+[[routes]]
+pattern = "loja.useorigens.com.br/__origens/*"
+zone_name = "useorigens.com.br"
 
 # Páginas "de casca" (não transacionais) que também recebem a navbar quando o escopo é de catálogo e a feature da navbar está ligada (src/scope.js shellPageKind):
 # home, listagem, coleções, sobre e conta/pedidos. A rota só CHAMA o Worker; quem decide é o código (fail-closed: sem a feature da navbar ou fora do catálogo ele só repassa).
@@ -24,35 +29,37 @@ zone_name = "usesul.com.br"
 # A Cloudflare NÃO aceita query string em padrão de rota: `/usesul` e `/usesul/` só casam SEM query; com query quem casa é `/usesul*` (home sem barra) e a exclusão (home com barra).
 # Rotas não são versionadas: um rollback de versão não as remove; o rollback do release restaura também as rotas (zone-routes.mjs restore).
 [[routes]]
-pattern = "www.usesul.com.br/usesul*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens*"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul/"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul/products*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/products*"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul/collections/*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/collections/*"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul/about*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/about*"
+zone_name = "useorigens.com.br"
 
 [[routes]]
-pattern = "www.usesul.com.br/usesul/orders*"
-zone_name = "usesul.com.br"
+pattern = "loja.useorigens.com.br/useorigens/orders*"
+zone_name = "useorigens.com.br"
 
 # Mesmos valores padrão do staging (garantido por test/config.test.js).
 [vars]
+# A loja única mudou para loja.useorigens.com.br/useorigens (src/stores.js withInkDomain).
+SINGLE_STORE_DOMAIN = "next"
 # "false" (padrão) | "dry-run" (só loga, não altera HTML) | "true" (injeta SOMENTE na allowlist).
 ENABLE_WIDGET = "false"
 # Módulos do loader liberados por deploy (return-link | post-add-discovery | city-search). Não amplia páginas.

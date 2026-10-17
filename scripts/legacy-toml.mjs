@@ -12,7 +12,7 @@ if (!existsSync(source)) { console.error(`falta wrangler.${loja}.resolved.toml (
 let toml = readFileSync(source, 'utf8');
 if (/LEGACY_MAP|LEGACY_REDIRECT/.test(toml)) { console.error('o TOML resolvido já tem LEGACY_*: confira antes de gerar de novo'); process.exit(1); }
 if (!/^\[vars\]$/m.test(toml)) { console.error('TOML sem [vars]'); process.exit(1); }
-toml = toml.replace(/^\[vars\]$/m, '[vars]\n# Loja antiga: produto -> mesmo produto na loja única; home/listagens/coleções -> região no storefront (src/legacy-redirect.js).\nLEGACY_REDIRECT = "on"');
+toml = toml.replace(/^\[vars\]$/m, '[vars]\n# Loja antiga: produto -> mesmo produto na loja única; home/listagens/coleções -> região no storefront (src/legacy-redirect.js).\nLEGACY_REDIRECT = "on"\n# A loja única está em loja.useorigens.com.br/useorigens desde 16/10/2026: o redirect vai direto para lá.\nSINGLE_STORE_DOMAIN = "next"');
 toml += `\n# Mapa slug antigo -> slug novo na usesul (gerado da reconciliação da loja única).\n[[kv_namespaces]]\nbinding = "LEGACY_MAP"\nid = "${kvId}"\n`;
 const out = new URL(`../wrangler.${loja}.legado.resolved.toml`, import.meta.url);
 writeFileSync(out, toml);
