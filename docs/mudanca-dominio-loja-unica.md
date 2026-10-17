@@ -17,9 +17,9 @@ os produtos, slugs, variantes, cupons e pedidos não mudam, só o host e o prefi
 ## Antes (sem pressa)
 
 1. DNS na zona `useorigens.com.br`: `loja` apontando para a INK, **Proxied**, conforme a INK pedir.
-2. **Storefront** (repositório useorigens): `src/lib/ink/config.ts` `STORE_PRODUCT_URL_BASE["use-sul"]`, `src/lib/site.ts`, `src/lib/cart-mirror/constants.ts` e `src/lib/editorial/collections.ts` usam `www.usesul.com.br/usesul`.
-   O índice de peças **descarta** a peça cuja URL da INK não bate com `STORE_PRODUCT_URL_BASE`. Por isso essas mudanças têm de ir ao ar junto com a troca, senão o sync esvazia a Sul.
-   A navbar do Worker também só aceita links de coleção do host que ele atende.
+2. **Storefront** (repositório useorigens, #94): já está pronto atrás de `NEXT_PUBLIC_INK_SUL_DOMAIN=next` no Railway, que entra no build.
+   O sync aceita a URL da INK nos dois domínios, então nenhuma peça cai no meio da troca.
+   O roteiro completo do dia, com valores, conferência e rollback, está em `docs/migracao-ink/mudanca-dominio-loja-unica.md` naquele repositório.
 3. Conferir as `--var` da versão no ar (`wrangler versions view <versão> --name use-sul-widget`). Qualquer caminho com `/usesul` em `WIDGET_ALLOWLIST` passa a ser `/useorigens`.
 
 ## No dia (dono), nesta ordem
@@ -32,6 +32,7 @@ node scripts/domain-move-toml.mjs                                  # 3. gera wra
 npx wrangler deploy -c wrangler.useorigens.resolved.toml --dry-run --var ...
 npx wrangler deploy -c wrangler.useorigens.resolved.toml --var ...    # mesmas --var da versão no ar
 node scripts/domain-move-routes.mjs apply --step=drop-old          # 4. sem a exclusão antiga, www.usesul.com.br/* inteiro chama o Worker
+# storefront: NEXT_PUBLIC_INK_SUL_DOMAIN=next no Railway (novo build) e um sync manual
 # 5. Norte e Centro-Oeste: redeploy do TOML legado com --var SINGLE_STORE_DOMAIN:next
 ```
 

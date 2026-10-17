@@ -6,6 +6,7 @@ import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
 import { createListSession, LIST_SESSION_PATH } from './list-session.js';
 import { createPromotionsGateway, PROMOTIONS_PATH } from './promotions-gateway.js';
+import { createTopBarGateway, TOP_BAR_PATH } from './top-bar-gateway.js';
 import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommendations-gateway.js';
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
@@ -264,12 +265,12 @@ function withRegionCookie(response, region) {
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
 // Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
-export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, recommendations = null, guide = null, themeSource = null } = {}) {
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, themeSource = null } = {}) {
   const services = new Map();
   // Por loja E região (loja única: a loja vista de cada região tem a própria navbar, busca, guia…).
   const servicesOf = (store) => {
     const key = (store.viewKey ?? store.id) + '|' + store.inkHost;
-    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
+    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
     return services.get(key);
   };
   return {
@@ -363,6 +364,10 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       // Cupons e promoções do CMS: só com true + promo-fab; caso contrário a INK responde (404 dela).
       if (url.pathname === PROMOTIONS_PATH) {
         return mode === 'true' && features.features.includes('promo-fab') ? servicesOf(view).promotions.handle(request) : passThrough(request, upstream);
+      }
+      // Faixa do topo do CMS: só com true + top-bar; caso contrário a INK responde (404 dela).
+      if (url.pathname === TOP_BAR_PATH) {
+        return mode === 'true' && features.features.includes('top-bar') ? servicesOf(view).topBar.handle(request) : passThrough(request, upstream);
       }
       // Sessão de compra de "Meus Lugares": só com true + list-session; caso contrário a INK responde (404 dela).
       if (url.pathname === LIST_SESSION_PATH) {
