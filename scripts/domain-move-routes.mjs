@@ -5,6 +5,9 @@
 //   node scripts/domain-move-routes.mjs apply --step=new-exclusion   ANTES do deploy: cria loja.useorigens.com.br/useorigens/* sem Worker (login, carrinho, checkout fora do Worker)
 //   node scripts/domain-move-routes.mjs apply --step=drop-old        DEPOIS do deploy: apaga www.usesul.com.br/usesul/* sem Worker (senão ela vence o www.usesul.com.br/* do redirect)
 //   node scripts/domain-move-routes.mjs apply --step=restore-old     rollback: recria www.usesul.com.br/usesul/* sem Worker
+//   node scripts/domain-move-routes.mjs apply --step=copy-extra      DEPOIS do deploy: recria no host novo as rotas COM Worker do host antigo que não estão no TOML
+//                                                                    (ex.: as duas telas do checkout do tema, criadas na zona por um PR próprio)
+import { readFileSync } from 'node:fs';
 import { cf, zoneOf, listRoutes } from './lib/cf-api.mjs';
 import { STORES } from '../src/stores.js';
 
@@ -22,6 +25,13 @@ for (const side of [OLD, NEW]) {
 }
 const routesOf = async (side) => (await listRoutes(zones[side.zone])).filter((r) => r.pattern.startsWith(side.host + '/'));
 const exclusionOf = (routes, side) => routes.find((r) => r.pattern === side.exclusion && !r.script);
+// Rotas com Worker do host antigo que o wrangler.production.toml não declara (criadas direto na zona): o `wrangler deploy` do domínio novo não as leva.
+const tomlPatterns = new Set([...readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8').matchAll(/^pattern = "([^"]+)"$/gm)].map((m) => m[1]));
+const translate = (pattern) => {
+  const path = pattern.slice(OLD.host.length);
+  return NEW.host + (path === inkBase || path.startsWith(inkBase + '/') || path.startsWith(inkBase + '*') ? nextInk.base + path.slice(inkBase.length) : path);
+};
+const extrasOf = (routes) => routes.filter((r) => r.script && !tomlPatterns.has(r.pattern) && r.pattern !== OLD.host + '/*').map((r) => ({ from: r.pattern, to: translate(r.pattern), script: r.script }));
 
 if (cmd === 'plan') {
   for (const side of [OLD, NEW]) {
@@ -31,6 +41,10 @@ if (cmd === 'plan') {
   }
   console.log('\nnew-exclusion: ' + (exclusionOf(await routesOf(NEW), NEW) ? 'já existe' : 'criaria ' + NEW.exclusion));
   console.log('drop-old:      ' + (exclusionOf(await routesOf(OLD), OLD) ? 'apagaria ' + OLD.exclusion : 'já não existe'));
+  const extras = extrasOf(await routesOf(OLD));
+  const have = new Set((await routesOf(NEW)).map((r) => r.pattern));
+  if (!extras.length) console.log('copy-extra:    nenhuma rota com Worker fora do TOML no host antigo');
+  for (const e of extras) console.log(`copy-extra:    \x1b[33mATENÇÃO\x1b[0m ${e.from} (fora do TOML) -> ${have.has(e.to) ? 'já existe ' : 'criaria '}${e.to} -> ${e.script}`);
 } else if (cmd === 'apply' && step === 'new-exclusion') {
   if (exclusionOf(await routesOf(NEW), NEW)) console.log('já existe: ' + NEW.exclusion);
   else { await cf('POST', `/zones/${zones[NEW.zone]}/workers/routes`, { pattern: NEW.exclusion }); console.log('criada: ' + NEW.exclusion + ' (sem Worker)'); }
@@ -40,10 +54,22 @@ if (cmd === 'plan') {
   const ex = exclusionOf(routes, OLD);
   if (!ex) console.log('já não existe: ' + OLD.exclusion);
   else { await cf('DELETE', `/zones/${zones[OLD.zone]}/workers/routes/${ex.id}`); console.log('apagada: ' + OLD.exclusion); }
+} else if (cmd === 'apply' && step === 'copy-extra') {
+  const newRoutes = await routesOf(NEW);
+  if (!newRoutes.some((r) => r.script)) { console.error('recusado: o host novo ainda não tem rotas com Worker (faça o deploy antes)'); process.exit(1); }
+  if (!exclusionOf(newRoutes, NEW)) { console.error('recusado: falta a exclusão ' + NEW.exclusion + ' (rode --step=new-exclusion)'); process.exit(1); }
+  const have = new Set(newRoutes.map((r) => r.pattern));
+  const extras = extrasOf(await routesOf(OLD));
+  if (!extras.length) console.log('nenhuma rota extra para copiar');
+  for (const e of extras) {
+    if (have.has(e.to)) { console.log('já existe: ' + e.to); continue; }
+    await cf('POST', `/zones/${zones[NEW.zone]}/workers/routes`, { pattern: e.to, script: e.script });
+    console.log(`criada: ${e.to} -> ${e.script} (de ${e.from})`);
+  }
 } else if (cmd === 'apply' && step === 'restore-old') {
   if (exclusionOf(await routesOf(OLD), OLD)) console.log('já existe: ' + OLD.exclusion);
   else { await cf('POST', `/zones/${zones[OLD.zone]}/workers/routes`, { pattern: OLD.exclusion }); console.log('recriada: ' + OLD.exclusion + ' (sem Worker)'); }
 } else {
-  console.error('uso: node scripts/domain-move-routes.mjs plan | apply --step=new-exclusion|drop-old|restore-old');
+  console.error('uso: node scripts/domain-move-routes.mjs plan | apply --step=new-exclusion|drop-old|copy-extra|restore-old');
   process.exit(1);
 }

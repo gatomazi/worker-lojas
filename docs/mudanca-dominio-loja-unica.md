@@ -32,6 +32,7 @@ node scripts/domain-move-toml.mjs                                  # 3. gera wra
 npx wrangler deploy -c wrangler.useorigens.resolved.toml --dry-run --var ...
 npx wrangler deploy -c wrangler.useorigens.resolved.toml --var ...    # mesmas --var da versão no ar
 node scripts/domain-move-routes.mjs apply --step=drop-old          # 4. sem a exclusão antiga, www.usesul.com.br/* inteiro chama o Worker
+node scripts/domain-move-routes.mjs apply --step=copy-extra        #    rotas com Worker criadas direto na zona (fora do TOML, ex.: telas do checkout do tema) também no host novo
 # storefront: NEXT_PUBLIC_INK_SUL_DOMAIN=next no Railway (novo build) e um sync manual
 # 5. Norte e Centro-Oeste: redeploy do TOML legado com --var SINGLE_STORE_DOMAIN:next
 ```
