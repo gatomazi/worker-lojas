@@ -6,19 +6,23 @@
 // Configuração: o CMS do storefront publica por região (/api/ink-theme/<região>, contrato v1). O Worker lê no SERVIDOR (origem fixa de stores.js,
 // sem cabeçalhos do visitante), valida estritamente e só então monta o CSS. Duas chaves por superfície: a feature do deploy (teto técnico) E o
 // interruptor do painel (decisão do dono). Sem configuração válida = nenhuma injeção (a INK fica nativa), nunca um tema inventado.
-// Contrato v1: { v:1, region, surfaces:{ pdp, cart, checkout }, tokens:{ action, onAction, selected, onSelected, ground, surface, paper, ink,
+// Contrato v1: { v:1, region, surfaces:{ pdp, cart, checkout, account? }, tokens:{ action, onAction, selected, onSelected, ground, surface, paper, ink,
 //   inkSoft, inkMute, line, photo, radius:0|8, font:'origens'|'ink' } } — cores só #rrggbb (nenhum texto livre vira CSS). `photo` = o cinza das fotos da INK
 //   (fundo da galeria e das miniaturas), separado do fundo da página (`ground`).
 //   Opcional: incentive:{ enabled, kind:'free-shipping', unit:'items', threshold, ufs } — a REPRESENTAÇÃO de uma regra comercial que a INK já aplica
 //   (o painel exige a confirmação do dono para ligar). Só por peças: a regra por valor a INK mostra sozinha (barra nativa). Inválido = sem incentivo,
 //   o tema continua. Vai para a página como atributo do <body> (data-origens-incentive="2|PR,SC,RS"), só com a feature cart-incentive.
+//   `surfaces.account` (theme-account, as páginas de conta: login, pedidos, rastreio, avaliação, trocas) é OPCIONAL: o storefront publicado antes dela
+//   manda só pdp/cart/checkout, e ausente = desligada (nunca derruba o tema que já está no ar). Presente e não booleano = payload recusado, como as outras.
 import { ACTIVE_STORE } from './stores.js';
 import { contentHash } from './loader-source.js';
 
 export const THEME_PATH = '/__origens/theme.css';
 export const THEME_VERSION = '1';
-export const SURFACES = Object.freeze(['pdp', 'cart', 'checkout']);
-export const SURFACE_FEATURE = Object.freeze({ pdp: 'theme-pdp', cart: 'theme-cart', checkout: 'theme-checkout' });
+export const SURFACES = Object.freeze(['pdp', 'cart', 'checkout', 'account']);
+export const SURFACE_FEATURE = Object.freeze({ pdp: 'theme-pdp', cart: 'theme-cart', checkout: 'theme-checkout', account: 'theme-account' });
+// Superfícies que o contrato aceita AUSENTES (= desligadas): as que chegaram depois do v1 publicado.
+const OPTIONAL_SURFACES = Object.freeze(['account']);
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const COLOR_KEYS = ['action', 'onAction', 'selected', 'onSelected', 'ground', 'surface', 'paper', 'photo', 'ink', 'inkSoft', 'inkMute', 'line'];
 const FONTS = Object.freeze({
@@ -46,7 +50,11 @@ export function normalizeTheme(data, store = ACTIVE_STORE) {
   const s = data.surfaces; const t = data.tokens;
   if (!s || typeof s !== 'object' || !t || typeof t !== 'object') return null;
   const surfaces = {};
-  for (const key of SURFACES) { if (typeof s[key] !== 'boolean') return null; surfaces[key] = s[key]; }
+  for (const key of SURFACES) {
+    if (s[key] === undefined && OPTIONAL_SURFACES.includes(key)) { surfaces[key] = false; continue; }
+    if (typeof s[key] !== 'boolean') return null;
+    surfaces[key] = s[key];
+  }
   const tokens = {};
   for (const key of COLOR_KEYS) { if (typeof t[key] !== 'string' || !HEX.test(t[key])) return null; tokens[key] = t[key].toLowerCase(); }
   if (t.radius !== 0 && t.radius !== 8) return null;
@@ -129,6 +137,28 @@ export function checkoutPageKind(pathname, base) {
   return m && Object.hasOwn(CHECKOUT_STEPS, m[1]) ? CHECKOUT_STEPS[m[1]] : null;
 }
 
+// ── Páginas de conta que recebem o tema (theme-account) ─────────────────────────────────────────────────────────────────────
+// login     <inkBase>/store_sessions/new (só a TELA; o POST /store_sessions e qualquer outro caminho de sessão, nunca)
+// orders    <inkBase>/orders · tracking <inkBase>/orders/trackings · order <inkBase>/orders/<pedido>
+// review    <inkBase>/orders/<pedido>/review/<id> e <inkBase>/orders/guest_reviews/new
+// exchanges <inkBase>/exchanges_and_returns
+// login e review ficam FORA da casca (shellPageKind): recebem só o atributo e o CSS, nenhum script nosso (ACCOUNT_CSS_ONLY). As demais são páginas de casca:
+// o tema da conta entra junto com o loader e a navbar. Função pura, testada; o caminho (que pode levar o número do pedido) nunca vai para log.
+export const ACCOUNT_CSS_ONLY = Object.freeze(['login', 'review']);
+const ORDER_ID = '[A-Za-z0-9_-]{1,64}';
+export function accountPageKind(pathname, base) {
+  if (typeof pathname !== 'string' || typeof base !== 'string' || base === '') return null;
+  if (pathname.slice(0, base.length + 1) !== base + '/') return null;
+  const rest = pathname.slice(base.length + 1).replace(/\/$/, '');
+  if (rest === 'store_sessions/new') return 'login';
+  if (rest === 'exchanges_and_returns') return 'exchanges';
+  if (rest === 'orders') return 'orders';
+  if (rest === 'orders/trackings') return 'tracking';
+  if (rest === 'orders/guest_reviews/new' || new RegExp('^orders/' + ORDER_ID + '/review/' + ORDER_ID + '$').test(rest)) return 'review';
+  if (new RegExp('^orders/' + ORDER_ID + '$').test(rest)) return 'order';
+  return null;
+}
+
 // ── CSS ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Tudo sob body[data-origens-theme~="<superfície>"] (o Worker põe o atributo no <body> da resposta): nada vale fora das páginas tematizadas, e cada
 // superfície desliga sozinha. Nenhuma regra muda `display` de algo que a INK mostra/esconde (classes `hidden`, modais, campos do cartão) — os únicos
@@ -143,6 +173,7 @@ export function checkoutPageKind(pathname, base) {
 const P = 'body[data-origens-theme~="pdp"]';
 const C = 'body[data-origens-theme~="cart"]';
 const K = 'body[data-origens-theme~="checkout"]';
+const A = 'body[data-origens-theme~="account"]';
 const ANY = 'body[data-origens-theme]';
 
 function tokensCss(tokens) {
@@ -521,7 +552,55 @@ function checkoutCss() {
   ].join('');
 }
 
-const SURFACE_CSS = { pdp: pdpCss, cart: cartCss, checkout: checkoutCss };
+// Páginas de conta: login (fora da casca: o cartão isolado da INK), pedidos, detalhe do pedido, rastreio, avaliação e trocas (no layout da loja). Os mesmos
+// botões, campos, títulos e linhas do checkout: a conta parece a mesma loja do começo ao fim. Seletores conferidos no DOM real em 17/10/2026 (login,
+// rastreio e trocas públicos; pedidos, detalhe e avaliação vistos logados, só a estrutura). Nenhum `display` do que a INK mostra/esconde.
+function accountCss() {
+  const CARD = A + ' :is(section,div).bg-white.rounded-lg.border';
+  const LOGIN = A + ' div.rounded-lg.bg-white.shadow';
+  return [
+    A + '{font-family:var(--o-font);color:var(--o-ink)}',
+    A + ' :is(button,input,select,textarea){font-family:inherit}',
+    // Cartões (pedidos, detalhe, avaliação): superfície branca com linha fina, sem sombra, cantos do tema.
+    CARD + '{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important;box-shadow:none!important;background:var(--o-surface)!important}',
+    // Títulos: "Compras" e o número do pedido na hierarquia do site (o mesmo peso dos títulos do checkout).
+    A + ' h1.text-4xl{font-weight:700;font-size:clamp(28px,3vw,40px);line-height:1.1;letter-spacing:-.015em;color:var(--o-ink)!important}',
+    A + ' div.container > nav p.text-2xl{font-weight:700;font-size:clamp(22px,2.4vw,28px);letter-spacing:-.01em;color:var(--o-ink)}',
+    // "Voltar" do detalhe: alvo de 44 px pelo padding (sem mexer no fluxo da INK).
+    A + ' div.container > nav a{padding:10px;margin:-10px;color:var(--o-ink)}',
+    A + ' :is(p,span).text-gray-500,' + A + ' :is(p,span).text-gray-600{color:var(--o-ink-mute)!important}',
+    A + ' :is(p,span).text-gray-900,' + A + ' :is(p,span).text-gray-800{color:var(--o-ink)!important}',
+    CARD + ' p.text-lg.font-bold{font-weight:700;letter-spacing:.01em}',
+    A + ' :is(p,span).text-green-500{color:var(--o-ok)!important}',
+    // "Ver compra" / "Rastrear compra": a ação principal do site; "Avaliar": secundária, em linha fina; desabilitado legível, sem parecer clicável.
+    btn(A + ' a.bg-store-button,' + A + ' button.bg-store-button', 'cta'),
+    ghost(A + ' button.border.border-gray-400'),
+    A + ' :is(button,input):disabled{opacity:.55;cursor:not-allowed}',
+    // Rastreio (CPF/CNPJ e número do pedido) e login (CPF/CNPJ): campos e botão do checkout.
+    field(A + ' input:is([type="text"],[type="email"],[type="tel"],[type="number"],[type="password"])'),
+    A + ' input::placeholder{color:var(--o-ink-mute);opacity:1}',
+    A + ' label.text-gray-900{color:var(--o-ink);font-weight:600}',
+    btn(A + ' form[action$="/orders/trackings/search"] input[type="submit"],' + A + ' form[action$="/store_sessions"] button[type="submit"]', 'cta'),
+    A + ' form[action$="/store_sessions"] button[type="submit"] p{color:inherit!important;font:inherit}',
+    A + ' form[action$="/orders/trackings/search"] hr{border-color:var(--o-line-soft)}',
+    // Login: o fundo e o cartão isolados da INK com a cara do site; o nome ao lado do símbolo, como no checkout; "Voltar" com alvo de 44 px.
+    A + ' div.bg-gray-100.min-h-screen{background:var(--o-paper)!important}',
+    LOGIN + '{border:1px solid var(--o-line-soft);border-radius:var(--o-radius)!important;box-shadow:none!important}',
+    LOGIN + ' a:has(> img) + p{font-family:var(--o-word);font-weight:800;font-size:26px;line-height:1;letter-spacing:.02em;text-transform:uppercase;color:var(--o-ink)!important}',
+    LOGIN + ' a.cursor-pointer.w-fit{min-height:44px;color:var(--o-ink)}',
+    LOGIN + ' p.font-semibold.text-gray-800{font-weight:700;letter-spacing:-.01em}',
+    // Resumo do pedido (detalhe): miniaturas no cinza das fotos, cantos do tema.
+    CARD + ' img{border-radius:var(--o-radius)!important;background:var(--o-photo)}',
+    // Trocas e devoluções: título e perguntas na tipografia do site, linhas finas entre as perguntas.
+    A + ' main.main-faq h4{font-weight:700;font-size:clamp(26px,2.8vw,36px);letter-spacing:-.015em;color:var(--o-ink)}',
+    A + ' main.main-faq details{border-bottom:1px solid var(--o-line-soft)}',
+    A + ' main.main-faq summary{min-height:48px;font-weight:600;color:var(--o-ink);cursor:pointer}',
+    A + ' main.main-faq details p{color:var(--o-ink-soft);line-height:1.6;max-width:72ch}',
+    A + ' :is(a,button,summary):focus-visible{outline:2px solid var(--o-ink);outline-offset:3px}'
+  ].join('');
+}
+
+const SURFACE_CSS = { pdp: pdpCss, cart: cartCss, checkout: checkoutCss, account: accountCss };
 
 // CSS de UMA combinação de superfícies. O @import da fonte vem primeiro (regra do CSS).
 export function buildThemeCss(theme, surfaces) {
@@ -555,13 +634,15 @@ const PALETTE_SELECTION = Object.freeze({ acento: '#ecdcb8' });
 function paletteCss(theme, list) {
   const roles = theme.palette && theme.palette !== 'neutra' ? PALETTES[theme.palette]?.[theme.region] : null;
   if (!roles) return '';
-  const scopes = [list.includes('cart') ? 'body[data-origens-theme~="cart"] .cart-drawer' : null, list.includes('checkout') ? 'body[data-origens-theme~="checkout"]' : null].filter(Boolean);
+  // A conta também: o mesmo botão carvão, a mesma tinta e o off-white quente do checkout (a pessoa sai de um e entra na outra).
+  const scopes = [list.includes('cart') ? 'body[data-origens-theme~="cart"] .cart-drawer' : null, list.includes('checkout') ? 'body[data-origens-theme~="checkout"]' : null, list.includes('account') ? A : null].filter(Boolean);
   if (scopes.length === 0) return '';
   const vars = Object.entries(roles).map(([role, value]) => '--o-' + role + ':' + value).join(';');
   const sel = scopes.join(',');
   return sel + '{' + vars + '}' +
     scopes.map((s) => s + ' ::selection').join(',') + '{background:' + PALETTE_SELECTION[theme.palette] + ';color:' + roles.ink + '}' +
-    (list.includes('checkout') ? 'body[data-origens-theme~="checkout"] :is(input,textarea){caret-color:' + roles.selected + '}' : '');
+    (list.includes('checkout') ? 'body[data-origens-theme~="checkout"] :is(input,textarea){caret-color:' + roles.selected + '}' : '') +
+    (list.includes('account') ? A + ' :is(input,textarea){caret-color:' + roles.selected + '}' : '');
 }
 
 // URL do CSS: superfícies + hash do conteúdo (mudou o tema publicado ou o código = URL nova; o navegador guarda por um ano).

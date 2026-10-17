@@ -55,12 +55,13 @@ test('shellPageKind: exactly the non-transactional pages of the store; login, ca
   assert.equal(kind('/usesul/products'), 'products'); assert.equal(kind('/usesul/products/'), 'products');
   assert.equal(kind('/usesul/collections/novidades'), 'collection'); assert.equal(kind('/usesul/collections/fala-daqui/'), 'collection');
   assert.equal(kind('/usesul/about'), 'about');
+  assert.equal(kind('/usesul/exchanges_and_returns'), 'exchanges'); assert.equal(kind('/usesul/exchanges_and_returns/'), 'exchanges');
   assert.equal(kind('/usesul/orders'), 'orders');
   assert.equal(kind('/usesul/orders/123456'), 'order'); assert.equal(kind('/usesul/orders/trackings'), 'order'); assert.equal(kind('/usesul/orders/A1b2_c3-d4'), 'order');
   for (const bad of ['/usesul/store_sessions/new', '/usesul/store_sessions', '/usesul/cart', '/usesul/cart/checkout_cart_items', '/usesul/checkout', '/usesul/checkout/contact_and_shipping_details',
     '/usesul/product/serra-catarinense', '/usesul/orders/guest_reviews/new', '/usesul/orders/1/2', '/usesul/orders//', '/usesul/collections', '/usesul/collections/', '/usesul/collections/A', '/usesul/collections/a/b',
     '/usesul/collections/-x', '/usesul/aboutx', '/usesul/products/1', '/usesul//', '/usesulx', '/outra', '/', '', '/usesul/api/v1/orders', '/usesul/orders/%2e%2e', '/usesul/orders/a b', '/usesul/orders/' + 'x'.repeat(65),
-    '/usesul/collections/' + 'x'.repeat(129), '/USESUL', '/usesul/about/extra', '/usesul/users/sign_in', '/usesul/account']) assert.equal(kind(bad), null, bad);
+    '/usesul/collections/' + 'x'.repeat(129), '/USESUL', '/usesul/about/extra', '/usesul/users/sign_in', '/usesul/account', '/usesul/exchanges_and_returns/1', '/usesul/exchanges']) assert.equal(kind(bad), null, bad);
   assert.equal(shellPageKind('/usesul', ''), null); assert.equal(shellPageKind(null, '/usesul'), null); assert.equal(shellPageKind('/usesul', undefined), null);
   assert.equal(shellPageKind('/loja/about', '/loja'), 'about', 'the store prefix comes from the per-store config');
 });

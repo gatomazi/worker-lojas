@@ -16,9 +16,11 @@
 // theme-pdp, theme-cart, theme-checkout: tema da compra na INK (src/theme.js), um por superfície (PDP; carrinho e confirmação de adição; as duas telas do
 // checkout). São o TETO do deploy: cada superfície só aparece se também estiver ligada no painel (Aparência › Tema da INK). Desligadas = nem o CSS
 // nem o atributo do <html> nem a leitura da configuração.
+// theme-account: o mesmo tema nas páginas de conta (login, pedidos, detalhe, rastreio, avaliação, trocas; src/theme.js accountPageKind). Login e avaliação
+// recebem só o CSS (nenhum script nosso); as demais são páginas de casca. O mesmo teto: só com a superfície "Conta" ligada no painel.
 // cart-incentive: no carrinho tematizado (theme-cart), o incentivo de frete grátis por quantidade de peças, SÓ quando o painel publica uma regra
 // confirmada (Tema da INK › Incentivo). Sem regra, sem theme-cart ou desligada = nada aparece (a INK fica como é).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'cart-incentive'];
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

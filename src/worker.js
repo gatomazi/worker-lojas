@@ -13,7 +13,7 @@ import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageK
 import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie, clientStore } from './stores.js';
 import { onFormerHost, domainMoveRedirect } from './domain-move.js';
 import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
-import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, incentiveAttr } from './theme.js';
+import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, accountPageKind, ACCOUNT_CSS_ONLY, incentiveAttr } from './theme.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
 // declarou a variável). STORE_ID desconhecido = fail-closed: só o health responde e todo o resto vai direto à INK.
@@ -129,8 +129,10 @@ function serveDiscovery(request, url, mode, features) {
 }
 
 // Tema da compra (src/theme.js) nas páginas de produto e de casca: as superfícies da PDP e do carrinho ligadas no painel E no deploy. Lido em PARALELO
-// com a página da INK (não soma latência); sem configuração válida = []. O checkout tem o próprio caminho (injectCheckoutTheme).
+// com a página da INK (não soma latência); sem configuração válida = []. O checkout, o login e a avaliação têm o próprio caminho (injectCssOnlyTheme).
+// Nas páginas de casca que são da conta (pedidos, detalhe, rastreio, trocas), a superfície da conta entra junto.
 const PAGE_SURFACES = ['pdp', 'cart'];
+const pageSurfaces = (pathname, store) => (accountPageKind(pathname, store.inkBase) !== null ? [...PAGE_SURFACES, 'account'] : PAGE_SURFACES);
 const usesTheme = (features, surfaces) => surfaces.some((s) => features.includes(SURFACE_FEATURE[s]));
 async function pageThemeFor(themeSource, features, surfaces) {
   if (!themeSource || !usesTheme(features, surfaces)) return { theme: null, surfaces: [] };
@@ -163,6 +165,11 @@ class CheckoutBrand {
     link.append('<span data-origens-brand aria-hidden="true">Use Origens</span>', { html: true });
   }
 }
+// Login com o tema da conta: o "Voltar" e o símbolo da loja (links para a home da INK) levam à home do storefront da região, como o logo do checkout.
+class HomeLink {
+  constructor(home) { this.home = home; }
+  element(link) { if (this.home) link.setAttribute('href', this.home); }
+}
 const withTheme = (rewriter, pageTheme, features) => (pageTheme.surfaces.length === 0 ? rewriter : rewriter
   .on('body', new ThemeBodyMarker(pageTheme.surfaces.join(' '), pageTheme.surfaces.includes('cart') && features.includes('cart-incentive') ? incentiveAttr(pageTheme.theme) : ''))
   .on('head', new ThemeLinkInjector(themeLinkTag(pageTheme.theme, pageTheme.surfaces))));
@@ -174,9 +181,13 @@ async function injectLoader(request, url, mode, allowlist, features, scope, stor
   // Fail-closed: fora do escopo nada é reescrito, e nem sequer se olha a resposta.
   if (mode === 'true' && !allowlisted) return passThrough(request, upstream);
 
+  const surfaces = pageSurfaces(url.pathname, store);
+  // Páginas da conta com theme-account no deploy: a página é pedida sem compressão (a INK entrega as telas dinâmicas em brotli, que não pode ser reescrito;
+  // a Cloudflare comprime de novo para o cliente). Sem a feature, o pedido à INK é o de sempre.
+  const asked = mode === 'true' && surfaces.includes('account') && features.features.includes(SURFACE_FEATURE.account) ? uncompressed(request) : request;
   const [response, pageTheme] = await Promise.all([
-    passThrough(request, upstream),
-    mode === 'true' ? pageThemeFor(themeSource, features.features, PAGE_SURFACES).catch(() => ({ theme: null, surfaces: [] })) : { theme: null, surfaces: [] }
+    passThrough(asked, upstream),
+    mode === 'true' ? pageThemeFor(themeSource, features.features, surfaces).catch(() => ({ theme: null, surfaces: [] })) : { theme: null, surfaces: [] }
   ]);
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html')) return response;
@@ -238,24 +249,29 @@ async function serveThemeCss(request, url, mode, features, themeSource) {
   return css(buildThemeCss(theme, surfaces), fresh ? IMMUTABLE : SHORT);
 }
 
-// Telas do checkout (contato/entrega e pagamento): SÓ o atributo no <body>, o <link> do CSS e o nome ao lado do logo. Nenhum script nosso, nenhum nó da INK tocado, nada
-// guardado; o caminho (que leva o uuid do carrinho) nunca vai para log. Qualquer falha = a página original da INK.
-async function injectCheckoutTheme(request, upstream, themeSource, features, store) {
-  // A INK entrega as telas do checkout comprimidas (brotli), e um corpo ainda codificado não pode ser reescrito (medido em 17/10/2026: a página de
-  // produto vem sem compressão, o checkout não). Só aqui, pede-se a página sem compressão; a Cloudflare comprime de novo para o cliente. Os demais
-  // cabeçalhos (cookie de sessão incluído) vão como vieram.
+// Telas só com CSS (o checkout: contato/entrega e pagamento; a conta: login e avaliação): SÓ o atributo no <body>, o <link> do CSS e, no checkout, o nome ao
+// lado do logo; no login, o "Voltar" e o símbolo para a home do storefront. Nenhum script nosso, nenhum outro nó da INK tocado, nada guardado; o caminho
+// (que leva o uuid do carrinho ou o número do pedido) nunca vai para log. Qualquer falha = a página original da INK.
+// A INK entrega essas telas comprimidas (brotli), e um corpo ainda codificado não pode ser reescrito (medido em 17/10/2026: a página de produto vem sem
+// compressão, o checkout e o login não). Só aqui, pede-se a página sem compressão; a Cloudflare comprime de novo para o cliente. Os demais cabeçalhos
+// (cookie de sessão incluído) vão como vieram.
+function uncompressed(request) {
   const plain = new Request(request, { headers: new Headers(request.headers) });
   plain.headers.set('accept-encoding', 'identity');
-  const [response, theme] = await Promise.all([passThrough(plain, upstream), themeSource.get().catch(() => null)]);
-  if (!activeSurfaces(theme, features).includes('checkout')) return response;
+  return plain;
+}
+async function injectCssOnlyTheme(request, upstream, themeSource, features, store, surface, kind) {
+  const [response, theme] = await Promise.all([passThrough(uncompressed(request), upstream), themeSource.get().catch(() => null)]);
+  if (!activeSurfaces(theme, features).includes(surface)) return response;
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (response.status !== 200 || !contentType.startsWith('text/html') || response.headers.get('content-encoding')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
-  const transformed = new HTMLRewriter()
-    .on('body', new ThemeBodyMarker('checkout'))
-    .on('nav.bg-store-primary a[href]', new CheckoutBrand(clientStore(store).home))
-    .on('head', new ThemeLinkInjector(themeLinkTag(theme, ['checkout'])))
-    .transform(response);
+  let rewriter = new HTMLRewriter()
+    .on('body', new ThemeBodyMarker(surface))
+    .on('head', new ThemeLinkInjector(themeLinkTag(theme, [surface])));
+  if (surface === 'checkout') rewriter = rewriter.on('nav.bg-store-primary a[href]', new CheckoutBrand(clientStore(store).home));
+  if (kind === 'login') rewriter = rewriter.on('a[href="' + store.inkBase + '"]', new HomeLink(clientStore(store).home));
+  const transformed = rewriter.transform(response);
   const headers = new Headers(response.headers);
   headers.delete('content-length');
   headers.delete('etag');
@@ -398,10 +414,23 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
         if (mode !== 'true' || !features.features.includes('theme-checkout') || request.method !== 'GET' || request.headers.has('Turbo-Frame')) return passThrough(request, upstream);
         if (ctx && typeof ctx.passThroughOnException === 'function') ctx.passThroughOnException();
         try {
-          return await injectCheckoutTheme(request, upstream, servicesOf(view).theme, features.features, view);
+          return await injectCssOnlyTheme(request, upstream, servicesOf(view).theme, features.features, view, 'checkout', 'checkout');
         } catch (_) {
           logEvent('error', 'checkout-theme-failed', {});
           return passThrough(request, upstream);
+        }
+      }
+      // Login e avaliação (fora da casca): só com true + theme-account, GET de documento inteiro (nunca Turbo-Frame, nunca o POST do login). A rota do login
+      // (store_sessions/new*) é própria; a avaliação chega pela de pedidos. Sem a feature, a INK responde como sempre. Em exceção a Cloudflare entrega a origem.
+      const accountKind = accountPageKind(url.pathname, store.inkBase);
+      if (accountKind !== null && ACCOUNT_CSS_ONLY.includes(accountKind)) {
+        if (mode !== 'true' || !features.features.includes(SURFACE_FEATURE.account) || request.method !== 'GET' || request.headers.has('Turbo-Frame')) return remember(await passThrough(request, upstream));
+        if (ctx && typeof ctx.passThroughOnException === 'function') ctx.passThroughOnException();
+        try {
+          return remember(await injectCssOnlyTheme(request, upstream, servicesOf(view).theme, features.features, view, 'account', accountKind));
+        } catch (_) {
+          logEvent('error', 'account-theme-failed', {});
+          return remember(await passThrough(request, upstream));
         }
       }
       if (url.pathname === SEARCH_PATH) {
