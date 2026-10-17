@@ -109,20 +109,27 @@ export function evaluateThemePage(html, css) {
 // Só as telas de documento (contato/entrega e pagamento), mais específicas que a exclusão `<host><base>/*` (sem Worker). Os envios do checkout
 // (buyer, shipping_address, process_payment, payment_discount), o carrinho e o login continuam na exclusão: direto na INK.
 export const checkoutRoutes = (host, base) => [`${host}${base}/checkout/contact_and_shipping_details*`, `${host}${base}/checkout/payment_methods*`];
+// Conta (theme-account): a TELA do login (o padrão não casa com o POST /store_sessions) e Trocas e devoluções. Pedidos, rastreio e avaliação já vêm pela rota de pedidos.
+export const accountRoutes = (host, base) => [`${host}${base}/store_sessions/new*`, `${host}${base}/exchanges_and_returns*`];
+/** As rotas de tema por grupo (o release pode criar um grupo inteiro com o deploy e o rollback o apaga). */
+export const themeRouteGroups = (host, base) => ({ checkout: checkoutRoutes(host, base), account: accountRoutes(host, base) });
 
 /**
  * O estado das rotas do checkout num host, a partir das rotas da zona ([{ pattern, script }]). `problems` = o que impede criar/manter as duas com
  * segurança: a exclusão ausente, ou qualquer OUTRA rota com Worker no caminho da compra ou do login.
  */
-export function checkoutRoutesState(routes, { host, base, worker }) {
+export function checkoutRoutesState(routes, { host, base, worker, group = 'checkout' }) {
   const ours = (routes || []).filter((r) => r && typeof r.pattern === 'string' && r.pattern.startsWith(host + '/'));
-  const wanted = checkoutRoutes(host, base);
+  const groups = themeRouteGroups(host, base);
+  const wanted = groups[group];
+  // Autorizadas no caminho da compra/login: as rotas de tema de TODOS os grupos (as do checkout não são problema para a conta, e vice-versa).
+  const authorized = Object.values(groups).flat();
   const have = wanted.filter((p) => ours.some((r) => r.pattern === p && r.script === worker));
   const problems = [];
   if (!ours.some((r) => r.pattern === `${host}${base}/*` && !r.script)) problems.push(`falta a exclusão ${host}${base}/* (sem Worker): sem ela o Worker ficaria no caminho da compra`);
   for (const r of ours) {
-    if (!r.script || wanted.includes(r.pattern)) continue;
-    if (/\/(checkout|cart|store_sessions|login|sign_in)/.test(r.pattern)) problems.push(`rota com Worker no caminho da compra/login fora das duas autorizadas: ${r.pattern}`);
+    if (!r.script || authorized.includes(r.pattern)) continue;
+    if (/\/(checkout|cart|store_sessions|login|sign_in)/.test(r.pattern)) problems.push(`rota com Worker no caminho da compra/login fora das autorizadas: ${r.pattern}`);
   }
   for (const p of wanted) { const r = ours.find((x) => x.pattern === p); if (r && r.script !== worker) problems.push(`${p} aponta para ${r.script || '(sem Worker)'}, não para ${worker}`); }
   return { wanted, have, missing: wanted.filter((p) => !have.includes(p)), problems };
@@ -143,6 +150,40 @@ export function checkoutProbeSet(base) {
     { url: `${base}/store_sessions/new`, exec: false },
     { url: `${base}/product/serra-catarinense`, exec: true },
   ];
+}
+
+/** As sondas de execução da conta: a tela do login e trocas EXECUTAM (e os pedidos, que já executavam); o POST do login e outros caminhos de sessão, o carrinho e o checkout NÃO. */
+export function accountProbeSet(base) {
+  return [
+    { url: `${base}/store_sessions/new`, exec: true },
+    { url: `${base}/exchanges_and_returns`, exec: true },
+    { url: `${base}/orders/trackings`, exec: true },
+    { url: `${base}/store_sessions`, exec: false },
+    { url: `${base}/store_sessions/0`, exec: false },
+    { url: `${base}/cart`, exec: false },
+    { url: `${base}/checkout`, exec: false },
+  ];
+}
+
+/**
+ * Smoke de uma página de conta com o tema. `kind`: 'login' (só CSS: o <body> sinaliza a conta, o <link> pede só a conta, NENHUM loader e, com `home`, o "Voltar"
+ * e o símbolo levam à home do storefront) ou 'shell' (a conta junto com a PDP e o carrinho, UM loader).
+ */
+export function evaluateAccountPage(html, { kind, home = null }) {
+  const problems = [];
+  const text = String(html || '');
+  const loaders = (text.match(/\/__origens\/loader\.js\?v=/g) || []).length;
+  const signal = /<body[^>]*\sdata-origens-theme="([^"]*)"/.exec(text);
+  if (!signal || !signal[1].split(/\s+/).includes('account')) problems.push('o <body> não sinaliza o tema da conta');
+  if (kind === 'login') {
+    if (loaders !== 0) problems.push(`loaders no login: ${loaders} (esperado nenhum)`);
+    if (!/href="\/__origens\/theme\.css\?s=account&(amp;)?v=/.test(text)) problems.push('sem o <link> do CSS do tema da conta');
+    if (home && !text.includes(`href="${home}"`)) problems.push('o "Voltar"/símbolo não leva à home do storefront');
+  } else {
+    if (loaders !== 1) problems.push(`loaders na página: ${loaders} (esperado 1)`);
+    if (!/href="\/__origens\/theme\.css\?s=[a-z,]*account&(amp;)?v=/.test(text)) problems.push('sem o <link> do CSS com a conta');
+  }
+  return { ok: problems.length === 0, problems };
 }
 
 /** Smoke de uma tela do checkout com o tema: o <body> sinaliza o checkout, o <link> pede só a superfície do checkout, e NENHUM loader (o checkout nunca recebe JS nosso). */

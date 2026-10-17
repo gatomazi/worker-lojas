@@ -9,27 +9,31 @@
 //   node scripts/checkout-routes.mjs apply    cria as duas rotas com o Worker (recusa sem a exclusão ou com outra rota no caminho da compra)
 //   node scripts/checkout-routes.mjs remove   apaga as duas (o checkout volta inteiro para a INK)
 //   node scripts/checkout-routes.mjs probe    EVIDÊNCIA (wrangler tail): as duas telas executam o Worker; envios, carrinho e login NÃO (só GET)
+//   --conta                                    os mesmos comandos para as rotas da CONTA (theme-account): a tela do login (store_sessions/new*) e Trocas
+//                                              (exchanges_and_returns*); a sonda prova que o POST do login e outros caminhos de sessão NÃO executam.
 import { cf, zoneOf, listRoutes } from './lib/cf-api.mjs';
 import { probeExecution, printProbe } from './lib/tail-probe.mjs';
-import { checkoutRoutesState, checkoutProbeSet } from './lib/theme-release-lib.mjs';
+import { checkoutRoutesState, checkoutProbeSet, accountProbeSet } from './lib/theme-release-lib.mjs';
 import { STORES } from '../src/stores.js';
 
 const WORKER = 'use-sul-widget';
 const { host, base } = STORES.sul.nextInk;
 const ZONE = host.split('.').slice(-3).join('.');
 const cmd = process.argv[2];
+const group = process.argv.includes('--conta') ? 'account' : 'checkout';
+const label = group === 'account' ? 'conta' : 'checkout';
 
 const zone = await zoneOf(ZONE);
 if (zone.status !== 'active') { console.error(`zona ${ZONE} não está ativa (${zone.status})`); process.exit(1); }
 const routesOfHost = async () => (await listRoutes(zone.id)).filter((r) => r.pattern.startsWith(host + '/'));
-const stateNow = async () => { const routes = await routesOfHost(); return { routes, state: checkoutRoutesState(routes, { host, base, worker: WORKER }) }; };
+const stateNow = async () => { const routes = await routesOfHost(); return { routes, state: checkoutRoutesState(routes, { host, base, worker: WORKER, group }) }; };
 
 if (cmd === 'plan') {
   const { routes, state } = await stateNow();
   console.log(`${host} (${routes.length} rota(s))`);
   for (const r of routes.sort((a, b) => a.pattern.localeCompare(b.pattern))) console.log(`   ${r.pattern} -> ${r.script || '(sem Worker)'}`);
   console.log('');
-  for (const p of state.wanted) console.log(`checkout: ${state.have.includes(p) ? 'já existe' : 'apply criaria'} ${p} -> ${WORKER}`);
+  for (const p of state.wanted) console.log(`${label}: ${state.have.includes(p) ? 'já existe' : 'apply criaria'} ${p} -> ${WORKER}`);
   for (const p of state.problems) console.log('PROBLEMA: ' + p);
   process.exit(state.problems.length ? 1 : 0);
 } else if (cmd === 'apply') {
@@ -39,18 +43,18 @@ if (cmd === 'plan') {
   for (const p of state.have) console.log('já existe: ' + p);
   const after = (await stateNow()).state;
   if (after.missing.length || after.problems.length) { console.error('as rotas não conferem depois do apply: ' + [...after.missing, ...after.problems].join('; ')); process.exit(1); }
-  console.log('conferido: as duas rotas do checkout chamam o Worker. Prova de execução: node scripts/checkout-routes.mjs probe (a propagação leva ~1 min)');
+  console.log(`conferido: as rotas de ${label} chamam o Worker. Prova de execução: node scripts/checkout-routes.mjs probe${group === 'account' ? ' --conta' : ''} (a propagação leva ~1 min)`);
 } else if (cmd === 'remove') {
   const routes = await routesOfHost();
-  const wanted = checkoutRoutesState(routes, { host, base, worker: WORKER }).wanted;
+  const wanted = checkoutRoutesState(routes, { host, base, worker: WORKER, group }).wanted;
   for (const r of routes.filter((x) => wanted.includes(x.pattern))) { await cf('DELETE', `/zones/${zone.id}/workers/routes/${r.id}`); console.log('apagada: ' + r.pattern); }
   const left = (await routesOfHost()).filter((x) => wanted.includes(x.pattern));
   if (left.length) { console.error('ainda existem: ' + left.map((x) => x.pattern).join(', ')); process.exit(1); }
-  console.log('conferido: nenhuma rota do checkout; as telas voltam inteiras para a INK.');
+  console.log(`conferido: nenhuma rota de ${label}; as telas voltam inteiras para a INK.`);
 } else if (cmd === 'probe') {
-  const rows = await probeExecution({ worker: WORKER, host, probes: checkoutProbeSet(base) });
+  const rows = await probeExecution({ worker: WORKER, host, probes: group === 'account' ? accountProbeSet(base) : checkoutProbeSet(base) });
   process.exit(printProbe(rows) ? 0 : 1);
 } else {
-  console.error('uso: node scripts/checkout-routes.mjs plan | apply | remove | probe');
+  console.error('uso: node scripts/checkout-routes.mjs plan | apply | remove | probe [--conta]');
   process.exit(2);
 }

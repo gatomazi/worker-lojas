@@ -26,6 +26,17 @@ zone_name = "useorigens.com.br"
 pattern = "loja.useorigens.com.br/useorigens/checkout/payment_methods*"
 zone_name = "useorigens.com.br"
 
+# Conta (tema da conta, theme-account): a TELA do login, só GET de documento (o padrão não casa com o POST /store_sessions nem com outro caminho de sessão;
+# o Worker só põe o atributo e o CSS, nenhum script nosso, e sem theme-account só repassa a página) e Trocas e devoluções (página de conteúdo: casca, com a
+# navbar como "sobre"). Pedidos, detalhe, rastreio e avaliação já chegam pela rota de pedidos. Prova: node scripts/checkout-routes.mjs probe --conta.
+[[routes]]
+pattern = "loja.useorigens.com.br/useorigens/store_sessions/new*"
+zone_name = "useorigens.com.br"
+
+[[routes]]
+pattern = "loja.useorigens.com.br/useorigens/exchanges_and_returns*"
+zone_name = "useorigens.com.br"
+
 [[routes]]
 pattern = "loja.useorigens.com.br/__origens/*"
 zone_name = "useorigens.com.br"

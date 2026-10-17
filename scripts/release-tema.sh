@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RELEASE DO TEMA DA COMPRA NA INK (Sul): liga as chaves do tema (theme-pdp, theme-cart; theme-checkout com --add) no Worker use-sul-widget PRESERVANDO o que está em produção.
+# RELEASE DO TEMA DA COMPRA NA INK (Sul): liga as chaves do tema (theme-pdp, theme-cart; theme-checkout ou theme-account com --add) no Worker use-sul-widget PRESERVANDO o que está em produção.
 #
 #   bash scripts/release-tema.sh --check     <- SOMENTE LEITURA: tema publicado no storefront, health, rotas da zona x TOML, captura da versão ativa,
 #                                               plano e dry-run com as variáveis capturadas.
@@ -7,6 +7,10 @@
 #   --add=theme-checkout                     <- liga o tema do checkout (padrão: theme-pdp,theme-cart). As duas rotas do checkout vêm do TOML com este
 #                                               deploy; depois, smoke nas duas telas com TEMA_CHECKOUT_UUID=<carrinho de TESTE> (só GET; o uuid nunca é
 #                                               gravado nem impresso) e a sonda de execução (node scripts/checkout-routes.mjs probe).
+#   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
+#                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
+#                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
+#                                               ainda desligada no painel, só AVISA e confere que o login segue intacto (a chave é o teto; o painel decide).
 #
 # Trava dupla: o argumento --deploy E a confirmação do proprietário (digite a frase pedida, ou exporte RELEASE_CONFIRM=PUBLICAR-TEMA-INK). Exige
 # `npx wrangler login` FEITO PELO PROPRIETÁRIO na conta esperada. NÃO altera rotas, DNS, KV nem regras: as rotas da zona já estão no estado final
@@ -20,21 +24,26 @@
 #      tema no <body>, <link> do CSS, CSS 200 text/css com as regras, UM loader) + uma página de casca com UM loader
 #   Falha em B ou C => `wrangler rollback` para a versão capturada e confirmação de que o health voltou ao que era.
 #
-# As duas rotas do checkout estão no TOML (o deploy apaga as do Worker que ele não declara): o deploy com theme-checkout as cria, o rollback as apaga.
+# As rotas do checkout e as da conta estão no TOML (o deploy apaga as do Worker que ele não declara): o deploy que as cria (por grupo) e o rollback as apaga.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/global-common.sh"
 # A loja única mudou de domínio: o health e o smoke são os do host novo (o global-common ainda fala do www.usesul.com.br, que só redireciona).
 SITE_URL="${UO_TEST_SITE_URL:-https://loja.useorigens.com.br}"; HEALTH_URL="${UO_TEST_HEALTH_URL:-$SITE_URL/__origens/health}"
 SAMPLE_PDP="$SITE_URL/useorigens/product/florianopolis-legado-sc-b88373a3-9f47-418d-a6b4-f27757ac3fa4"
 SHELL_PAGE="$SITE_URL/useorigens/products"
+LOGIN_PAGE="$SITE_URL/useorigens/store_sessions/new"
+TRACKING_PAGE="$SITE_URL/useorigens/orders/trackings"
+STOREFRONT_HOME="${STOREFRONT_URL}/sul"
 PHRASE="PUBLICAR-TEMA-INK"
-usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout' && { log "--add aceita só theme-pdp, theme-cart e theme-checkout (recebido: $ADD)"; exit 2; }
+printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account' && { log "--add aceita só theme-pdp, theme-cart, theme-checkout e theme-account (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
+WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
+ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
 [ -n "$MODE" ] || { usage; log ""; log "Nada foi feito (falta --check ou --deploy)."; exit 2; }
@@ -51,33 +60,47 @@ storefront_theme() {
   local api; api=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/ink-theme/sul" 2>/dev/null)
   local out; out=$(printf '%s' "$api" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j.v!==1||j.region!=="sul"||!j.surfaces)process.exit(1);const on=Object.entries(j.surfaces).filter(([,v])=>v===true).map(([k])=>k);console.log((on.join(",")||"nenhuma")+" | paleta "+(j.palette||"neutra"));process.exit(j.surfaces.pdp&&j.surfaces.cart?0:3)}catch(e){process.exit(1)}})'); local rc=$?
   case $rc in 0) ok "storefront: tema da INK publicado (ligado: $out)" ;; 3) warn "storefront: tema publicado, mas página de produto e/ou carrinho DESLIGADOS no painel ($out): o Worker liga as chaves e essas partes seguem nativas" ;; *) bad "storefront: /api/ink-theme/sul indisponível ou fora do contrato v1" ;; esac
+  # A conta (opcional no contrato: o storefront anterior nem manda o campo). Desligada = a chave do deploy fica pronta e nada aparece até o painel ligar.
+  if printf '%s' "$api" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.exit(JSON.parse(s).surfaces.account===true?0:1)}catch(e){process.exit(1)}})'; then ACCOUNT_ON=1
+  elif [ "$WITH_ACCOUNT" = 1 ]; then warn "storefront: a \"Conta\" está DESLIGADA no painel (ou o storefront ainda não publica surfaces.account): o deploy liga a chave, as páginas de conta seguem nativas e o smoke só confere que o login segue intacto"; fi
 }
 
 # Rotas COM o Worker na zona x as do TOML (o deploy publica as do TOML e APAGA as do Worker que ele não declara — medido em 17/10/2026). Iguais = o deploy não
-# muda o roteamento. A zona sem as duas do checkout (que o TOML declara) = o deploy as cria: esperado com --add=theme-checkout; sem ele só avisa (sem a
-# chave o Worker repassa a página). Qualquer outra diferença para o release. `routes_state` imprime equal | creates-checkout | diverge:<detalhe>.
+# muda o roteamento. A zona sem um GRUPO inteiro de rotas de tema que o TOML declara (checkout: as duas telas; account: a tela do login e trocas) = o deploy
+# cria esse grupo: esperado com a chave do grupo no --add; sem ela só avisa (sem a chave o Worker repassa a página; trocas vira casca com a navbar).
+# Qualquer outra diferença para o release. `routes_state` imprime equal | creates:<grupos> | diverge:<detalhe>.
 routes_state() {
   local live; live=$(node scripts/domain-move-routes.mjs plan 2>/dev/null) || { echo "diverge:rotas da zona ilegíveis (domain-move-routes.mjs plan)"; return; }
   LIVE="$live" node --input-type=module -e '
     import { readFileSync } from "node:fs";
     import(process.argv[1]).then((m) => {
-      const checkout = m.checkoutRoutes("loja.useorigens.com.br", "/useorigens");
+      const groups = m.themeRouteGroups("loja.useorigens.com.br", "/useorigens");
       const toml = m.parseTomlRoutes(readFileSync(process.argv[2], "utf8")).sort(); const live = m.parseLiveRoutes(process.env.LIVE).sort();
       if (JSON.stringify(toml) === JSON.stringify(live)) return console.log("equal");
-      const without = toml.filter((p) => !checkout.includes(p));
-      if (JSON.stringify(without) === JSON.stringify(live)) return console.log("creates-checkout");
+      const names = Object.keys(groups);
+      for (let mask = 1; mask < 1 << names.length; mask++) {
+        const created = names.filter((_, i) => mask & (1 << i));
+        const missing = created.flatMap((g) => groups[g]);
+        if (JSON.stringify(toml.filter((p) => !missing.includes(p))) === JSON.stringify(live)) return console.log("creates:" + created.join(","));
+      }
       console.log("diverge:TOML [" + toml.join(" ") + "] x zona [" + live.join(" ") + "]");
     });' "$LIB" "$CFG"
 }
-CREATES_CHECKOUT=0
+CREATES=""
 routes_match() {
-  local st; st=$(routes_state)
+  local st g; st=$(routes_state)
   case "$st" in
     equal) ok "rotas: as rotas COM Worker na zona são exatamente as do TOML (o deploy não muda o roteamento)" ;;
-    creates-checkout)
-      CREATES_CHECKOUT=1
-      if [ "$WITH_CHECKOUT" = 1 ]; then ok "rotas: zona = TOML menos as duas telas do checkout, que este deploy cria (o rollback as apaga)"
-      else warn "rotas: o deploy vai criar as duas telas do checkout (TOML); sem theme-checkout o Worker só repassa a página"; fi ;;
+    creates:*)
+      CREATES="${st#creates:}"
+      for g in $(printf '%s' "$CREATES" | tr ',' ' '); do
+        case "$g" in
+          checkout) if [ "$WITH_CHECKOUT" = 1 ]; then ok "rotas: zona = TOML menos as duas telas do checkout, que este deploy cria (o rollback as apaga)"
+                    else warn "rotas: o deploy vai criar as duas telas do checkout (TOML); sem theme-checkout o Worker só repassa a página"; fi ;;
+          account)  if [ "$WITH_ACCOUNT" = 1 ]; then ok "rotas: zona = TOML menos a tela do login e trocas, que este deploy cria (o rollback as apaga)"
+                    else warn "rotas: o deploy vai criar a tela do login e trocas (TOML); sem theme-account o login só é repassado e trocas ganha a navbar (casca)"; fi ;;
+        esac
+      done ;;
     *) bad "rotas da zona divergem do TOML: ${st#diverge:}" ;;
   esac
 }
@@ -138,6 +161,30 @@ smoke_theme() {
       done
     done
   fi
+  if [ "$WITH_ACCOUNT" = 1 ]; then
+    local page r
+    if [ "$ACCOUNT_ON" = 1 ]; then
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        page=$(curl -sS --max-time 20 "$LOGIN_PAGE" 2>/dev/null)
+        r=$(printf '%s' "$page" | T_HOME="$STOREFRONT_HOME" node --input-type=module -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const m=await import(process.argv[1]);console.log(JSON.stringify(m.evaluateAccountPage(s,{kind:"login",home:process.env.T_HOME})))})' "$LIB")
+        [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "login: tema da conta no <body>, só o CSS (nenhum loader), \"Voltar\" e símbolo para $STOREFRONT_HOME"; break; }
+        [ "$i" = 12 ] && { bad "login: $(printf '%s' "$r" | json_field problems)"; return 1; }
+        sleep 10
+      done
+      for i in 1 2 3 4 5 6; do
+        page=$(curl -sS --max-time 20 "$TRACKING_PAGE" 2>/dev/null)
+        r=$(printf '%s' "$page" | node --input-type=module -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",async()=>{const m=await import(process.argv[1]);console.log(JSON.stringify(m.evaluateAccountPage(s,{kind:"shell"})))})' "$LIB")
+        [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "rastreio: tema da conta junto com a casca, UM loader"; break; }
+        [ "$i" = 6 ] && { bad "rastreio: $(printf '%s' "$r" | json_field problems)"; return 1; }
+        sleep 10
+      done
+    else
+      # Conta desligada no painel: a chave está no ar, nada muda na página. Confere só que o login responde e segue sem nenhum script nosso.
+      page=$(curl -sS --max-time 20 -w '\n%{http_code}' "$LOGIN_PAGE" 2>/dev/null)
+      if [ "$(printf '%s' "$page" | tail -1)" = 200 ] && ! printf '%s' "$page" | grep -q '__origens/loader\.js'; then ok "login: responde 200 e segue nativo (a \"Conta\" está desligada no painel)"
+      else bad "login: não respondeu 200 ou recebeu um loader com a conta desligada"; return 1; fi
+    fi
+  fi
   local n; n=$(curl -sS --max-time 20 "$SHELL_PAGE" 2>/dev/null | grep -o '/__origens/loader\.js?v=' | wc -l | tr -d ' ')
   [ "$n" = 1 ] && ok "casca ($SHELL_PAGE): UM loader" || { bad "casca: $n loader(s) (esperado 1)"; return 1; }
 }
@@ -180,7 +227,8 @@ log "   versão de rollback: $PREV_VERSION — captura em $CAP"
 
 rollback() {
   log ""; log "!!! ROLLBACK ($1) → versão capturada $PREV_VERSION"
-  if [ "$CREATES_CHECKOUT" = 1 ]; then node scripts/checkout-routes.mjs remove 2>&1 | sed 's/^/!!! /' || log "!!! as rotas do checkout não foram apagadas: node scripts/checkout-routes.mjs remove"; fi
+  case ",$CREATES," in *,checkout,*) node scripts/checkout-routes.mjs remove 2>&1 | sed 's/^/!!! /' || log "!!! as rotas do checkout não foram apagadas: node scripts/checkout-routes.mjs remove" ;; esac
+  case ",$CREATES," in *,account,*) node scripts/checkout-routes.mjs remove --conta 2>&1 | sed 's/^/!!! /' || log "!!! as rotas da conta não foram apagadas: node scripts/checkout-routes.mjs remove --conta" ;; esac
   if npx wrangler rollback "$PREV_VERSION" --name "$WORKER_NAME" --message "release-tema rollback: $1" --yes; then
     sleep 10
     if NOW=$(health_json) && node -e 'import(process.argv[1]).then((m)=>{const a=JSON.parse(process.argv[2]),b=JSON.parse(process.argv[3]);process.exit(m.sameConfig(a,b)&&a.ink_host===b.ink_host?0:1)})' "$ROOT/scripts/lib/release-lib.mjs" "$PREV_HEALTH" "$NOW"; then
@@ -202,6 +250,9 @@ node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.p
 smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
+fi
+if [ "$WITH_ACCOUNT" = 1 ]; then
+  node scripts/checkout-routes.mjs probe --conta 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: a tela do login e trocas executam o Worker; o POST do login, outros caminhos de sessão, carrinho e checkout não" || fail "a sonda das rotas da conta reprovou"
 fi
 
 log ""
