@@ -197,3 +197,22 @@ export function evaluateCheckoutPage(html) {
   if (!/href="\/__origens\/theme\.css\?s=checkout&(amp;)?v=/.test(text)) problems.push('sem o <link> do CSS do tema do checkout');
   return { ok: problems.length === 0, problems };
 }
+
+/**
+ * Smoke da faixa do topo (`top-bar`): o que a INK serve em /__origens/top-bar tem de ser a faixa publicada no storefront (/api/top-bar/<região>), as
+ * mesmas mensagens, na mesma ordem, o mesmo estilo e as mesmas cores; e o loader da página tem de trazer o módulo da faixa. `ink` e `site` são os JSON
+ * já lidos (ou null); `loader` é o texto do loader.js. Retorna { ok, problems, messages }.
+ */
+export function evaluateTopBar(ink, site, loader) {
+  const problems = [];
+  const texts = (p) => (Array.isArray(p?.messages) ? p.messages.map((m) => String(m?.text ?? '')) : []);
+  if (!site || site.v !== 1 || texts(site).length === 0) problems.push('o storefront não tem faixa publicada (sem mensagem no ar, a INK fica com as frases dela)');
+  if (!ink || ink.v !== 1) problems.push('/__origens/top-bar não respondeu o contrato v1 (a feature não está no ar?)');
+  else if (site) {
+    if (JSON.stringify(texts(ink)) !== JSON.stringify(texts(site))) problems.push(`mensagens diferentes: INK ${JSON.stringify(texts(ink))} x storefront ${JSON.stringify(texts(site))}`);
+    if ((ink.style ?? 'marquee') !== (site.style ?? 'marquee')) problems.push(`estilo diferente: INK ${ink.style} x storefront ${site.style}`);
+    if (JSON.stringify(ink.colors ?? null) !== JSON.stringify(site.colors ?? null)) problems.push(`cores diferentes: INK ${JSON.stringify(ink.colors ?? null)} x storefront ${JSON.stringify(site.colors ?? null)}`);
+  }
+  if (!String(loader || '').includes('/__origens/top-bar')) problems.push('o loader.js não traz o módulo da faixa');
+  return { ok: problems.length === 0, problems, messages: texts(ink) };
+}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
+import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
 
 // A produção de 17/10/2026 (versão do domínio novo): 14 features, catálogo, 5 caminhos na allowlist.
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
@@ -137,4 +137,22 @@ test('--update (only new code): the same features go out, nothing turned on or o
   assert.equal(p.deploy.WIDGET_FEATURES, live.vars.WIDGET_FEATURES);
   assert.equal(sameThemeConfig(health, health, []), true);
   assert.equal(sameThemeConfig(health, { ...health, widget_features: health.widget_features.slice(0, -1) }, []), false);
+});
+
+test('top-bar: o release soma a faixa às 18 features de produção sem tirar nenhuma', () => {
+  const live = FEATURES.split(',').concat(['theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account']);
+  const before = { widget_mode: 'true', scope_mode: 'product-catalog', allowlist_size: 5, ink_host: 'loja.useorigens.com.br', served_regions: ['sul', 'norte', 'centro-oeste'], widget_features: live };
+  assert.equal(sameThemeConfig(before, { ...before, widget_features: [...live, 'top-bar'] }, ['top-bar']), true);
+  assert.equal(sameThemeConfig(before, { ...before, widget_features: [...live.slice(1), 'top-bar'] }, ['top-bar']), false);
+});
+
+test('top-bar: a INK tem de servir a MESMA faixa do storefront, e o loader tem de trazer o módulo', () => {
+  const site = { v: 1, region: 'sul', style: 'marquee', messages: [{ id: 'a', text: '📍 Todas as cidades do Sul estampadas' }, { id: 'b', text: '🚚 Frete grátis' }], colors: { background: '#e2b64a', text: '#111111' } };
+  const loader = "const BAR_ENDPOINT = '/__origens/top-bar';";
+  assert.deepEqual(evaluateTopBar(site, site, loader), { ok: true, problems: [], messages: ['📍 Todas as cidades do Sul estampadas', '🚚 Frete grátis'] });
+  assert.equal(evaluateTopBar(null, site, loader).ok, false); // a feature não está no ar
+  assert.equal(evaluateTopBar({ ...site, messages: site.messages.slice(0, 1) }, site, loader).ok, false);
+  assert.equal(evaluateTopBar({ ...site, colors: undefined }, site, loader).ok, false);
+  assert.equal(evaluateTopBar(site, site, 'sem módulo').ok, false);
+  assert.match(evaluateTopBar(site, { ...site, messages: [] }, loader).problems.join(' '), /não tem faixa publicada/);
 });
