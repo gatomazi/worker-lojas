@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTheme, normalizeIncentive, incentiveAttr, activeSurfaces, buildThemeCss, checkoutPageKind, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES, PALETTES } from '../src/theme.js';
+import { normalizeTheme, normalizeIncentive, incentiveAttr, activeSurfaces, buildThemeCss, checkoutPageKind, accountPageKind, ACCOUNT_CSS_ONLY, parseSurfaceParam, themeQuery, createThemeSource, contrast, SURFACES, PALETTES } from '../src/theme.js';
 import { STORES } from '../src/stores.js';
 import { parseFeatures } from '../src/features.js';
 
@@ -15,7 +15,7 @@ const clone = (patch = {}, tokens = {}) => ({ ...structuredClone(GOOD), ...patch
 
 test('normalizeTheme: accepts v1 of THIS store (colours lower-cased), refuses another region, version, missing surface, non-hex colour, radius or font outside the presets', () => {
   const t = normalizeTheme(GOOD, STORES.sul);
-  assert.deepEqual(t.surfaces, { pdp: true, cart: true, checkout: false });
+  assert.deepEqual(t.surfaces, { pdp: true, cart: true, checkout: false, account: false });
   assert.equal(t.tokens.onAction, '#ffffff');
   assert.equal(normalizeTheme(GOOD, STORES.norte), null, 'Sul payload is never Norte');
   assert.equal(normalizeTheme(clone({ v: 2 })), null);
@@ -210,4 +210,43 @@ test('palette "acento" (proposta B, escolhida em 17/10/2026): só na Sul, só ca
   assert.ok(contrast(roles['incentive-soft'], roles['incentive-bg']) >= 4.5);
   assert.ok(contrast(roles['incentive-icon'], roles['incentive-icon-bg']) >= 3);
   assert.ok(contrast(roles.ink, roles.panel) >= 4.5);
+});
+
+test('account surface (theme-account): OPTIONAL in the contract — absent = off and the theme on air keeps working; present must be boolean', () => {
+  // O storefront publicado antes da conta manda só pdp/cart/checkout: nada pode desligar por isso.
+  const before = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }), STORES.sul);
+  assert.ok(before, 'payload without account still valid');
+  assert.equal(before.surfaces.account, false);
+  assert.deepEqual(activeSurfaces(before, ['theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account']), ['pdp', 'cart', 'checkout']);
+  const on = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true, account: true } }), STORES.sul);
+  assert.deepEqual(activeSurfaces(on, ['theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account']), ['pdp', 'cart', 'checkout', 'account']);
+  assert.deepEqual(activeSurfaces(on, ['theme-pdp', 'theme-cart', 'theme-checkout']), ['pdp', 'cart', 'checkout'], 'the deploy feature is the ceiling');
+  for (const bad of ['yes', 1, null]) assert.equal(normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true, account: bad } }), STORES.sul), null, String(bad));
+  assert.deepEqual(parseSurfaceParam('account'), ['account']);
+  assert.deepEqual(parseSurfaceParam('pdp,cart,account'), ['pdp', 'cart', 'account']);
+});
+
+test('accountPageKind: login screen, orders, tracking, order, review and exchanges — never the login POST or another session/checkout path', () => {
+  const k = (p) => accountPageKind(p, '/useorigens');
+  assert.equal(k('/useorigens/store_sessions/new'), 'login');
+  assert.equal(k('/useorigens/orders'), 'orders'); assert.equal(k('/useorigens/orders/'), 'orders');
+  assert.equal(k('/useorigens/orders/trackings'), 'tracking');
+  assert.equal(k('/useorigens/orders/1829670'), 'order');
+  assert.equal(k('/useorigens/orders/1829670/review/55'), 'review'); assert.equal(k('/useorigens/orders/guest_reviews/new'), 'review');
+  assert.equal(k('/useorigens/exchanges_and_returns'), 'exchanges');
+  for (const bad of ['/useorigens/store_sessions', '/useorigens/store_sessions/abc', '/useorigens/store_sessions/new/x', '/useorigens/orders/trackings/search', '/useorigens/orders/1/2',
+    '/useorigens/orders/1/review', '/useorigens/cart', '/useorigens/checkout/payment_methods', '/useorigens/product/x', '/useorigens', '/outra/orders', '/useorigens/orders/' + 'x'.repeat(65)]) assert.equal(k(bad), null, bad);
+  assert.equal(accountPageKind('/useorigens/orders', ''), null);
+  assert.deepEqual([...ACCOUNT_CSS_ONLY], ['login', 'review'], 'login and review never get our script');
+});
+
+test('account CSS: scoped to the account surface, the same button/field language as the checkout, and the acento palette carried to the account', () => {
+  const theme = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true, account: true }, palette: 'acento' }), STORES.sul);
+  const css = buildThemeCss(theme, ['account']);
+  assert.ok(css.includes('body[data-origens-theme~="account"] a.bg-store-button'), 'Ver compra / Rastrear compra as the main action');
+  assert.ok(css.includes('form[action$="/store_sessions"] button[type="submit"]'), 'login submit');
+  assert.ok(css.includes('form[action$="/orders/trackings/search"] input[type="submit"]'), 'tracking submit');
+  assert.ok(css.includes('body[data-origens-theme~="account"]{--o-cta:#1b1d19'), 'acento palette on the account');
+  assert.ok(!buildThemeCss(theme, ['checkout']).includes('data-origens-theme~="account"'), 'nothing of the account without the surface');
+  assert.notEqual(themeQuery(theme, ['pdp', 'cart']), themeQuery(theme, ['pdp', 'cart', 'account']));
 });

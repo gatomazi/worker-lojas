@@ -4,7 +4,7 @@
 import { createRequire } from 'node:module';
 import { shellPageKind } from '../../src/scope.js';
 import { STORES, withInkDomain } from '../../src/stores.js';
-import { checkoutPageKind } from '../../src/theme.js';
+import { checkoutPageKind, accountPageKind } from '../../src/theme.js';
 import { propostaCss } from './propostas-cor.mjs';
 
 // A paleta "acento" (verde com acento ocre, a proposta B escolhida em 17/10/2026) é o padrão do painel; `palette: 'neutra'` volta à derivada dos tokens.
@@ -123,7 +123,7 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
       await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
     });
     const productRe = new RegExp('^' + store.inkBase + '/product/[^/]+$');
-    await ctx.route((u) => u.host === store.inkHost && (productRe.test(u.pathname) || shellPageKind(u.pathname, store.inkBase) !== null || checkoutPageKind(u.pathname, store.inkBase) !== null), async (route) => {
+    await ctx.route((u) => u.host === store.inkHost && (productRe.test(u.pathname) || shellPageKind(u.pathname, store.inkBase) !== null || checkoutPageKind(u.pathname, store.inkBase) !== null || accountPageKind(u.pathname, store.inkBase) !== null), async (route) => {
       const req = route.request();
       // Documento E visitas Turbo (fetch com Accept text/html): em produção a rota do Worker cobre o caminho seja qual for o tipo de pedido. Frames
       // (header Turbo-Frame) também passam pelo Worker, que os devolve intactos — como no real.
@@ -151,5 +151,6 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
   const pii = (page) => [...PII.map((s) => page.locator(s)), page.locator('div:has(> div > a[aria-label="Editar endereço de entrega"]), div:has(> a[aria-label="Editar endereço de entrega"])'), page.locator('li', { hasText: /Entrega para/ })];
   const shot = (page, path, full = false) => page.screenshot({ path, fullPage: full, mask: pii(page), maskColor: '#ff5fa2' });
   const close = async () => { await browser.close(); await mf.dispose(); };
-  return { session, browser, mf, blocked, passed, HOST, store, acceptCookies, shot, close };
+  // `upstream`: o HTML que a "INK" devolve ao Worker no próximo pedido (as provas com estrutura reconstruída, ex. páginas logadas, o trocam antes do pedido).
+  return { session, browser, mf, upstream, blocked, passed, HOST, store, acceptCookies, shot, close };
 }

@@ -30,8 +30,8 @@ export function inScope(scope, allowlist, pathname, store = ACTIVE_STORE) {
 }
 
 // ── Páginas "de casca" (shell): onde só o cabeçalho e o FAB nossos aparecem, sem nenhum módulo de produto ────────────────────────────────────
-// A navbar (header-nav + FAB de WhatsApp + a ponte do carrinho) acompanha o cliente pelas páginas NÃO transacionais da loja: home, listagem, coleções, sobre e
-// conta/pedidos. Ficam FORA, sempre: login (store_sessions), carrinho, checkout e qualquer outro caminho. Só vale com o escopo de catálogo E a feature header-nav.
+// A navbar (header-nav + FAB de WhatsApp + a ponte do carrinho) acompanha o cliente pelas páginas NÃO transacionais da loja: home, listagem, coleções, sobre,
+// conta/pedidos e trocas e devoluções (página de conteúdo, como "sobre"; a solicitação de troca acontece dentro do pedido). Ficam FORA, sempre: login (store_sessions), carrinho, checkout e qualquer outro caminho. Só vale com o escopo de catálogo E a feature header-nav.
 // Função PURA e autocontida: o mesmo código roda no Worker e (via toString) no loader do navegador — uma única definição, testada aqui.
 //   base = prefixo da loja na INK (ex.: "/usesul"). O pathname vem sem query string.
 export function shellPageKind(pathname, base) {
@@ -41,6 +41,7 @@ export function shellPageKind(pathname, base) {
   const rest = pathname.slice(base.length + 1).replace(/\/$/, '');
   if (rest === 'products') return 'products';
   if (rest === 'about') return 'about';
+  if (rest === 'exchanges_and_returns') return 'exchanges';
   if (rest === 'orders') return 'orders';
   if (/^collections\/[a-z0-9][a-z0-9_-]{0,127}$/.test(rest)) return 'collection';
   if (/^orders\/[A-Za-z0-9_-]{1,64}$/.test(rest)) return 'order'; // /orders/<pedido> e /orders/trackings

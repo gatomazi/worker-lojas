@@ -12,6 +12,8 @@ const CONTACT = '/usesul/checkout/contact_and_shipping_details/' + UUID;
 const PAYMENT = '/usesul/checkout/payment_methods/' + UUID;
 const PRODUCT_HTML = readFileSync(new URL('./fixtures/product-page-theme.html', import.meta.url), 'utf8');
 const CHECKOUT_HTML = '<!doctype html><html lang="pt-BR"><head><title>Checkout</title></head><body><nav class="bg-store-primary"><a href="/usesul"><img alt="Use Sul" src="/logo.png"></a></nav><div data-controller="ink-store--checkout"><form id="formPaymentMethods" action="/usesul/checkout/process_payment?cart_uuid=' + UUID + '" method="post"><input type="radio" id="pix" name="cart[payment_type]" value="pix"></form></div></body></html>';
+// Login da INK (estrutura real de 17/10/2026, textos fictícios): "Voltar" e símbolo para a home da loja, o formulário do CPF/CNPJ.
+const LOGIN_HTML = '<!doctype html><html lang="pt-BR"><head><title>Entrar</title></head><body class="font-poppins"><div><div class="px-2 py-8 flex justify-center bg-gray-100 min-h-screen max-h-fit"><div class="p-4 md:p-8 rounded-lg bg-white shadow"><div class="flex flex-col gap-6"><div class="flex flex-col"><a class="flex flex-row gap-2 items-center cursor-pointer w-fit mb-2" href="/usesul"><p class="text-sm">Voltar</p></a><div class="flex flex-row py-7 gap-2 items-center"><a href="/usesul"><img class="max-h-30 w-12 object-cover" src="/logo.png" alt=""></a><p class="text-gray-900 font-bold text-xl">Use Origens</p></div></div><form class="flex flex-col gap-6" action="/usesul/store_sessions" method="post"><input type="text" name="user[document]"><button type="submit" class="rounded-full bg-gray-900"><p class="text-white">Continuar</p></button></form></div></div></div></div></body></html>';
 const TOKENS = { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' };
 const themeOf = (surfaces) => ({ v: 1, region: 'sul', surfaces: { pdp: false, cart: false, checkout: false, ...surfaces }, tokens: TOKENS });
 
@@ -27,9 +29,10 @@ async function worker(features, extra = {}) {
       ...workerModules(), compatibilityDate: '2026-08-01', kvNamespaces: ['CART_REFS'], bindings,
       outboundService: async (request) => {
         const url = new URL(request.url);
-        calls.push({ host: url.host, path: url.pathname, method: request.method, cookie: request.headers.get('cookie') });
+        calls.push({ host: url.host, path: url.pathname, method: request.method, cookie: request.headers.get('cookie'), encoding: request.headers.get('accept-encoding') });
         if (url.host === 'useorigens.com.br') return url.pathname === '/api/ink-theme/sul' ? storefront() : new Response('{}', { status: 404 });
         if (url.pathname.includes('/checkout/')) return new Response(CHECKOUT_HTML, { headers: inkHeaders() });
+        if (url.pathname.includes('/store_sessions')) return new Response(LOGIN_HTML, { headers: inkHeaders() });
         return new Response(PRODUCT_HTML, { headers: inkHeaders() });
       }
     }));
@@ -56,7 +59,7 @@ test('product page: <html data-origens-theme="pdp cart">, ONE theme link in <hea
   assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
   assert.equal(res.headers.get('cache-control'), 'private, no-store');
   const read = calls.find((c) => c.host === 'useorigens.com.br');
-  assert.deepEqual(read, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null }, 'fixed URL, no visitor cookie');
+  assert.deepEqual({ ...read, encoding: undefined }, { host: 'useorigens.com.br', path: '/api/ink-theme/sul', method: 'GET', cookie: null, encoding: undefined }, 'fixed URL, no visitor cookie');
 });
 
 test('incentivo: com theme-cart + cart-incentive e regra válida publicada, a regra vai no <body>; sem a feature, sem o carrinho ou regra inválida, não', async () => {
@@ -139,8 +142,9 @@ test('checkout screens: ONLY the attribute and the CSS link (no loader, no scrip
     assert.match(html, /<body data-origens-theme="checkout">/, path);
     assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=checkout&/);
     assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on checkout');
-    assert.match(html, /<a href="\/usesul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, inside the same link');
-    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', ''), CHECKOUT_HTML, 'nothing else changed');
+    // O logo leva à home do storefront da região (não à home da INK), com o nome ao lado, dentro do mesmo link.
+    assert.match(html, /<a href="https:\/\/useorigens\.com\.br\/sul"><img alt="Use Sul" src="\/logo.png"><span data-origens-brand aria-hidden="true">Use Origens<\/span><\/a>/, 'brand next to the logo, link to the storefront home');
+    assert.equal(html.replace(/ data-origens-theme="checkout"/, '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', '').replace('href="https://useorigens.com.br/sul"', 'href="/usesul"'), CHECKOUT_HTML, 'nothing else changed');
     assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
     assert.equal(res.headers.get('cache-control'), 'private, no-store');
   }
@@ -180,5 +184,81 @@ test('theme.css: same hash = immutable for a year; other hash = current CSS with
   assert.match(res.headers.get('content-type'), /text\/html/, 'INK 404 page (stub) answers, not us');
   res = await get(ALL, '/__origens/theme.css?s=pdp', { method: 'POST' });
   assert.equal(res.status, 405);
+  reset();
+});
+
+test('checkout screens: the page is asked UNCOMPRESSED (INK sends the checkout in brotli, which cannot be rewritten) and the session cookie goes along', async () => {
+  reset();
+  await (await get(ALL, PAYMENT, { headers: { 'accept-encoding': 'gzip, br', cookie: '_ink_session=abc' } })).text();
+  const ink = calls.find((c) => c.path.includes('/checkout/'));
+  assert.equal(ink.encoding, 'identity');
+  assert.equal(ink.cookie, '_ink_session=abc');
+  // Fora do checkout nada muda: a página de produto vai com o que o navegador pediu.
+  await (await get(ALL, PDP, { headers: { 'accept-encoding': 'gzip, br' } })).text();
+  assert.notEqual(calls.find((c) => c.path === PDP).encoding, 'identity');
+});
+
+// ── Conta (theme-account) ──────────────────────────────────────────────────────────────────────────────────────────────
+const ACC = ALL + ',theme-account';
+const withAccount = (account) => { storefront = () => Response.json({ ...themeOf({ pdp: true, cart: true, checkout: true }), surfaces: { pdp: true, cart: true, checkout: true, ...(account === undefined ? {} : { account }) } }); };
+
+test('account shell pages (orders, order, tracking, exchanges): the account surface joins pdp and cart, loader kept, the page asked uncompressed', async () => {
+  for (const path of ['/usesul/orders', '/usesul/orders/1829670', '/usesul/orders/trackings', '/usesul/exchanges_and_returns']) {
+    withAccount(true);
+    const html = await (await get(ACC, path)).text();
+    assert.match(html, /data-origens-theme="pdp cart account"/, path);
+    assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=pdp,cart,account&/, path);
+    assert.equal((html.match(/data-use-origens-widget=/g) || []).length, 1, path + ': loader too');
+    assert.equal(calls.find((c) => c.path === path).encoding, 'identity', path);
+  }
+});
+
+test('account: without theme-account, or with a payload that predates the account switch, the shell pages stay exactly as today', async () => {
+  withAccount(true);
+  let html = await (await get(ALL, '/usesul/orders', {}, { CASE: 'acc-no-feature' })).text();
+  assert.match(html, /data-origens-theme="pdp cart"/); assert.match(links(html)[0], /s=pdp,cart&/);
+  assert.notEqual(calls.find((c) => c.path === '/usesul/orders').encoding, 'identity', 'no uncompressed request without the feature');
+  withAccount(undefined); // storefront publicado antes da conta
+  html = await (await get(ACC, '/usesul/orders', {}, { CASE: 'acc-absent' })).text();
+  assert.match(html, /data-origens-theme="pdp cart"/, 'payload without account = account off, theme still on');
+  withAccount(false);
+  html = await (await get(ACC, '/usesul/orders', {}, { CASE: 'acc-off' })).text();
+  assert.match(html, /data-origens-theme="pdp cart"/);
+  reset();
+});
+
+test('account login: ONLY the attribute and the account CSS (no loader, no script of ours), Voltar and the store symbol lead to the storefront home', async () => {
+  withAccount(true);
+  const res = await get(ACC, '/usesul/store_sessions/new', { headers: { cookie: '_ink_session=abc', 'accept-encoding': 'br' } });
+  const html = await res.text();
+  assert.match(html, /<body class="font-poppins" data-origens-theme="account">/);
+  assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=account&/);
+  assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on the login');
+  assert.equal((html.match(/href="https:\/\/useorigens\.com\.br\/sul"/g) || []).length, 2, 'Voltar and the symbol');
+  assert.ok(!html.includes('href="/usesul"'));
+  assert.match(html, /<form class="flex flex-col gap-6" action="\/usesul\/store_sessions" method="post">/, 'the form untouched');
+  const ink = calls.find((c) => c.path === '/usesul/store_sessions/new');
+  assert.equal(ink.encoding, 'identity'); assert.equal(ink.cookie, '_ink_session=abc');
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+  reset();
+});
+
+test('account login: feature or panel off = the INK page untouched; the POST of the login and other session paths are never rewritten', async () => {
+  withAccount(false);
+  assert.equal(await (await get(ACC, '/usesul/store_sessions/new', {}, { CASE: 'login-off' })).text(), LOGIN_HTML);
+  withAccount(true);
+  assert.equal(await (await get(ALL, '/usesul/store_sessions/new', {}, { CASE: 'login-no-feature' })).text(), LOGIN_HTML, 'no theme-account in the deploy');
+  const post = await get(ACC, '/usesul/store_sessions', { method: 'POST', body: 'user[document]=0' });
+  assert.equal(await post.text(), LOGIN_HTML, 'POST passes through');
+  assert.equal(await (await get(ACC, '/usesul/store_sessions/new', { headers: { 'Turbo-Frame': 'x' } })).text(), LOGIN_HTML, 'Turbo-Frame passes through');
+  reset();
+});
+
+test('account review (outside the shell): only the attribute and the account CSS, no loader', async () => {
+  withAccount(true);
+  const html = await (await get(ACC, '/usesul/orders/1829670/review/55')).text();
+  assert.match(html, /data-origens-theme="account"/);
+  assert.match(links(html)[0], /s=account&/);
+  assert.ok(!html.includes('data-use-origens-widget'));
   reset();
 });

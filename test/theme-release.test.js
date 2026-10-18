@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planThemeRelease, sameThemeConfig, evaluateThemePage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
+import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
 
 // A produção de 17/10/2026 (versão do domínio novo): 14 features, catálogo, 5 caminhos na allowlist.
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
@@ -56,6 +56,75 @@ test('TOML and zone routes: the production TOML declares the routes the zone has
   assert.deepEqual(parseLiveRoutes(live), ['www.usesul.com.br/*', 'loja.useorigens.com.br/__origens/*', 'loja.useorigens.com.br/useorigens/product/*']);
   const toml = parseTomlRoutes(TOML);
   assert.ok(toml.includes('www.usesul.com.br/*') && toml.includes('loja.useorigens.com.br/useorigens/product/*'));
-  assert.ok(!toml.some((p) => /checkout|cart|store_sessions/.test(p)), 'nenhuma rota de compra ou login no TOML');
+  const purchase = toml.filter((p) => /checkout|cart|store_sessions/.test(p));
+  assert.deepEqual(purchase.sort(), [...checkoutRoutes('loja.useorigens.com.br', '/useorigens'), 'loja.useorigens.com.br/useorigens/store_sessions/new*'].sort(), 'no caminho da compra e do login, só as duas telas do checkout e a TELA do login');
+  for (const p of accountRoutes('loja.useorigens.com.br', '/useorigens')) assert.ok(toml.includes(p), p);
   assert.equal(parseTomlVars(TOML).SINGLE_STORE_DOMAIN, 'next');
+});
+
+const HOST = 'loja.useorigens.com.br'; const BASE = '/useorigens'; const W = 'use-sul-widget';
+const ZONE_NOW = [{ pattern: HOST + '/useorigens/*', script: null }, { pattern: HOST + '/useorigens/product/*', script: W }, { pattern: HOST + '/__origens/*', script: W }];
+
+test('checkout routes: only the two document screens, never without the exclusion, never next to another route on the purchase path', () => {
+  const s = checkoutRoutesState(ZONE_NOW, { host: HOST, base: BASE, worker: W });
+  assert.deepEqual(s.missing, [HOST + '/useorigens/checkout/contact_and_shipping_details*', HOST + '/useorigens/checkout/payment_methods*']);
+  assert.deepEqual(s.problems, []);
+  const done = checkoutRoutesState([...ZONE_NOW, ...s.missing.map((pattern) => ({ pattern, script: W }))], { host: HOST, base: BASE, worker: W });
+  assert.deepEqual(done.missing, []);
+  assert.match(checkoutRoutesState(ZONE_NOW.slice(1), { host: HOST, base: BASE, worker: W }).problems.join(), /falta a exclusão/);
+  assert.match(checkoutRoutesState([...ZONE_NOW, { pattern: HOST + '/useorigens/checkout/process_payment*', script: W }], { host: HOST, base: BASE, worker: W }).problems.join(), /fora das autorizadas/);
+  assert.match(checkoutRoutesState([...ZONE_NOW, { pattern: HOST + '/useorigens/cart*', script: W }], { host: HOST, base: BASE, worker: W }).problems.join(), /fora das autorizadas/);
+});
+
+test('checkout probes: the two screens execute; every submission, the cart and the login do not (GET only)', () => {
+  const set = checkoutProbeSet(BASE);
+  const exec = set.filter((p) => p.exec).map((p) => p.url);
+  const skip = set.filter((p) => p.exec === false).map((p) => p.url);
+  assert.ok(exec.some((u) => u.includes('/checkout/contact_and_shipping_details/')) && exec.some((u) => u.includes('/checkout/payment_methods/')));
+  for (const path of ['/checkout/buyer/', '/checkout/shipping_address/', '/checkout/process_payment', '/checkout/payment_discount/', '/cart', '/store_sessions/']) assert.ok(skip.some((u) => u.includes(path)), path);
+  // Os dois padrões casam com as telas e com nenhum envio.
+  const glob = (p) => new RegExp('^' + p.slice(HOST.length).replace(/[.]/g, '\\.').replace(/\*/g, '.*') + '$');
+  const patterns = checkoutRoutes(HOST, BASE).map(glob);
+  for (const u of exec.filter((x) => x.includes('/checkout/'))) assert.ok(patterns.some((g) => g.test(u)), u);
+  for (const u of skip) assert.ok(!patterns.some((g) => g.test(u)), u);
+});
+
+test('theme-checkout release: added on top of the two already live; the checkout page carries the theme and no loader', () => {
+  const live = { vars: { ...VARS, WIDGET_FEATURES: FEATURES + ',theme-pdp,theme-cart' }, bindings: [{ name: 'CART_REFS' }] };
+  const health = { ...HEALTH, widget_features: [...HEALTH.widget_features, 'theme-pdp', 'theme-cart'] };
+  const p = plan({ captured: live, health, add: ['theme-checkout'] });
+  assert.equal(p.ok, true, p.problems.join('; '));
+  assert.equal(p.deploy.WIDGET_FEATURES, FEATURES + ',theme-pdp,theme-cart,theme-checkout');
+  assert.equal(sameThemeConfig(health, { ...health, widget_features: [...health.widget_features, 'theme-checkout'] }, ['theme-checkout']), true);
+  const page = '<html><head><link rel="stylesheet" href="/__origens/theme.css?s=checkout&amp;v=1&amp;c=x"></head><body data-origens-theme="checkout"><form></form></body></html>';
+  assert.equal(evaluateCheckoutPage(page).ok, true);
+  assert.equal(evaluateCheckoutPage(page.replace('</body>', '<script src="/__origens/loader.js?v=5.2&c=z"></script></body>')).ok, false);
+  assert.equal(evaluateCheckoutPage(page.replace(' data-origens-theme="checkout"', '')).ok, false);
+});
+
+test('account routes: the login SCREEN and exchanges only; checkout routes are not a problem for the account group and vice versa', () => {
+  const acc = accountRoutes(HOST, BASE);
+  assert.deepEqual(acc, [HOST + '/useorigens/store_sessions/new*', HOST + '/useorigens/exchanges_and_returns*']);
+  const zone = [...ZONE_NOW, ...checkoutRoutes(HOST, BASE).map((pattern) => ({ pattern, script: W }))];
+  const s = checkoutRoutesState(zone, { host: HOST, base: BASE, worker: W, group: 'account' });
+  assert.deepEqual(s.missing, acc); assert.deepEqual(s.problems, []);
+  const both = checkoutRoutesState([...zone, ...acc.map((pattern) => ({ pattern, script: W }))], { host: HOST, base: BASE, worker: W });
+  assert.deepEqual(both.problems, [], 'the login screen route is authorised for the checkout group too');
+  assert.match(checkoutRoutesState([...zone, { pattern: HOST + '/useorigens/store_sessions*', script: W }], { host: HOST, base: BASE, worker: W, group: 'account' }).problems.join(), /fora das autorizadas/);
+  // O padrão da tela do login nunca casa com o POST nem com outro caminho de sessão.
+  const glob = (p) => new RegExp('^' + p.slice(HOST.length).replace(/[.]/g, '\\.').replace(/\*/g, '.*') + '$');
+  const patterns = acc.map(glob);
+  const set = accountProbeSet(BASE);
+  for (const p of set.filter((x) => x.exec === false)) assert.ok(!patterns.some((g) => g.test(p.url)), p.url);
+  for (const u of ['/useorigens/store_sessions/new', '/useorigens/exchanges_and_returns']) assert.ok(patterns.some((g) => g.test(u)), u);
+});
+
+test('evaluateAccountPage: login = account only, no loader, home links; shell = account with one loader', () => {
+  const login = '<html><head><link rel="stylesheet" href="/__origens/theme.css?s=account&amp;v=1&amp;c=x"></head><body class="font-poppins" data-origens-theme="account"><a href="https://useorigens.com.br/sul">Voltar</a></body></html>';
+  assert.equal(evaluateAccountPage(login, { kind: 'login', home: 'https://useorigens.com.br/sul' }).ok, true);
+  assert.equal(evaluateAccountPage(login.replace('https://useorigens.com.br/sul', '/useorigens'), { kind: 'login', home: 'https://useorigens.com.br/sul' }).ok, false);
+  assert.equal(evaluateAccountPage(login.replace('</body>', '<script src="/__origens/loader.js?v=5.2&c=z"></script></body>'), { kind: 'login' }).ok, false);
+  const shell = '<html><head><link rel="stylesheet" href="/__origens/theme.css?s=pdp,cart,account&amp;v=1&amp;c=x"></head><body data-origens-theme="pdp cart account"><script src="/__origens/loader.js?v=5.2&c=z"></script></body></html>';
+  assert.equal(evaluateAccountPage(shell, { kind: 'shell' }).ok, true);
+  assert.equal(evaluateAccountPage(shell.replace(' account"', '"'), { kind: 'shell' }).ok, false);
 });

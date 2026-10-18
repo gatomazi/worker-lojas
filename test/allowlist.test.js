@@ -72,10 +72,14 @@ test('production TOML declares exactly the authorised Worker routes on the new d
   const prod = readFileSync(new URL('../wrangler.production.toml', import.meta.url), 'utf8');
   const patterns = [...prod.matchAll(/^pattern\s*=\s*"([^"]+)"/gm)].map((m) => m[1]);
   const moved = TOML_ROUTES.map((p) => p.replace('www.usesul.com.br/usesul', 'loja.useorigens.com.br/useorigens').replace('www.usesul.com.br/', 'loja.useorigens.com.br/'));
-  assert.deepEqual([...patterns].sort(), [...moved, 'www.usesul.com.br/*'].sort(), 'the with-Worker half of the final route plan, on the new host, plus the old host');
+  const checkout = ['loja.useorigens.com.br/useorigens/checkout/contact_and_shipping_details*', 'loja.useorigens.com.br/useorigens/checkout/payment_methods*'];
+  const account = ['loja.useorigens.com.br/useorigens/store_sessions/new*', 'loja.useorigens.com.br/useorigens/exchanges_and_returns*'];
+  assert.deepEqual([...patterns].sort(), [...moved, 'www.usesul.com.br/*', ...checkout, ...account].sort(), 'the with-Worker half of the final route plan, on the new host, plus the old host, the two checkout screens and the account pages');
   assert.match(prod, /^SINGLE_STORE_DOMAIN = "next"$/m, 'the old host only redirects with the domain switch on');
   // Nunca uma rota que ponha o Worker no caminho da compra ou do login; a exclusão (`/useorigens/*`, sem Worker) vive na zona, não no deploy.
-  for (const pattern of patterns) assert.doesNotMatch(pattern, /cart|checkout|store_sessions/, pattern);
+  // Exceções únicas: as duas telas de documento do checkout e a TELA do login (tema, só CSS). Nenhum envio do checkout ou do login, nenhum carrinho.
+  for (const pattern of patterns.filter((p) => !checkout.includes(p) && !account.includes(p))) assert.doesNotMatch(pattern, /cart|checkout|store_sessions/, pattern);
+  assert.ok(account.every((p) => !/store_sessions\*|store_sessions$/.test(p)), 'never the login POST (/store_sessions)');
   assert.ok(!patterns.includes('loja.useorigens.com.br/useorigens/*'), 'the exclusion route has no Worker and can only be created at the zone level');
   assert.ok(!patterns.includes('loja.useorigens.com.br/*'), 'no wildcard over the whole new host');
   assert.ok(patterns.includes('loja.useorigens.com.br/useorigens*') && patterns.includes('loja.useorigens.com.br/useorigens/'), 'broad route and home with trailing slash');
