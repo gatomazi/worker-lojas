@@ -91,7 +91,7 @@ export const TOP_BAR = String.raw`
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), BAR_FETCH_MS);
       try {
-        const response = await fetch(BAR_ENDPOINT, { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
+        const response = await fetch(withRegion(BAR_ENDPOINT), { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
         if (!response.ok) throw new Error('status');
         const data = await response.json();
         const clean = barValidate(data);

@@ -74,7 +74,7 @@ for (const id of ['norte', 'centro']) {
     const foreign = hrefs.filter((h) => h.startsWith('https://useorigens.com.br') && !(h === home || h.startsWith(home + '/') || h.startsWith(home + '#')));
     assert.deepEqual(foreign, [], 'no storefront link outside this region');
     assert.equal(t.q('#o-nav-search').action, home + '/busca');
-    assert.deepEqual(t.fetches.map((f) => f.url), ['/__origens/navbar']);
+    assert.deepEqual(t.fetches.map((f) => f.url), ['/__origens/navbar?origens_r=' + store.region]); // the region goes along: the cookie does not (credentials:'omit')
     const brand = t.q('.o-nav-logo'); assert.ok(brand.getAttribute('aria-label').includes(store.name));
   });
 

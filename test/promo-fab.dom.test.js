@@ -82,7 +82,7 @@ test('given coupons and an announcement, then ONE button bottom-left with badge 
   assert.equal(t.q('#o-promo').style.getPropertyValue('--o-promo-bg'), '#4d543d');
   assert.equal(t.promoFetches().length, 1);
   assert.equal(t.promoFetches()[0].credentials, 'omit');
-  assert.equal(t.promoFetches()[0].url, '/__origens/promotions', 'same-origin gateway, no CORS');
+  assert.equal(t.promoFetches()[0].url, '/__origens/promotions?origens_r=sul', 'same-origin gateway, no CORS, with the page\'s region');
 });
 
 test('badge: 9+ above nine; only announcements = button without badge', async () => {

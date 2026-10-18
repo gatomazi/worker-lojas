@@ -58,6 +58,12 @@ test('with SERVE_REGIONS, a visitor from /norte gets the Norte loader, a remembe
   assert.match(loaderSrc(await next.text()), /&r=norte$/);
   await mf.dispatchFetch(at('/__origens/navbar'), { headers: { cookie: 'origens_r=norte' } });
   assert.ok(asked.includes('/api/navbar/norte'), asked.join(','));
+  // What the browser really sends: the loader asks with credentials:'omit' (no cookie), so the region rides in the address — and the Norte
+  // loader puts it there.
+  asked.length = 0;
+  await mf.dispatchFetch(at('/__origens/navbar?origens_r=norte'));
+  assert.ok(asked.includes('/api/navbar/norte'), 'no cookie, region in the address: ' + asked.join(','));
+  assert.match(loader, /'origens_r=' \+ encodeURIComponent\(STORE\.region\)/, 'the loader sends its region on the gateway requests');
 
   // The plain page (no region yet) is the store's own: Sul.
   const plain = await mf.dispatchFetch(at(PRODUCT));

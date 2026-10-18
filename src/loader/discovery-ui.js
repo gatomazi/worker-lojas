@@ -196,7 +196,7 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
     setStatus(s, 'Buscando…');
     try {
       // Mesma origem, sem credenciais: o gateway não recebe Cookie nem Authorization do visitante.
-      const response = await fetch(SEARCH_ENDPOINT + '?q=' + encodeURIComponent(query), { signal: controller.signal, credentials: 'omit', headers: { accept: 'application/json' } });
+      const response = await fetch(SEARCH_ENDPOINT + '?q=' + encodeURIComponent(query) + (rt.region ? '&origens_r=' + encodeURIComponent(rt.region) : ''), { signal: controller.signal, credentials: 'omit', headers: { accept: 'application/json' } });
       if (!response.ok) throw new Error('status ' + response.status);
       const results = validate(await response.json(), MAX_RESULTS[s.kind]);
       if (results === null) throw new Error('schema');

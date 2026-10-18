@@ -35,7 +35,8 @@ function setup({ path = PATH, features = ALL, guide = GUIDE, searchFails = false
   const events = []; w.gtag = function () { events.push(JSON.parse(JSON.stringify([...arguments]))); };
   const fetchCalls = [];
   w.fetch = async (url, options = {}) => {
-    const u = String(url); fetchCalls.push({ url: u, credentials: options.credentials });
+    // The region of the page goes along on every request (asserted below); the mock answers by the rest of the address.
+    const raw = String(url); const u = raw.replace(/[?&]origens_r=[a-z-]+$/, ''); fetchCalls.push({ url: u, raw, credentials: options.credentials });
     if (u.startsWith('/__origens/search')) return searchFails ? new Response('x', { status: 502 }) : new Response(JSON.stringify(SEARCH), { status: 200, headers: { 'content-type': 'application/json' } });
     if (u.startsWith('/__origens/guia')) { if (guideFails) return new Response('x', { status: 503 }); const q = u.includes('?') ? u.slice(u.indexOf('?') + 1) : ''; const body = guide[q] || { ok: false, kind: 'x', notFound: true }; return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }); }
     return new Response('{}', { status: 200 });
@@ -110,6 +111,7 @@ test('path A: "Buscar uma cidade" opens the dialog with the search focused; typi
   const all = p.querySelector('.o-g-after a');
   assert.equal(text(all), 'Ver todas as estampas de Florianópolis (8)'); assert.equal(all.getAttribute('href'), 'https://useorigens.com.br/sul/sc/florianopolis');
   assert.ok(t.fetchCalls.some((c) => c.url === '/__origens/guia?cidade=sc/florianopolis&produto=4714617'), 'the open product is excluded server-side');
+  assert.ok(t.fetchCalls.length > 0 && t.fetchCalls.every((c) => /[?&]origens_r=sul$/.test(c.raw)), 'every guide and search request carries the page region (the cookie does not go: credentials omit)');
   click(t.w, cards[1]);
   assert.deepEqual(t.navigations, [HOST + '/usesul/product/item-2'], 'a product opens its PDP (normal link)');
   key(t.w, t.doc.activeElement || t.doc.body, 'Escape');

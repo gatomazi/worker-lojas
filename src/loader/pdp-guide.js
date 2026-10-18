@@ -79,7 +79,7 @@ export const PDP_GUIDE = String.raw`
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), GUIDE_TIMEOUT_MS);
     if (signal) signal.addEventListener('abort', () => controller.abort(), { once: true });
-    return fetch(url, { method: 'GET', credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal })
+    return fetch(withRegion(url), { method: 'GET', credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null)).catch(() => null).finally(() => clearTimeout(timer));
   }
   // Defesa em profundidade: o Worker já validou; aqui o mesmo contrato antes de virar link/imagem.
@@ -387,7 +387,7 @@ export const PDP_GUIDE = String.raw`
       const timeout = setTimeout(() => controller.abort(), GUIDE_TIMEOUT_MS);
       status.textContent = GUIDE_COPY.searching;
       try {
-        const response = await fetch(GUIDE_SEARCH_ENDPOINT + '?q=' + encodeURIComponent(query), { signal: controller.signal, credentials: 'omit', headers: { accept: 'application/json' } });
+        const response = await fetch(withRegion(GUIDE_SEARCH_ENDPOINT + '?q=' + encodeURIComponent(query)), { signal: controller.signal, credentials: 'omit', headers: { accept: 'application/json' } });
         if (!response.ok) throw new Error('status ' + response.status);
         const results = validate(await response.json());
         if (results === null) throw new Error('schema');

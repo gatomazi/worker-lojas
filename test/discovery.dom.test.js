@@ -191,7 +191,7 @@ test('search: real-shaped results render as TEXT, links are the validated storef
   const t = await withDrawer();
   await type(t.w, t.input, 'flor'); await tick(450);
   assert.equal(t.fetchCalls.length, 1);
-  assert.equal(t.fetchCalls[0].url, '/__origens/search?q=flor');
+  assert.equal(t.fetchCalls[0].url, '/__origens/search?q=flor&origens_r=sul'); // the page's region goes along: credentials:'omit' drops the origens_r cookie
   assert.equal(t.fetchCalls[0].credentials, 'omit');
   assert.deepEqual(Object.keys(t.fetchCalls[0].headers), ['accept']);
   const list = items(t.doc);
@@ -249,7 +249,7 @@ test('search: typing fast is debounced into a single request', async () => {
   for (const text of ['f', 'fl', 'flo', 'flor']) { await type(t.w, t.input, text); await tick(40); }
   await tick(450);
   assert.equal(t.fetchCalls.length, 1);
-  assert.equal(t.fetchCalls[0].url, '/__origens/search?q=flor');
+  assert.equal(t.fetchCalls[0].url, '/__origens/search?q=flor&origens_r=sul'); // the page's region goes along: credentials:'omit' drops the origens_r cookie
 });
 
 test('search: query is sanitized before it leaves the browser; 1 character never searches', async () => {

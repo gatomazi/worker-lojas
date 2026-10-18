@@ -66,11 +66,11 @@ export const HEADER_NAV = String.raw`
     try {
       const raw = window.sessionStorage.getItem(NAV_CACHE_KEY);
       const stored = raw ? JSON.parse(raw) : null;
-      if (stored && Number.isFinite(stored.at) && Date.now() - stored.at < NAV_CACHE_MS) return navValidate(stored.data);
+      if (stored && stored.region === STORE.region && Number.isFinite(stored.at) && Date.now() - stored.at < NAV_CACHE_MS) return navValidate(stored.data);
     } catch (_) { /* sem armazenamento: só memória */ }
     return null;
   }
-  function navWriteCache(data) { try { window.sessionStorage.setItem(NAV_CACHE_KEY, JSON.stringify({ at: Date.now(), data: data })); } catch (_) { /* idem */ } }
+  function navWriteCache(data) { try { window.sessionStorage.setItem(NAV_CACHE_KEY, JSON.stringify({ at: Date.now(), region: STORE.region, data: data })); } catch (_) { /* idem */ } }
 
   // Uma única tentativa por carregamento de página: falhou => a navegação nativa segue sozinha, sem laço de tentativas.
   function loadNav() {
@@ -83,7 +83,7 @@ export const HEADER_NAV = String.raw`
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), NAV_FETCH_MS);
         try {
-          const response = await fetch(NAV_ENDPOINT, { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
+          const response = await fetch(withRegion(NAV_ENDPOINT), { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
           if (!response.ok) throw new Error('status');
           const data = await response.json();
           const clean = navValidate(data);
