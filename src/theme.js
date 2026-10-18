@@ -199,11 +199,13 @@ function tokensCss(tokens) {
 // Botão principal: reto como o .btn do storefront, 54 px, maiúsculas. Nunca `display` (a INK esconde/mostra botões com classes).
 // Os seletores passados aqui não usam vírgula dentro de :is() (a lista é separada por vírgula para gerar :hover/:focus).
 const each = (sel, suffix) => sel.split(',').map((s) => s + suffix).join(',');
-const btn = (sel, role = 'action') => sel + '{align-items:center;justify-content:center;gap:10px;min-height:54px;height:auto;padding:0 24px;border:2px solid var(--o-' + role + ')!important;border-radius:var(--o-radius)!important;background:var(--o-' + role + ')!important;color:var(--o-on-' + role + ')!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
+// `align-content:center`: o texto centralizado também quando o elemento da INK é bloco e não flex (ex.: "Rastrear compra", um <a> block com altura mínima);
+// num flex de uma linha não muda nada.
+const btn = (sel, role = 'action') => sel + '{align-items:center;align-content:center;justify-content:center;gap:10px;min-height:54px;height:auto;padding:0 24px;border:2px solid var(--o-' + role + ')!important;border-radius:var(--o-radius)!important;background:var(--o-' + role + ')!important;color:var(--o-on-' + role + ')!important;font-family:var(--o-font);font-size:15px;font-weight:700;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;box-shadow:none!important;transition:background-color .2s var(--o-ease),color .2s var(--o-ease)}' +
   '@media (hover:hover){' + each(sel, ':hover') + '{background:transparent!important;color:var(--o-' + role + ')!important}}' +
   each(sel, ':focus-visible') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
 // Ação secundária: linha fina, sem maiúsculas pesadas.
-const ghost = (sel) => sel + '{align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;box-shadow:none!important}' +
+const ghost = (sel) => sel + '{align-items:center;align-content:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--o-ink)!important;border-radius:var(--o-radius)!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;box-shadow:none!important}' +
   '@media (hover:hover){' + each(sel, ':hover') + '{background:var(--o-paper)!important}}' +
   each(sel, ':focus-visible') + '{outline:2px solid var(--o-ink);outline-offset:3px}';
 // Campo: reto, branco, 48 px, 16 px (o iOS não dá zoom), foco visível. Valor, máscara e validação são da INK.
@@ -224,8 +226,27 @@ function stripCss(scope) {
 const STRIP_KEYFRAMES = '@keyframes o-benefit{0%{opacity:0;visibility:hidden}2.5%{opacity:1;visibility:visible}30.8%{opacity:1;visibility:visible}33.3%{opacity:0;visibility:hidden}100%{opacity:0;visibility:hidden}}';
 
 // Cabeçalho (nosso header-nav sobre o da INK): no celular, símbolo + "USE ORIGENS" como no storefront, numa faixa mais baixa.
+// Menu da conta da INK (logado: "Meus pedidos" / "Deseja sair?"): caixa reta com linha, sem sombra, itens de 44 px e o destaque em tinta, como os
+// menus do storefront (cantos do tema). A newsletter do rodapé da INK: a faixa na cor da região (a do cabeçalho), campo do tema e "Cadastrar" reto.
 function headerCss() {
+  const MENU = P + ' .menu-user';
+  const ITEM = MENU + ' .menu-user__list :is(a,button)';
+  const NEWS = P + ' div.bg-gray-700:has(> * > form[action$="/newsletter"])';
+  const SUBMIT = P + ' form[action$="/newsletter"] input[type=submit]';
   return [
+    MENU + '{border:2px solid var(--o-ink);border-radius:var(--o-radius)!important;box-shadow:none!important;background:var(--o-surface)!important;overflow:hidden}',
+    MENU + ' .menu-user__list{padding:4px 0!important}',
+    ITEM + '{width:100%;min-height:44px;padding:10px 16px!important;border-radius:0!important;background:transparent!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:600;text-align:left;align-items:center;justify-content:flex-start!important;gap:10px}',
+    // O texto ao lado do ícone (a INK empurra "Meus pedidos" para a direita com justify-between e o texto com w-full/text-end).
+    ITEM + ' > span{width:auto!important}',
+    ITEM + ' *{color:inherit!important;background:transparent!important;border-radius:0!important;text-align:left!important}',
+    '@media (hover:hover){' + ITEM + ':hover{background:var(--o-ink)!important;color:var(--o-surface)!important}}',
+    ITEM + ':focus-visible{outline:2px solid var(--o-ink);outline-offset:-4px}',
+    NEWS + '{background:var(--o-selected)!important;color:var(--o-on-selected)}',
+    field(P + ' form[action$="/newsletter"] input.input-newsletter-store'),
+    SUBMIT + '{min-height:48px;height:48px;padding:0 24px!important;border:2px solid var(--o-surface)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-family:var(--o-font);font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:none!important}',
+    '@media (hover:hover){' + SUBMIT + ':hover{background:transparent!important;color:var(--o-surface)!important}}',
+    SUBMIT + ':focus-visible{outline:2px solid var(--o-surface);outline-offset:3px}',
     ANY + ' .o-nav-word{font-family:var(--o-word);font-weight:800}',
     '@media (max-width:1023px){' + P + ' .navbar__top .o-nav-word{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;font-size:22px;line-height:1;letter-spacing:.02em}' +
       P + ' .navbar__top .o-nav-logo{gap:8px;min-height:44px}' + P + ' .navbar__top .o-nav-logo img{height:34px}}'

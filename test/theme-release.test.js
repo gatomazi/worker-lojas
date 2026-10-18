@@ -128,3 +128,13 @@ test('evaluateAccountPage: login = account only, no loader, home links; shell = 
   assert.equal(evaluateAccountPage(shell, { kind: 'shell' }).ok, true);
   assert.equal(evaluateAccountPage(shell.replace(' account"', '"'), { kind: 'shell' }).ok, false);
 });
+
+test('--update (only new code): the same features go out, nothing turned on or off, and the health check expects exactly them', () => {
+  const live = { vars: { ...VARS, WIDGET_FEATURES: FEATURES + ',theme-pdp,theme-cart,theme-checkout,theme-account' }, bindings: [{ name: 'CART_REFS' }] };
+  const health = { ...HEALTH, widget_features: [...HEALTH.widget_features, 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account'] };
+  const p = plan({ captured: live, health, add: [] });
+  assert.equal(p.ok, true, p.problems.join('; '));
+  assert.equal(p.deploy.WIDGET_FEATURES, live.vars.WIDGET_FEATURES);
+  assert.equal(sameThemeConfig(health, health, []), true);
+  assert.equal(sameThemeConfig(health, { ...health, widget_features: health.widget_features.slice(0, -1) }, []), false);
+});
