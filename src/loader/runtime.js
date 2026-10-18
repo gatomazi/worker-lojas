@@ -9,6 +9,9 @@ export const RUNTIME_HEAD = String.raw`(() => {
 
   // Loja deste loader (src/stores.js, montada pelo Worker da loja): um loader nunca serve outro host, prefixo ou storefront regional.
   const STORE = __STORE__;
+  // A região desta página vai em todo pedido regional a /__origens/ (faixa, menu, promoções, busca, guia, recomendações): eles são feitos com
+  // credentials:'omit', então o cookie origens_r NÃO chega ao Worker, e sem a região ele responderia com a da loja (na loja única, sempre a do Sul).
+  const withRegion = (path) => path + (path.indexOf('?') >= 0 ? '&' : '?') + 'origens_r=' + encodeURIComponent(STORE.region);
   const ALLOWED_PATHS = __ALLOWED_PATHS__;
   const FEATURES = __FEATURES__;
   // "allowlist" (padrão): só ALLOWED_PATHS. "product-catalog": qualquer página verdadeira de produto (slug canônico + formulário nativo).

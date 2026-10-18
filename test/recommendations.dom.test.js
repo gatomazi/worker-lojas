@@ -55,7 +55,7 @@ test('renders "Você também pode gostar" with 4 cards (image, title, price, "Ve
 test('identifies the CURRENT product from the native form, never from the "Compre Junto" modal form; asks once, same origin, no credentials', async () => {
   const t = setup(); await tick();
   t.doc.body.appendChild(t.doc.createElement('div')); await tick(); // mutations re-run sync: still one request
-  assert.deepEqual(t.fetchCalls.map((c) => [c.url, c.credentials, c.method]), [['/__origens/recommendations/3789929', 'omit', 'GET']]);
+  assert.deepEqual(t.fetchCalls.map((c) => [c.url, c.credentials, c.method]), [['/__origens/recommendations/3789929?origens_r=sul', 'omit', 'GET']]);
 });
 
 test('the purchase form, CSRF token, size selection and CTA are untouched', async () => {

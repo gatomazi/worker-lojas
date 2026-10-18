@@ -64,6 +64,8 @@ test('rotate: given live messages, then the native phrases are hidden (still in 
   assert.equal(t.line().tagName, 'DIV', 'never a span: the INK styles every span of the strip');
   assert.equal(t.line().textContent, NATAL.text);
   assert.equal(t.barFetches().length, 1);
+  // The page's region goes in the address: the request has no cookies, so origens_r would never reach the Worker (single store: always Sul).
+  assert.equal(t.barFetches()[0].url, '/__origens/top-bar?origens_r=sul');
   assert.equal(t.barFetches()[0].credentials, 'omit');
   // A mutation elsewhere (the navbar, the runtime's observer) never repaints or duplicates it.
   t.doc.body.appendChild(t.doc.createElement('div')); await tick(200);

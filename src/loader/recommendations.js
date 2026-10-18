@@ -240,7 +240,7 @@ export const RECOMMENDATIONS = String.raw`
       const ac = new AbortController();
       this.ac = ac;
       const timer = setTimeout(() => ac.abort(), RECO_TIMEOUT_MS);
-      fetch(RECO_ENDPOINT + productId, { method: 'GET', credentials: 'omit', headers: { accept: 'application/json' }, signal: ac.signal })
+      fetch(withRegion(RECO_ENDPOINT + productId), { method: 'GET', credentials: 'omit', headers: { accept: 'application/json' }, signal: ac.signal })
         .then((res) => (res.ok ? res.json() : { items: [] }))
         .then((data) => {
           if (this.ac !== ac || window.location.pathname !== path || !allowedNow()) return; // saiu da página no meio do caminho

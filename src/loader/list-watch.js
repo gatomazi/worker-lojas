@@ -70,7 +70,7 @@ export const LIST_WATCH = String.raw`
   }
 
   function lsFetchNext(token, doneArray, signal) {
-    return fetch(LS_ENDPOINT + '?ls=' + encodeURIComponent(token) + '&done=' + encodeURIComponent(doneArray.join(',')), {
+    return fetch(withRegion(LS_ENDPOINT + '?ls=' + encodeURIComponent(token) + '&done=' + encodeURIComponent(doneArray.join(','))), {
       credentials: 'omit', headers: { accept: 'application/json' }, signal
     }).then((response) => (response.ok ? response.json() : null)).catch(() => null);
   }

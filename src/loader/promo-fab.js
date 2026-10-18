@@ -76,7 +76,7 @@ export const PROMO_FAB = String.raw`
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), PROMO_FETCH_MS);
       try {
-        const response = await fetch(PROMO_ENDPOINT, { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
+        const response = await fetch(withRegion(PROMO_ENDPOINT), { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
         if (!response.ok) throw new Error('status');
         const data = await response.json();
         const clean = promoValidate(data);
