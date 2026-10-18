@@ -9,6 +9,9 @@
 #                                               gravado nem impresso) e a sonda de execução (node scripts/checkout-routes.mjs probe).
 #   --update                                 <- só código novo (CSS do tema, correções): as MESMAS chaves de hoje, nada ligado nem desligado. Confere o
 #                                               produto, a casca e, se ligadas, a conta e (com TEMA_CHECKOUT_UUID) o checkout.
+#   --add=top-bar                            <- liga a "Faixa do topo" do CMS na faixa preta da INK (produto e casca; docs/top-bar.md). Antes, confere que
+#                                               o storefront tem faixa publicada; depois, que /__origens/top-bar devolve as MESMAS mensagens, estilo e cores
+#                                               de /api/top-bar/sul e que o loader traz o módulo da faixa. Rollback = a versão capturada (a faixa da INK volta).
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -42,9 +45,10 @@ die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout e theme-account (recebido: $ADD)"; exit 2; }
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account e top-bar (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
+WITH_TOPBAR=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx top-bar && WITH_TOPBAR=1
 ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
@@ -136,6 +140,28 @@ deploy_theme() {
 }
 
 # Smoke da página de produto com o tema (tenta algumas vezes: a configuração do tema é lida do storefront com cache de 60 s).
+# A faixa do topo: o que a INK serve tem de ser a faixa publicada no storefront (mensagens, estilo, cores) e o loader tem de trazer o módulo dela.
+smoke_top_bar() {
+  local i ink site loader r
+  site=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/top-bar/sul" 2>/dev/null)
+  for i in 1 2 3 4 5 6; do
+    ink=$(curl -sS --max-time 15 "$SITE_URL/__origens/top-bar?origens_smoke=$(date +%s)" 2>/dev/null)
+    loader=$(curl -sS --max-time 20 "$SITE_URL$(curl -sS --max-time 20 "$SAMPLE_PDP?origens_smoke=$(date +%s)" 2>/dev/null | grep -oE '/__origens/loader\.js\?v=[^"]+' | head -1 | sed 's/&amp;/\&/g')" 2>/dev/null)
+    r=$(T_INK="$ink" T_SITE="$site" T_LOADER="$loader" node --input-type=module -e 'const p=(s)=>{try{return JSON.parse(s)}catch(e){return null}};import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluateTopBar(p(process.env.T_INK),p(process.env.T_SITE),process.env.T_LOADER))))' "$LIB")
+    [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "faixa do topo: a INK serve a faixa do storefront ($(printf '%s' "$r" | json_field messages)) e o loader traz o módulo"; return 0; }
+    [ "$i" = 6 ] && { bad "faixa do topo: $(printf '%s' "$r" | json_field problems)"; return 1; }
+    sleep 10
+  done
+}
+
+# O storefront precisa ter a faixa publicada: sem mensagem no ar, ligar a chave não muda nada na INK.
+storefront_top_bar() {
+  local n; n=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/top-bar/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1&&Array.isArray(j.messages)?j.messages.length:-1)}catch(e){console.log(-1)}})')
+  if [ "$n" -gt 0 ] 2>/dev/null; then ok "storefront: faixa do topo publicada ($n mensagem(ns) no ar)"
+  elif [ "$n" = 0 ]; then warn "storefront: faixa do topo sem mensagem no ar agora: a chave liga e a INK segue com as frases dela até haver uma"
+  else bad "storefront: /api/top-bar/sul indisponível ou fora do contrato v1"; fi
+}
+
 smoke_theme() {
   local i html css_path code type body res
   for i in 1 2 3 4 5 6; do
@@ -193,6 +219,7 @@ smoke_theme() {
 
 log "== pré-condições =="
 storefront_theme
+[ "$WITH_TOPBAR" = 1 ] && storefront_top_bar
 HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 # --update: confere o que já está ligado (a conta sempre; o checkout só com um carrinho de teste).
 if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
@@ -224,7 +251,7 @@ fi
 [ "$WITH_CHECKOUT" = 0 ] || [ -n "$CHECKOUT_UUID" ] || die "theme-checkout pede TEMA_CHECKOUT_UUID=<uuid de um carrinho de TESTE> para conferir as duas telas (só GET)"
 if [ "${RELEASE_CONFIRM:-}" != "$PHRASE" ]; then
   [ -t 0 ] || die "sem terminal interativo e sem RELEASE_CONFIRM=$PHRASE"
-  read -r -p "Vai ligar o tema da compra ($ADD) no Worker da Sul em produção. Digite $PHRASE para continuar: " ANS; [ "$ANS" = "$PHRASE" ] || die "confirmação não digitada"
+  read -r -p "Vai ligar ($ADD) no Worker da Sul em produção. Digite $PHRASE para continuar: " ANS; [ "$ANS" = "$PHRASE" ] || die "confirmação não digitada"
 fi
 
 log "== A. captura =="
@@ -256,6 +283,7 @@ NOW_HEALTH=$(health_json) || fail "health ilegível após o deploy"
 node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]),process.argv[4].split(",").filter(Boolean))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" "$ADD" && ok "health: features = as de antes${ADD:+ + $ADD}; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
 [ "$(routes_state)" = equal ] && ok "rotas: zona = TOML depois do deploy" || fail "as rotas da zona não ficaram iguais às do TOML depois do deploy"
 smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
+if [ "$WITH_TOPBAR" = 1 ]; then smoke_top_bar || fail "smoke da faixa do topo reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi
