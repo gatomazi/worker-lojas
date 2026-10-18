@@ -250,3 +250,15 @@ test('account CSS: scoped to the account surface, the same button/field language
   assert.ok(!buildThemeCss(theme, ['checkout']).includes('data-origens-theme~="account"'), 'nothing of the account without the surface');
   assert.notEqual(themeQuery(theme, ['pdp', 'cart']), themeQuery(theme, ['pdp', 'cart', 'account']));
 });
+
+test('finishing touches: buttons centre their text when INK draws them as blocks; the account menu and the footer newsletter in the theme', () => {
+  const t = normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true } }), STORES.sul);
+  const css = buildThemeCss(t, ['pdp', 'cart']);
+  assert.match(css, /align-items:center;align-content:center;justify-content:center/, 'block buttons ("Rastrear compra") centre the label');
+  assert.match(css, /body\[data-origens-theme~="pdp"\] \.menu-user\{border:2px solid var\(--o-ink\);border-radius:var\(--o-radius\)!important;box-shadow:none!important/);
+  assert.match(css, /\.menu-user \.menu-user__list :is\(a,button\)\{width:100%;min-height:44px/);
+  assert.match(css, /div\.bg-gray-700:has\(> \* > form\[action\$="\/newsletter"\]\)\{background:var\(--o-selected\)!important/);
+  assert.match(css, /form\[action\$="\/newsletter"\] input\[type=submit\]\{min-height:48px/);
+  // Nunca `display` nas peças da INK que ela mostra/esconde.
+  assert.doesNotMatch(css.match(/\.menu-user[^}]*\}/g).join(''), /display:/);
+});

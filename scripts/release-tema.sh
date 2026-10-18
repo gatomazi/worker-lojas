@@ -7,6 +7,8 @@
 #   --add=theme-checkout                     <- liga o tema do checkout (padrão: theme-pdp,theme-cart). As duas rotas do checkout vêm do TOML com este
 #                                               deploy; depois, smoke nas duas telas com TEMA_CHECKOUT_UUID=<carrinho de TESTE> (só GET; o uuid nunca é
 #                                               gravado nem impresso) e a sonda de execução (node scripts/checkout-routes.mjs probe).
+#   --update                                 <- só código novo (CSS do tema, correções): as MESMAS chaves de hoje, nada ligado nem desligado. Confere o
+#                                               produto, a casca e, se ligadas, a conta e (com TEMA_CHECKOUT_UUID) o checkout.
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -38,9 +40,9 @@ PHRASE="PUBLICAR-TEMA-INK"
 usage() { sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
-MODE=""; ADD="theme-pdp,theme-cart"
-for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account' && { log "--add aceita só theme-pdp, theme-cart, theme-checkout e theme-account (recebido: $ADD)"; exit 2; }
+MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
+for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout e theme-account (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
 ACCOUNT_ON=0
@@ -115,7 +117,7 @@ capture_plan() {
     const toml = readFileSync(process.argv[1] + "/" + process.argv[2], "utf8");
     const bindings = [...toml.matchAll(/^binding = "([A-Za-z0-9_]+)"/gm)].map((x) => x[1]);
     let health = null; try { health = JSON.parse(process.env.T_HEALTH); } catch (_) {}
-    const plan = m.planThemeRelease({ health, captured: rl.parseVersionBindings(process.env.T_VIEW), tomlBindings: bindings, tomlVars: m.parseTomlVars(toml), add: process.env.T_ADD.split(",") });
+    const plan = m.planThemeRelease({ health, captured: rl.parseVersionBindings(process.env.T_VIEW), tomlBindings: bindings, tomlVars: m.parseTomlVars(toml), add: process.env.T_ADD.split(",").filter(Boolean) });
     if (!plan.ok) { console.error(plan.problems.join("\n")); process.exit(1); }
     console.log(JSON.stringify(plan.deploy));' "$ROOT" "$CFG"
 }
@@ -129,7 +131,7 @@ deploy_theme() {
   if [ "$mode" = "--dry-run" ]; then
     (cd "$ROOT" && npx wrangler deploy -c "$CFG" --dry-run --outdir "${TMPDIR:-/tmp}/release-tema-dry" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   else
-    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: $ADD (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
+    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: ${ADD:-update} (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   fi
 }
 
@@ -192,6 +194,12 @@ smoke_theme() {
 log "== pré-condições =="
 storefront_theme
 HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
+# --update: confere o que já está ligado (a conta sempre; o checkout só com um carrinho de teste).
+if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
+  LIVE_FEATURES=$(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log((JSON.parse(s).widget_features||[]).join(",")))')
+  printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
+  printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx theme-checkout && [ -n "$CHECKOUT_UUID" ] && WITH_CHECKOUT=1
+fi
 [ -n "$HEALTH_NOW" ] && ok "health ($HEALTH_URL): $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log("loader "+h.version+", "+h.ink_host+", escopo "+h.scope_mode+", "+(h.widget_features||[]).length+" features")})')" || bad "health ilegível em $HEALTH_URL"
 git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
 git rev-parse --verify -q origin/main >/dev/null && { git diff --quiet origin/main -- src "$CFG" && ok "código e TOML idênticos aos da main" || warn "src/ ou $CFG diferem de origin/main: o deploy publica ESTA árvore"; }
@@ -203,7 +211,7 @@ PREV_VERSION=""; PLAN=""
 if [ ${#FAILS[@]} -eq 0 ]; then
   PREV_VERSION=$(active_version) || bad "versão ativa não capturável (necessária para o rollback)"
   if [ -n "$PREV_VERSION" ]; then
-    if PLAN=$(capture_plan "$PREV_VERSION" "$HEALTH_NOW" 2>&1); then ok "versão ativa ${PREV_VERSION:0:8}… capturada; acrescenta $(printf '%s' "$PLAN" | json_field added) às $(printf '%s' "$PLAN" | json_field before | tr ',' '\n' | wc -l | tr -d ' ') features de hoje"; else bad "plano: $(printf '%s' "$PLAN" | tr '\n' ';')"; PLAN=""; fi
+    if PLAN=$(capture_plan "$PREV_VERSION" "$HEALTH_NOW" 2>&1); then ok "versão ativa ${PREV_VERSION:0:8}… capturada; $([ "$UPDATE" = 1 ] && echo "só código novo, as mesmas" || echo "acrescenta $(printf '%s' "$PLAN" | json_field added) às") $(printf '%s' "$PLAN" | json_field before | tr ',' '\n' | wc -l | tr -d ' ') features de hoje"; else bad "plano: $(printf '%s' "$PLAN" | tr '\n' ';')"; PLAN=""; fi
   fi
 fi
 
@@ -245,7 +253,7 @@ sleep 10
 
 log "== C. conferência =="
 NOW_HEALTH=$(health_json) || fail "health ilegível após o deploy"
-node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]),process.argv[4].split(","))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" "$ADD" && ok "health: features = as de antes + $ADD; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
+node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.parse(process.argv[2]),JSON.parse(process.argv[3]),process.argv[4].split(",").filter(Boolean))?0:1))' "$LIB" "$PREV_HEALTH" "$NOW_HEALTH" "$ADD" && ok "health: features = as de antes${ADD:+ + $ADD}; modo, escopo, allowlist, domínio e regiões iguais" || fail "o health pós-deploy não é o planejado: $(printf '%s' "$NOW_HEALTH" | head -c 400)"
 [ "$(routes_state)" = equal ] && ok "rotas: zona = TOML depois do deploy" || fail "as rotas da zona não ficaram iguais às do TOML depois do deploy"
 smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
 if [ "$WITH_CHECKOUT" = 1 ]; then
@@ -256,6 +264,6 @@ if [ "$WITH_ACCOUNT" = 1 ]; then
 fi
 
 log ""
-log "RELEASE DO TEMA CONCLUÍDO: $ADD ligado(s) (versão anterior, para voltar: $PREV_VERSION)."
+log "RELEASE DO TEMA CONCLUÍDO: $([ "$UPDATE" = 1 ] && echo "código novo, as mesmas chaves" || echo "$ADD ligado(s)") (versão anterior, para voltar: $PREV_VERSION)."
 log "   Voltar a qualquer momento: npx wrangler rollback $PREV_VERSION --name $WORKER_NAME --yes"
 log "   Ou desligar só a aparência, sem deploy: painel › Tema da INK › desmarcar e Publicar (as chaves do Worker são o teto; o painel decide)."
