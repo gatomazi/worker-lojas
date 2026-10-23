@@ -14,6 +14,10 @@ const PRODUCT_HTML = readFileSync(new URL('./fixtures/product-page-theme.html', 
 const CHECKOUT_HTML = '<!doctype html><html lang="pt-BR"><head><title>Checkout</title></head><body><nav class="bg-store-primary"><a href="/usesul"><img alt="Use Sul" src="/logo.png"></a></nav><div data-controller="ink-store--checkout"><form id="formPaymentMethods" action="/usesul/checkout/process_payment?cart_uuid=' + UUID + '" method="post"><input type="radio" id="pix" name="cart[payment_type]" value="pix"></form></div></body></html>';
 // Login da INK (estrutura real de 17/10/2026, textos fictícios): "Voltar" e símbolo para a home da loja, o formulário do CPF/CNPJ.
 const LOGIN_HTML = '<!doctype html><html lang="pt-BR"><head><title>Entrar</title></head><body class="font-poppins"><div><div class="px-2 py-8 flex justify-center bg-gray-100 min-h-screen max-h-fit"><div class="p-4 md:p-8 rounded-lg bg-white shadow"><div class="flex flex-col gap-6"><div class="flex flex-col"><a class="flex flex-row gap-2 items-center cursor-pointer w-fit mb-2" href="/usesul"><p class="text-sm">Voltar</p></a><div class="flex flex-row py-7 gap-2 items-center"><a href="/usesul"><img class="max-h-30 w-12 object-cover" src="/logo.png" alt=""></a><p class="text-gray-900 font-bold text-xl">Use Origens</p></div></div><form class="flex flex-col gap-6" action="/usesul/store_sessions" method="post"><input type="text" name="user[document]"><button type="submit" class="rounded-full bg-gray-900"><p class="text-white">Continuar</p></button></form></div></div></div></div></body></html>';
+// Confirmação do pedido (estrutura real de 23/10/2026, dados e números fictícios): a grade (confirmação | resumo), o convite para criar conta depois dela e os
+// scripts de conversão da INK (GA4), que têm de chegar intactos.
+const CONFIRMATION = '/usesul/payment_confirmation/1234567/89012345678';
+const CONFIRMATION_HTML = '<!doctype html><html lang="pt-BR"><head><title>Use Origens</title></head><body data-rails-env="production"><nav class="bg-store-primary"><a href="/usesul"><img alt="store logo" src="/logo.png"></a></nav><div class="flex flex-col items-center justify-center font-inter"><turbo-frame id="alert_component"></turbo-frame><div class="w-full grid" data-controller="ink-store--checkout"><section class="md:col-span-7"><p class="font-bold text-2xl">Pedido confirmado</p><a href="/usesul/orders/trackings?rsv_factory_id=INK0000000">Acompanhar pedido</a><span id="order_number" class="hidden">INK0000000</span><script>function eventOrderPlaced(){gtag("event","purchase",{transaction_id:"INK0000000"})}</script></section><turbo-frame id="cart_summary"><section>Resumo da Compra</section></turbo-frame></div><div class="md:w-1/2 flex flex-col"><div class="flex flex-col">Crie uma conta<a href="/usesul/users/signup">Criar conta</a></div></div></div></body></html>';
 const TOKENS = { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#e5e5e5', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' };
 const themeOf = (surfaces) => ({ v: 1, region: 'sul', surfaces: { pdp: false, cart: false, checkout: false, ...surfaces }, tokens: TOKENS });
 
@@ -32,6 +36,7 @@ async function worker(features, extra = {}) {
         calls.push({ host: url.host, path: url.pathname, method: request.method, cookie: request.headers.get('cookie'), encoding: request.headers.get('accept-encoding') });
         if (url.host === 'useorigens.com.br') return url.pathname === '/api/ink-theme/sul' ? storefront() : new Response('{}', { status: 404 });
         if (url.pathname.includes('/checkout/')) return new Response(CHECKOUT_HTML, { headers: inkHeaders() });
+        if (url.pathname.includes('/payment_confirmation/')) return new Response(CONFIRMATION_HTML, { headers: inkHeaders() });
         if (url.pathname.includes('/store_sessions')) return new Response(LOGIN_HTML, { headers: inkHeaders() });
         return new Response(PRODUCT_HTML, { headers: inkHeaders() });
       }
@@ -162,6 +167,34 @@ test('checkout: untouched without theme-checkout, with the panel switch off, in 
   await same(ALL, CONTACT, { headers: { 'Turbo-Frame': 'shipping_address' } });
   await same(ALL, '/usesul/checkout/process_payment', { method: 'POST', body: 'cart[payment_type]=pix' });
   await same(ALL, '/usesul/checkout/buyer/94657912');
+});
+
+test('order confirmation: the checkout theme plus the step attribute; the INK conversion scripts and everything else intact', async () => {
+  reset();
+  const res = await get(ALL, CONFIRMATION, { headers: { 'accept-encoding': 'gzip, br' } });
+  const html = await res.text();
+  assert.equal(res.status, 200);
+  assert.match(html, /<body data-rails-env="production" data-origens-theme="checkout" data-origens-step="confirmation">/);
+  assert.equal(links(html).length, 1); assert.match(links(html)[0], /s=checkout&/);
+  assert.ok(!html.includes('__origens/loader.js') && !html.includes('data-use-origens-widget'), 'no loader on the confirmation');
+  assert.ok(html.includes('function eventOrderPlaced(){gtag("event","purchase",{transaction_id:"INK0000000"})}') && html.includes('<span id="order_number" class="hidden">INK0000000</span>'), 'GA4 purchase intact');
+  assert.equal(html.replace(' data-origens-theme="checkout" data-origens-step="confirmation"', '').replace(links(html)[0], '').replace('<span data-origens-brand aria-hidden="true">Use Origens</span>', '').replace('href="https://useorigens.com.br/sul"', 'href="/usesul"'), CONFIRMATION_HTML, 'nothing else changed');
+  assert.deepEqual(res.headers.getSetCookie(), ['_ink_session=abc; path=/; HttpOnly', 'cart=1; path=/']);
+  assert.equal(calls.find((c) => c.path === CONFIRMATION).encoding, 'identity');
+  // As telas do checkout não recebem a etapa.
+  assert.doesNotMatch(await (await get(ALL, PAYMENT)).text(), /data-origens-step/);
+});
+
+test('order confirmation: untouched without theme-checkout, with the panel switch off, in dry-run, on POST and on Turbo-Frame', async () => {
+  reset();
+  const same = async (features, init, extra) => assert.equal(await (await get(features, CONFIRMATION, init, extra)).text(), CONFIRMATION_HTML);
+  await same('return-link,theme-pdp,theme-cart');
+  storefront = () => Response.json(themeOf({ pdp: true, cart: true }));
+  await same(ALL + ',pdp-guide'); // outra instância: o tema fica 60 s em cache
+  reset();
+  await same(ALL, {}, { ENABLE_WIDGET: 'dry-run' });
+  await same(ALL, { method: 'POST', body: 'x=1' });
+  await same(ALL, { headers: { 'Turbo-Frame': 'cart_summary' } });
 });
 
 test('theme.css: same hash = immutable for a year; other hash = current CSS with a short cache; surface switched off = empty, no-store; feature off = the INK answers', async () => {

@@ -144,10 +144,12 @@ async function pageThemeFor(themeSource, features, surfaces) {
 // visitas e poderiam religar uma superfície já desligada).
 // Com o carrinho tematizado e cart-incentive no deploy, a regra publicada do incentivo vai junto, no mesmo <body> (nenhuma requisição a mais no navegador).
 class ThemeBodyMarker {
-  constructor(value, incentive = '') { this.value = value; this.incentive = incentive; }
+  constructor(value, incentive = '', step = '') { this.value = value; this.incentive = incentive; this.step = step; }
   element(body) {
     body.setAttribute('data-origens-theme', this.value);
     if (this.incentive) body.setAttribute('data-origens-incentive', this.incentive);
+    // A confirmação do pedido (data-origens-step="confirmation"): as regras só dela usam este atributo; as telas do checkout não o recebem.
+    if (this.step) body.setAttribute('data-origens-step', this.step);
   }
 }
 class ThemeLinkInjector {
@@ -267,7 +269,7 @@ async function injectCssOnlyTheme(request, upstream, themeSource, features, stor
   if (response.status !== 200 || !contentType.startsWith('text/html') || response.headers.get('content-encoding')) return response;
   if (/attachment/i.test(response.headers.get('content-disposition') || '')) return response;
   let rewriter = new HTMLRewriter()
-    .on('body', new ThemeBodyMarker(surface))
+    .on('body', new ThemeBodyMarker(surface, '', kind === 'confirmation' ? kind : ''))
     .on('head', new ThemeLinkInjector(themeLinkTag(theme, [surface])));
   if (surface === 'checkout') rewriter = rewriter.on('nav.bg-store-primary a[href]', new CheckoutBrand(clientStore(store).home));
   if (kind === 'login') rewriter = rewriter.on('a[href="' + store.inkBase + '"]', new HomeLink(clientStore(store).home));
@@ -408,13 +410,14 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       if (url.pathname === THEME_PATH) {
         return mode === 'true' && usesTheme(features.features, SURFACES) ? serveThemeCss(request, url, mode, features.features, servicesOf(view).theme) : passThrough(request, upstream);
       }
-      // Telas do checkout: só com true + theme-checkout, GET de documento inteiro (nunca Turbo-Frame, nunca POST). A rota da zona que traz esses caminhos
+      // Telas do checkout e a confirmação do pedido: só com true + theme-checkout, GET de documento inteiro (nunca Turbo-Frame, nunca POST). A rota da zona que traz esses caminhos
       // ao Worker é separada (ver docs/tema-fluxo-ink.md); sem ela este ramo nunca é alcançado. Em exceção a Cloudflare entrega a origem (fail-open).
-      if (checkoutPageKind(url.pathname, store.inkBase) !== null) {
+      const checkoutKind = checkoutPageKind(url.pathname, store.inkBase);
+      if (checkoutKind !== null) {
         if (mode !== 'true' || !features.features.includes('theme-checkout') || request.method !== 'GET' || request.headers.has('Turbo-Frame')) return passThrough(request, upstream);
         if (ctx && typeof ctx.passThroughOnException === 'function') ctx.passThroughOnException();
         try {
-          return await injectCssOnlyTheme(request, upstream, servicesOf(view).theme, features.features, view, 'checkout', 'checkout');
+          return await injectCssOnlyTheme(request, upstream, servicesOf(view).theme, features.features, view, 'checkout', checkoutKind);
         } catch (_) {
           logEvent('error', 'checkout-theme-failed', {});
           return passThrough(request, upstream);

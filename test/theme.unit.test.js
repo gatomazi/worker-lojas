@@ -97,6 +97,11 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
+    // Confirmação do pedido: o contêiner da página (coluna no celular, grade no computador) e `contents` na grade e no bloco do convite, que a INK nunca alterna.
+    'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter',
+    'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter',
+    'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > [data-controller="ink-store--checkout"],body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2',
+    'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
     'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-size',
@@ -104,6 +109,7 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="pdp"] .o-thumb img'
   ].sort());
   assert.deepEqual(selectorsWith('display:\\s*none').sort(), [
+    'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] .cart-drawer__footer__coupon[data-origens-collapsed]',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
@@ -172,6 +178,30 @@ test('checkoutPageKind: only the two checkout SCREENS of this store (with or wit
     '/usesul/checkout/payment_methods/' + U + '/x', '/usesul/checkout/payment_methods/not-a-uuid', '/usenorte/checkout/payment_methods/' + U, '/usesul/cart', '/usesul/checkout', '/usesulx/checkout/payment_methods']) {
     assert.equal(checkoutPageKind(p, '/usesul'), null, p);
   }
+});
+
+test('checkoutPageKind: the order confirmation (payment_confirmation/<order>/<payment>, both numeric) of this store, and nothing that looks like it', () => {
+  assert.equal(checkoutPageKind('/usesul/payment_confirmation/1234567/89012345678', '/usesul'), 'confirmation');
+  assert.equal(checkoutPageKind('/useorigens/payment_confirmation/0/0', '/useorigens'), 'confirmation');
+  for (const p of ['/usesul/payment_confirmation', '/usesul/payment_confirmation/', '/usesul/payment_confirmation/1234567', '/usesul/payment_confirmation/1234567/', '/usesul/payment_confirmation/1234567/890/x',
+    '/usesul/payment_confirmation/abc/890', '/usesul/payment_confirmation/1/2?', '/usenorte/payment_confirmation/1/2', '/usesulx/payment_confirmation/1/2', '/usesul/checkout/payment_confirmation/1/2']) {
+    assert.equal(checkoutPageKind(p, '/usesul'), null, p);
+  }
+});
+
+test('CSS: the confirmation rules only apply on the confirmation (step attribute), never on the other checkout screens', () => {
+  const t = normalizeTheme(clone({ surfaces: { pdp: false, cart: false, checkout: true } }));
+  const css = buildThemeCss(t, ['checkout']);
+  const confirmation = css.split('}').filter((r) => r.includes('users/signup') || r.includes('payment_confirmation') || r.includes('orders/trackings'));
+  assert.ok(confirmation.length > 0);
+  for (const r of confirmation) assert.match(r, /body\[data-origens-theme~="checkout"\]\[data-origens-step="confirmation"\]/, r.slice(0, 120));
+  // `display` da confirmação: só `contents` na grade e no bloco do convite (contêineres que a INK nunca alterna) e o próprio contêiner da página.
+  const step = css.match(/[^{}]*data-origens-step="confirmation"[^{}]*\{[^}]*display:[^}]*\}/g).map((r) => r.slice(0, r.indexOf('{')).replace(/^@media[^{]*/, ''));
+  assert.deepEqual(step.map((s) => s.replace(/body\[data-origens-theme~="checkout"\]\[data-origens-step="confirmation"\] > div\.font-inter/g, 'O')).sort(), [
+    'O', 'O', 'O > [data-controller="ink-store--checkout"],O > div.md\\:w-1\\/2', 'O > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br'
+  ].sort());
+  // Nada da confirmação é escondido; só a quebra de linha fixa (<br>) do convite, que partiria a frase na coluna estreita.
+  assert.deepEqual((css.match(/[^{}]*data-origens-step="confirmation"[^{}]*\{display:\s*none[^}]*\}/g) || []).map((r) => r.slice(r.lastIndexOf(' > '))), [' > br{display:none}']);
 });
 
 test('createThemeSource: fixed storefront URL without visitor headers; 60 s fresh; a failing storefront keeps the last good theme (≤ 24 h), never invents one', async () => {
