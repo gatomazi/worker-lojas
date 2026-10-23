@@ -594,6 +594,8 @@ function confirmationCss() {
     O + '{display:flex;flex-direction:column;align-items:stretch;gap:24px;padding:24px 16px 96px}',
     L + ',' + BOX + '{display:contents}',
     O + ' > turbo-frame#alert_component{order:0}',
+    // Qualquer outro bloco da grade (ex.: o que a INK mostra só em outro meio de pagamento) fica junto da confirmação, na ordem do DOM, nunca acima dela.
+    L + ' > *{order:1}',
     PAY + '{order:1;margin-top:0!important}',
     INVITE + '{order:2}',
     O + ' > [data-controller="ink-store--checkout"] > turbo-frame#cart_summary{order:3}',
@@ -602,6 +604,7 @@ function confirmationCss() {
     // altura da confirmação, então o resumo e o convite ficam juntos no alto da coluna.
     '@media (min-width:768px){' + O + '{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:auto auto auto 1fr;column-gap:48px;row-gap:24px;align-items:start;max-width:1180px;margin-inline:auto;padding:24px 24px 64px}' +
       O + ' > turbo-frame#alert_component{grid-column:1/-1;grid-row:1}' +
+      L + ' > *{grid-column:1}' +
       PAY + '{grid-column:1;grid-row:2/span 3}' +
       O + ' > [data-controller="ink-store--checkout"] > turbo-frame#cart_summary{grid-column:2;grid-row:2;height:auto!important}' +
       INVITE + '{grid-column:2;grid-row:3}' +
