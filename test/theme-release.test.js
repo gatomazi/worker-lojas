@@ -56,8 +56,8 @@ test('TOML and zone routes: the production TOML declares the routes the zone has
   assert.deepEqual(parseLiveRoutes(live), ['www.usesul.com.br/*', 'loja.useorigens.com.br/__origens/*', 'loja.useorigens.com.br/useorigens/product/*']);
   const toml = parseTomlRoutes(TOML);
   assert.ok(toml.includes('www.usesul.com.br/*') && toml.includes('loja.useorigens.com.br/useorigens/product/*'));
-  const purchase = toml.filter((p) => /checkout|cart|store_sessions/.test(p));
-  assert.deepEqual(purchase.sort(), [...checkoutRoutes('loja.useorigens.com.br', '/useorigens'), 'loja.useorigens.com.br/useorigens/store_sessions/new*'].sort(), 'no caminho da compra e do login, só as duas telas do checkout e a TELA do login');
+  const purchase = toml.filter((p) => /checkout|cart|store_sessions|payment_confirmation/.test(p));
+  assert.deepEqual(purchase.sort(), [...checkoutRoutes('loja.useorigens.com.br', '/useorigens'), 'loja.useorigens.com.br/useorigens/store_sessions/new*'].sort(), 'no caminho da compra e do login, só as duas telas do checkout, a confirmação do pedido e a TELA do login');
   for (const p of accountRoutes('loja.useorigens.com.br', '/useorigens')) assert.ok(toml.includes(p), p);
   assert.equal(parseTomlVars(TOML).SINGLE_STORE_DOMAIN, 'next');
 });
@@ -67,7 +67,7 @@ const ZONE_NOW = [{ pattern: HOST + '/useorigens/*', script: null }, { pattern: 
 
 test('checkout routes: only the two document screens, never without the exclusion, never next to another route on the purchase path', () => {
   const s = checkoutRoutesState(ZONE_NOW, { host: HOST, base: BASE, worker: W });
-  assert.deepEqual(s.missing, [HOST + '/useorigens/checkout/contact_and_shipping_details*', HOST + '/useorigens/checkout/payment_methods*']);
+  assert.deepEqual(s.missing, [HOST + '/useorigens/checkout/contact_and_shipping_details*', HOST + '/useorigens/checkout/payment_methods*', HOST + '/useorigens/payment_confirmation/*']);
   assert.deepEqual(s.problems, []);
   const done = checkoutRoutesState([...ZONE_NOW, ...s.missing.map((pattern) => ({ pattern, script: W }))], { host: HOST, base: BASE, worker: W });
   assert.deepEqual(done.missing, []);
@@ -81,11 +81,12 @@ test('checkout probes: the two screens execute; every submission, the cart and t
   const exec = set.filter((p) => p.exec).map((p) => p.url);
   const skip = set.filter((p) => p.exec === false).map((p) => p.url);
   assert.ok(exec.some((u) => u.includes('/checkout/contact_and_shipping_details/')) && exec.some((u) => u.includes('/checkout/payment_methods/')));
+  assert.ok(exec.includes(BASE + '/payment_confirmation/0/0'), 'the order confirmation executes (fictitious ids)');
   for (const path of ['/checkout/buyer/', '/checkout/shipping_address/', '/checkout/process_payment', '/checkout/payment_discount/', '/cart', '/store_sessions/']) assert.ok(skip.some((u) => u.includes(path)), path);
   // Os dois padrões casam com as telas e com nenhum envio.
   const glob = (p) => new RegExp('^' + p.slice(HOST.length).replace(/[.]/g, '\\.').replace(/\*/g, '.*') + '$');
   const patterns = checkoutRoutes(HOST, BASE).map(glob);
-  for (const u of exec.filter((x) => x.includes('/checkout/'))) assert.ok(patterns.some((g) => g.test(u)), u);
+  for (const u of exec.filter((x) => x.includes('/checkout/') || x.includes('/payment_confirmation/'))) assert.ok(patterns.some((g) => g.test(u)), u);
   for (const u of skip) assert.ok(!patterns.some((g) => g.test(u)), u);
 });
 

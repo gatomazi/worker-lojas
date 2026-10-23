@@ -55,11 +55,12 @@ PW_PATH=… node scripts/tema-conta.mjs --out docs/evidence/tema-conta   # prova
 
 ## Checkout: as duas rotas da zona (`scripts/checkout-routes.mjs`)
 
-A zona exclui `loja.useorigens.com.br/useorigens/*` do Worker (rota sem script): login, carrinho e checkout vão direto para a INK. Para o tema do checkout, **duas** rotas com o Worker, e só estas, mais específicas que a exclusão:
+A zona exclui `loja.useorigens.com.br/useorigens/*` do Worker (rota sem script): login, carrinho e checkout vão direto para a INK. Para o tema do checkout, **duas** rotas com o Worker, e só estas, mais específicas que a exclusão (e a da confirmação do pedido, ver abaixo):
 
 ```
 loja.useorigens.com.br/useorigens/checkout/contact_and_shipping_details*
 loja.useorigens.com.br/useorigens/checkout/payment_methods*
+loja.useorigens.com.br/useorigens/payment_confirmation/*
 ```
 
 Elas não cobrem os envios do checkout (`/checkout/buyer/…`, `/checkout/shipping_address/…`, `/checkout/process_payment`, `/checkout/payment_discount/…`), que seguem direto para a INK. Estão **declaradas no `wrangler.production.toml`**: o `wrangler deploy` apaga as rotas do Worker que o TOML não declara (medido em 17/10/2026, quando as duas tinham sido criadas só na zona). O deploy com `theme-checkout` as cria; o rollback do `release-tema.sh` as apaga com `checkout-routes.mjs remove` (o próximo deploy as recria pelo TOML).
@@ -72,6 +73,24 @@ node scripts/checkout-routes.mjs plan     # SOMENTE LEITURA: rotas do host e o q
 node scripts/checkout-routes.mjs probe    # wrangler tail: as duas telas executam; envios, /checkout, carrinho e login NÃO (só GET)
 node scripts/checkout-routes.mjs remove   # desfaz sem deploy: o checkout volta inteiro para a INK (o próximo deploy recria pelo TOML)
 ```
+
+## Confirmação do pedido (`payment_confirmation`)
+
+A página depois do pagamento (`<base>/payment_confirmation/<pedido>/<pagamento>`, os dois números) usa o **mesmo tema do checkout** (`theme-checkout`, a mesma caixa
+no painel). Uma terceira rota, `loja.useorigens.com.br/useorigens/payment_confirmation/*`, está declarada no TOML e entra no grupo `checkout` do
+`checkout-routes.mjs` (plan/apply/remove/probe; a sonda usa `/payment_confirmation/0/0`). O Worker trata a página como as telas do checkout: só CSS, só
+GET de documento inteiro, sem `Turbo-Frame`, `Accept-Encoding: identity`, fail-open, o caminho fora dos logs. Os scripts de conversão da INK (GA4
+`purchase`, GTM, os `<span>` do pedido) passam intactos (teste no workerd).
+
+Só nela o `<body>` recebe também `data-origens-step="confirmation"`, e as regras próprias da página só valem com esse atributo (nunca nas telas do checkout):
+
+- **Convite para criar conta.** Na INK ele fica num bloco depois da grade (confirmação | resumo), no fim da página. Com `display:contents` na grade e nesse
+  bloco (contêineres que a INK nunca alterna), as peças passam a ser filhas do mesmo contêiner. No celular: confirmação › convite › resumo › selos da INK.
+  No computador: a confirmação à esquerda; à direita, o resumo e logo abaixo o convite, à vista sem rolar. O convite vira um cartão em destaque (as cores
+  da faixa de incentivo) com o botão principal do site. Nenhum nó é movido no DOM; quem já tem conta não recebe o bloco, e a página fica igual sem ele.
+- O título, os cartões do pedido, a linha do tempo (na cor de seleção) e o "Acompanhar pedido" (botão principal) seguem o checkout.
+
+O release-tema não faz smoke nesta página (exigiria um pedido real); a prova de execução é a sonda.
 
 ## Rodada 2 (composição)
 

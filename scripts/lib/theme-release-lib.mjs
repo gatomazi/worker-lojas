@@ -108,7 +108,8 @@ export function evaluateThemePage(html, css) {
 // ── Checkout: as DUAS rotas da zona que trazem as telas do checkout ao Worker (docs/tema-fluxo-ink.md) ─────────────────────────────────────────────
 // Só as telas de documento (contato/entrega e pagamento), mais específicas que a exclusão `<host><base>/*` (sem Worker). Os envios do checkout
 // (buyer, shipping_address, process_payment, payment_discount), o carrinho e o login continuam na exclusão: direto na INK.
-export const checkoutRoutes = (host, base) => [`${host}${base}/checkout/contact_and_shipping_details*`, `${host}${base}/checkout/payment_methods*`];
+// E a confirmação do pedido (payment_confirmation/<pedido>/<pagamento>, só GET de documento): o mesmo tema, a mesma feature.
+export const checkoutRoutes = (host, base) => [`${host}${base}/checkout/contact_and_shipping_details*`, `${host}${base}/checkout/payment_methods*`, `${host}${base}/payment_confirmation/*`];
 // Conta (theme-account): a TELA do login (o padrão não casa com o POST /store_sessions) e Trocas e devoluções. Pedidos, rastreio e avaliação já vêm pela rota de pedidos.
 export const accountRoutes = (host, base) => [`${host}${base}/store_sessions/new*`, `${host}${base}/exchanges_and_returns*`];
 /** As rotas de tema por grupo (o release pode criar um grupo inteiro com o deploy e o rollback o apaga). */
@@ -141,6 +142,7 @@ export function checkoutProbeSet(base) {
   return [
     { url: `${base}/checkout/contact_and_shipping_details/${id}`, exec: true },
     { url: `${base}/checkout/payment_methods/${id}`, exec: true },
+    { url: `${base}/payment_confirmation/0/0`, exec: true },
     { url: `${base}/checkout/buyer/${id}`, exec: false },
     { url: `${base}/checkout/shipping_address/${id}`, exec: false },
     { url: `${base}/checkout/process_payment`, exec: false },

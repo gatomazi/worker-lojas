@@ -129,11 +129,14 @@ export function createThemeSource({ upstream = (request, init) => fetch(request,
 
 // ── Páginas do checkout que recebem o tema ──────────────────────────────────────────────────────────────────────────────────
 // Só as duas TELAS (GET) de contato/entrega e de pagamento: <inkBase>/checkout/<tela>[/<uuid do carrinho>]. Nunca os POSTs (buyer, shipping_address,
-// process_payment, payment_discount…), nunca outra tela. Função pura, testada; o uuid nunca vai para log.
+// process_payment, payment_discount…), nunca outra tela. E a confirmação do pedido, depois do pagamento: <inkBase>/payment_confirmation/<pedido>/<pagamento>
+// (os dois números; nada além). Função pura, testada; o uuid e os números do pedido nunca vão para log.
 const CHECKOUT_STEPS = Object.freeze({ contact_and_shipping_details: 'contact', payment_methods: 'payment' });
 export function checkoutPageKind(pathname, base) {
   if (typeof pathname !== 'string' || typeof base !== 'string' || base === '') return null;
-  const m = /^\/checkout\/([a-z_]+)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.exec(pathname.startsWith(base + '/') ? pathname.slice(base.length) : '');
+  const rest = pathname.startsWith(base + '/') ? pathname.slice(base.length) : '';
+  if (/^\/payment_confirmation\/[0-9]{1,20}\/[0-9]{1,20}$/.test(rest)) return 'confirmation';
+  const m = /^\/checkout\/([a-z_]+)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.exec(rest);
   return m && Object.hasOwn(CHECKOUT_STEPS, m[1]) ? CHECKOUT_STEPS[m[1]] : null;
 }
 
@@ -173,6 +176,8 @@ export function accountPageKind(pathname, base) {
 const P = 'body[data-origens-theme~="pdp"]';
 const C = 'body[data-origens-theme~="cart"]';
 const K = 'body[data-origens-theme~="checkout"]';
+// A confirmação do pedido usa o mesmo tema do checkout; as regras só dela vão com a etapa que o Worker marca no <body> (nunca valem nas outras telas).
+const KC = K + '[data-origens-step="confirmation"]';
 const A = 'body[data-origens-theme~="account"]';
 const ANY = 'body[data-origens-theme]';
 
@@ -569,7 +574,63 @@ function checkoutCss() {
     K + ' turbo-frame#cart_summary :is(.text-green-500,.text-green-600),' + L + ' :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
     K + ' #prices_summary div.text-base.md\\:text-lg{font-weight:700;color:var(--o-ink)}',
     L + ' a[aria-label="Editar endereço de entrega"]{color:var(--o-ink);min-height:44px;font-weight:600}',
-    L + ' .md\\:hidden.flex.flex-col{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}'
+    L + ' .md\\:hidden.flex.flex-col{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}',
+    confirmationCss()
+  ].join('');
+}
+
+// Confirmação do pedido (payment_confirmation): o mesmo visual do checkout e o convite para criar conta logo depois do "Acompanhar pedido", e não no fim da
+// página. Na INK o convite fica num bloco DEPOIS da grade (confirmação | resumo), junto dos logos e do endereço da INK que só aparecem no celular. Só com
+// CSS: a grade e esse bloco viram `display:contents` (contêineres que a INK nunca alterna), e as peças passam a ser filhas do mesmo contêiner, ordenadas
+// com `order` (celular) ou posicionadas na grade (computador). Nenhum nó da INK é movido no DOM; quem já tem conta não recebe o convite e nada quebra.
+function confirmationCss() {
+  const O = KC + ' > div.font-inter';
+  const L = O + ' > [data-controller="ink-store--checkout"]';
+  const PAY = L + ' > section.md\\:col-span-7';
+  const BOX = O + ' > div.md\\:w-1\\/2';
+  const INVITE = BOX + ' > div:has(> a[href$="/users/signup"])';
+  return [
+    // As peças no mesmo contêiner: a confirmação, o convite, o resumo e, por último, a assinatura da INK (só no celular).
+    O + '{display:flex;flex-direction:column;align-items:stretch;gap:24px;padding:24px 16px 96px}',
+    L + ',' + BOX + '{display:contents}',
+    O + ' > turbo-frame#alert_component{order:0}',
+    // Qualquer outro bloco da grade (ex.: o que a INK mostra só em outro meio de pagamento) fica junto da confirmação, na ordem do DOM, nunca acima dela.
+    L + ' > *{order:1}',
+    PAY + '{order:1;margin-top:0!important}',
+    INVITE + '{order:2}',
+    O + ' > [data-controller="ink-store--checkout"] > turbo-frame#cart_summary{order:3}',
+    BOX + ' > div:not(:has(> a[href$="/users/signup"])){order:4;justify-content:center}',
+    // Computador: duas colunas; a confirmação à esquerda e, à direita, o resumo e logo abaixo o convite (à vista sem rolar). A última linha (1fr) absorve a
+    // altura da confirmação, então o resumo e o convite ficam juntos no alto da coluna.
+    '@media (min-width:768px){' + O + '{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:auto auto auto 1fr;column-gap:48px;row-gap:24px;align-items:start;max-width:1180px;margin-inline:auto;padding:24px 24px 64px}' +
+      O + ' > turbo-frame#alert_component{grid-column:1/-1;grid-row:1}' +
+      L + ' > *{grid-column:1}' +
+      PAY + '{grid-column:1;grid-row:2/span 3}' +
+      O + ' > [data-controller="ink-store--checkout"] > turbo-frame#cart_summary{grid-column:2;grid-row:2;height:auto!important}' +
+      INVITE + '{grid-column:2;grid-row:3}' +
+      KC + ' turbo-frame#cart_summary > section{margin-top:0;position:static!important;max-height:none!important}}',
+    // Título, agradecimento e os cartões do pedido na hierarquia do checkout.
+    PAY + ' p.text-2xl{font-weight:700;font-size:clamp(24px,2.6vw,32px);line-height:1.15;letter-spacing:-.015em;color:var(--o-ink)}',
+    PAY + ' svg.text-green-500{color:var(--o-ok)}',
+    PAY + ' p.text-lg.font-semibold{font-weight:700;color:var(--o-ink)}',
+    PAY + ' :is(p,div).text-gray-500{color:var(--o-ink-mute)!important}',
+    PAY + ' :is(p).text-gray-900{color:var(--o-ink)}',
+    PAY + ' .text-blue-700,' + PAY + ' .text-blue-700 a{color:var(--o-ink)!important;font-weight:600}',
+    PAY + ' div.rounded-lg.border{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}',
+    PAY + ' div.mb-8.rounded-lg.border{margin-bottom:0!important}',
+    PAY + ' [role="alert"]{border-radius:var(--o-radius)!important}',
+    // Linha do tempo do pedido: as etapas cumpridas na cor de seleção da marca.
+    PAY + ' ol span.bg-green-500{background-color:var(--o-selected)!important}',
+    PAY + ' ol li:is([class*="after:border-green-500"])::after{border-color:var(--o-selected)!important}',
+    btn(PAY + ' a[href*="/orders/trackings"]', 'cta'),
+    PAY + ' a[href*="/orders/trackings"]{width:100%}',
+    // O convite: um cartão em destaque, o texto à esquerda e o botão principal do site (largura toda no celular).
+    INVITE + '{align-items:flex-start!important;justify-content:flex-start!important;text-align:left!important;gap:14px!important;padding:20px;font-family:var(--o-font)!important;border:1px solid var(--o-incentive-line);border-left:4px solid var(--o-incentive-ink);border-radius:var(--o-radius);background:var(--o-incentive-bg);color:var(--o-incentive-text);font-size:16px;font-weight:600;line-height:1.45}',
+    // A quebra de linha fixa da INK (pensada para a largura antiga) parte a frase no meio na coluna estreita: o texto corre solto.
+    INVITE + ' > br{display:none}',
+    btn(INVITE + ' > a[href$="/users/signup"]', 'cta'),
+    INVITE + ' > a[href$="/users/signup"]{width:100%}',
+    '@media (min-width:768px){' + INVITE + ' > a[href$="/users/signup"]{width:auto}}'
   ].join('');
 }
 
