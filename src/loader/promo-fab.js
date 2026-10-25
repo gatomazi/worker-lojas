@@ -283,7 +283,8 @@ export const PROMO_FAB = String.raw`
       // Aviso de cookies da INK ainda na tela, no celular: aviso, cupom, WhatsApp e Ajuda disputavam os mesmos ~200 px da base (4 elementos fixos na
       // primeira visita). O cupom espera o aviso sair; no desktop há espaço e ele continua ao lado.
       const cookieNotice = promoShown('.cookie-acceptance, [data-controller~="ink-store--cookie-acceptance"]') && !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
-      const overlay = promoShown('.cart-drawer.open') || promoShown('#modal-wrapper') || menuOpen || helpOpen;
+      // O painel do assistente (assistant.js, que fica no lugar do "Ajuda?") conta como o painel nativo do Ajuda.
+      const overlay = promoShown('.cart-drawer.open') || promoShown('#modal-wrapper') || menuOpen || helpOpen || promoShown('#o-assist-panel');
       const blocked = overlay || keyboard || typing || noRoom || covers || cookieNotice;
       // Diagnóstico (QA e suporte): por que o botão está fora do caminho agora.
       root.setAttribute('data-promo-hidden', blocked ? [overlay && 'overlay', keyboard && 'keyboard', typing && 'typing', noRoom && 'no-room', covers && 'purchase-controls', cookieNotice && 'cookie-notice'].filter(Boolean).join(' ') : '');

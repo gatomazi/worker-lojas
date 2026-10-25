@@ -9,6 +9,7 @@ import { createPromotionsGateway, PROMOTIONS_PATH } from './promotions-gateway.j
 import { createTopBarGateway, TOP_BAR_PATH } from './top-bar-gateway.js';
 import { createRecommendationsGateway, RECOMMENDATIONS_PATH } from './recommendations-gateway.js';
 import { createGuideGateway, GUIDE_PATH } from './guide-gateway.js';
+import { createAssistantGateway, ASSISTANT_PATH } from './assistant-gateway.js';
 import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageKind, shellEnabled } from './scope.js';
 import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie, clientStore } from './stores.js';
 import { onFormerHost, domainMoveRedirect } from './domain-move.js';
@@ -290,12 +291,12 @@ function withRegionCookie(response, region) {
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
 // Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
-export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, themeSource = null } = {}) {
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, assistant = null, themeSource = null } = {}) {
   const services = new Map();
   // Por loja E região (loja única: a loja vista de cada região tem a própria navbar, busca, guia…).
   const servicesOf = (store) => {
     const key = (store.viewKey ?? store.id) + '|' + store.inkHost;
-    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
+    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), assistant: assistant ?? createAssistantGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
     return services.get(key);
   };
   return {
@@ -405,6 +406,10 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       // Guia da página de produto: só com true + pdp-guide; caso contrário a INK responde (404 dela).
       if (url.pathname === GUIDE_PATH) {
         return mode === 'true' && features.features.includes('pdp-guide') ? servicesOf(view).guide.handle(request) : passThrough(request, upstream);
+      }
+      // Assistente "Ajuda" (GET abre o chat, POST responde uma mensagem): só com true + assistant; caso contrário a INK responde (404 dela).
+      if (url.pathname === ASSISTANT_PATH) {
+        return mode === 'true' && features.features.includes('assistant') ? servicesOf(view).assistant.handle(request) : passThrough(request, upstream);
       }
       // CSS do tema da compra: só com true + ao menos uma feature theme-*; caso contrário a INK responde (404 dela).
       if (url.pathname === THEME_PATH) {
