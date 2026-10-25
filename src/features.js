@@ -18,14 +18,18 @@
 // nem o atributo do <html> nem a leitura da configuração.
 // theme-account: o mesmo tema nas páginas de conta (login, pedidos, detalhe, rastreio, avaliação, trocas; src/theme.js accountPageKind). Login e avaliação
 // recebem só o CSS (nenhum script nosso); as demais são páginas de casca. O mesmo teto: só com a superfície "Conta" ligada no painel.
+// assistant: o assistente "Ajuda" do storefront (sem IA) no canto inferior direito do produto e das páginas de casca, NO LUGAR do botão "Ajuda?" da INK (que
+// traz o WhatsApp no menu dele): o nativo só some depois que o nosso montou, e volta ao desmontar. Dados de /__origens/assistente. Convive com o pdp-guide
+// (o guia é um convite no fluxo da compra; o assistente, um botão flutuante para qualquer dúvida). Desligada (ou o assistente desligado no painel) = a
+// INK fica exatamente como é: nem o módulo nem o gateway entram.
 // cart-incentive: no carrinho tematizado (theme-cart), o incentivo de frete grátis por quantidade de peças, SÓ quando o painel publica uma regra
 // confirmada (Tema da INK › Incentivo). Sem regra, sem theme-cart ou desligada = nada aparece (a INK fica como é).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive'];
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {
   if (raw === undefined || raw === null) return { status: 'default', features: [...DEFAULT_FEATURES] };
-  if (typeof raw !== 'string' || raw.length > 260) return { status: 'invalid', features: [] };
+  if (typeof raw !== 'string' || raw.length > 320) return { status: 'invalid', features: [] };
   if (raw.trim() === '') return { status: 'empty', features: [] };
   const names = raw.split(',').map((name) => name.trim());
   if (!names.every((name) => FEATURE_NAMES.includes(name))) return { status: 'invalid', features: [] };
