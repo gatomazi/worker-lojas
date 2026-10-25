@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
+import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, evaluateAssistant, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
 
 // A produção de 17/10/2026 (versão do domínio novo): 14 features, catálogo, 5 caminhos na allowlist.
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
@@ -156,4 +156,18 @@ test('top-bar: a INK tem de servir a MESMA faixa do storefront, e o loader tem d
   assert.equal(evaluateTopBar({ ...site, colors: undefined }, site, loader).ok, false);
   assert.equal(evaluateTopBar(site, site, 'sem módulo').ok, false);
   assert.match(evaluateTopBar(site, { ...site, messages: [] }, loader).problems.join(' '), /não tem faixa publicada/);
+});
+
+test('evaluateAssistant: the INK serves the opening the storefront publishes (on, text, chips, WhatsApp) and the loader carries the module', () => {
+  const opening = { v: 1, kind: 'greeting', text: 'Oi! Posso ajudar?', suggestions: ['Tem estampa da minha cidade?', 'Qual é o tecido das camisetas?'] };
+  const site = { v: 1, region: 'sul', enabled: true, opening, whatsapp: 'https://wa.me/5548988082581?text=Ol%C3%A1' };
+  const ink = { v: 1, enabled: true, opening, whatsapp: site.whatsapp };
+  const loader = "const ASSIST_ENDPOINT = '/__origens/assistente';";
+  assert.deepEqual(evaluateAssistant(ink, site, loader), { ok: true, problems: [], opening: 'Oi! Posso ajudar?' });
+  assert.equal(evaluateAssistant(null, site, loader).ok, false, 'the feature is not on');
+  assert.equal(evaluateAssistant({ v: 1, enabled: false }, site, loader).ok, false);
+  assert.equal(evaluateAssistant(ink, { ...site, enabled: false }, loader).ok, false, 'off in the panel: nothing would change on INK');
+  assert.match(evaluateAssistant({ ...ink, opening: { ...opening, text: 'Outra' } }, site, loader).problems[0], /abertura diferente/);
+  assert.match(evaluateAssistant({ ...ink, whatsapp: undefined }, site, loader).problems[0], /WhatsApp diferente/);
+  assert.match(evaluateAssistant(ink, site, 'nada').problems[0], /loader\.js não traz o módulo do assistente/);
 });

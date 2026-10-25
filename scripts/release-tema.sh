@@ -12,6 +12,9 @@
 #   --add=top-bar                            <- liga a "Faixa do topo" do CMS na faixa preta da INK (produto e casca; docs/top-bar.md). Antes, confere que
 #                                               o storefront tem faixa publicada; depois, que /__origens/top-bar devolve as MESMAS mensagens, estilo e cores
 #                                               de /api/top-bar/sul e que o loader traz o módulo da faixa. Rollback = a versão capturada (a faixa da INK volta).
+#   --add=assistant                          <- liga o assistente "Ajuda" (sem IA) no lugar do "Ajuda?" da INK (produto e casca; docs/assistente.md). Antes,
+#                                               confere que o storefront publica o assistente LIGADO; depois, que /__origens/assistente devolve a MESMA abertura
+#                                               de /api/assistente/sul e que o loader traz o módulo. Rollback = a versão capturada (o "Ajuda?" da INK volta).
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -40,15 +43,16 @@ LOGIN_PAGE="$SITE_URL/useorigens/store_sessions/new"
 TRACKING_PAGE="$SITE_URL/useorigens/orders/trackings"
 STOREFRONT_HOME="${STOREFRONT_URL}/sul"
 PHRASE="PUBLICAR-TEMA-INK"
-usage() { sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,29p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account e top-bar (recebido: $ADD)"; exit 2; }
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar e assistant (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
 WITH_TOPBAR=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx top-bar && WITH_TOPBAR=1
+WITH_ASSISTANT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
 ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
@@ -154,6 +158,28 @@ smoke_top_bar() {
   done
 }
 
+# O assistente: o que a INK serve tem de ser a abertura publicada no storefront (ligado, texto, sugestões, WhatsApp) e o loader tem de trazer o módulo.
+smoke_assistant() {
+  local i ink site loader r
+  site=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/assistente/sul" 2>/dev/null)
+  for i in 1 2 3 4 5 6; do
+    ink=$(curl -sS --max-time 15 "$SITE_URL/__origens/assistente?origens_r=sul&origens_smoke=$(date +%s)" 2>/dev/null)
+    loader=$(curl -sS --max-time 20 "$SITE_URL$(curl -sS --max-time 20 "$SAMPLE_PDP?origens_smoke=$(date +%s)" 2>/dev/null | grep -oE '/__origens/loader\.js\?v=[^"]+' | head -1 | sed 's/&amp;/\&/g')" 2>/dev/null)
+    r=$(T_INK="$ink" T_SITE="$site" T_LOADER="$loader" node --input-type=module -e 'const p=(s)=>{try{return JSON.parse(s)}catch(e){return null}};import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluateAssistant(p(process.env.T_INK),p(process.env.T_SITE),process.env.T_LOADER))))' "$LIB")
+    [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "assistente: a INK serve a abertura do storefront e o loader traz o módulo"; return 0; }
+    [ "$i" = 6 ] && { bad "assistente: $(printf '%s' "$r" | json_field problems)"; return 1; }
+    sleep 10
+  done
+}
+
+# O storefront precisa ter o assistente publicado e LIGADO: desligado, a chave liga e nada muda na INK (o "Ajuda?" dela fica).
+storefront_assistant() {
+  local on; on=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/assistente/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1?String(j.enabled===true):"x")}catch(e){console.log("x")}})')
+  if [ "$on" = true ]; then ok "storefront: assistente publicado e ligado"
+  elif [ "$on" = false ]; then warn "storefront: assistente DESLIGADO no painel: a chave liga e a INK segue com o \"Ajuda?\" dela até publicar ligado"
+  else bad "storefront: /api/assistente/sul indisponível ou fora do contrato v1"; fi
+}
+
 # O storefront precisa ter a faixa publicada: sem mensagem no ar, ligar a chave não muda nada na INK.
 storefront_top_bar() {
   local n; n=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/top-bar/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1&&Array.isArray(j.messages)?j.messages.length:-1)}catch(e){console.log(-1)}})')
@@ -220,6 +246,7 @@ smoke_theme() {
 log "== pré-condições =="
 storefront_theme
 [ "$WITH_TOPBAR" = 1 ] && storefront_top_bar
+[ "$WITH_ASSISTANT" = 1 ] && storefront_assistant
 HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 # --update: confere o que já está ligado (a conta sempre; o checkout só com um carrinho de teste).
 if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
@@ -284,6 +311,7 @@ node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.p
 [ "$(routes_state)" = equal ] && ok "rotas: zona = TOML depois do deploy" || fail "as rotas da zona não ficaram iguais às do TOML depois do deploy"
 smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
 if [ "$WITH_TOPBAR" = 1 ]; then smoke_top_bar || fail "smoke da faixa do topo reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
+if [ "$WITH_ASSISTANT" = 1 ]; then smoke_assistant || fail "smoke do assistente reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi
