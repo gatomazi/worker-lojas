@@ -56,3 +56,11 @@ test('discovery module: no HTML injection, no cookies/storage, no external hosts
   assert.match(buildDiscoverySource({ search: false }), /const SEARCH = false;/);
   assert.match(src, /const SEARCH = true;/);
 });
+
+// WIDGET_FEATURES acima de 320 caracteres invalida a lista INTEIRA (fail-closed: todo módulo desliga). Com TODAS as chaves ligadas ainda cabe.
+test('every feature name enabled at once still fits under the 320-char cap (pdp-cep and pdp-coupons included)', () => {
+  const all = FEATURE_NAMES.join(',');
+  assert.ok(FEATURE_NAMES.includes('pdp-cep') && FEATURE_NAMES.includes('pdp-coupons'));
+  assert.ok(all.length <= 320, all.length + ' chars');
+  assert.deepEqual(parseFeatures(all), { status: 'ok', features: FEATURE_NAMES });
+});

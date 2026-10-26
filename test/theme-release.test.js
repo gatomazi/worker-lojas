@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, evaluateAssistant, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
+import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, evaluateAssistant, evaluatePdpOffers, OFFER_FEATURES, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
 
 // A produção de 17/10/2026 (versão do domínio novo): 14 features, catálogo, 5 caminhos na allowlist.
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
@@ -176,4 +176,20 @@ test('evaluateAssistant: the INK serves the opening the storefront publishes (on
   assert.equal(evaluateAssistant({ ...ink, label: 'Pergunte aqui', topics }, site2, loader).ok, true);
   assert.deepEqual(evaluateAssistant(ink, site2, loader).problems, ['texto do botão diferente: INK null x storefront "Pergunte aqui"', 'temas fixos diferentes: INK null x storefront ["Achar estampa","Rastrear pedido","Trocar pedido","Frete e prazo"]']);
   assert.equal(evaluateAssistant({ ...ink, label: 'Pergunte aqui', topics: [] }, { ...site2, topics: [] }, loader).ok, true);
+});
+
+test('evaluatePdpOffers: after --add=pdp-cep,pdp-coupons the PDP loader carries each requested module (and the release keeps every live feature)', async () => {
+  const { buildLoaderSource } = await import('../src/loader-source.js');
+  const both = buildLoaderSource([], ['theme-pdp', ...OFFER_FEATURES], 'product-catalog');
+  assert.deepEqual(evaluatePdpOffers(both, OFFER_FEATURES), { ok: true, problems: [] });
+  const cepOnly = buildLoaderSource([], ['pdp-cep'], 'product-catalog');
+  assert.deepEqual(evaluatePdpOffers(cepOnly, ['pdp-cep']), { ok: true, problems: [] });
+  assert.deepEqual(evaluatePdpOffers(cepOnly, OFFER_FEATURES).problems, ['o loader.js não traz o módulo pdp-coupons']);
+  assert.equal(evaluatePdpOffers('', ['pdp-cep']).ok, false);
+  assert.equal(evaluatePdpOffers(both, []).ok, false);
+  const live = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'assistant'];
+  const before = { widget_mode: 'true', scope_mode: 'product-catalog', allowlist_size: 5, ink_host: 'loja.useorigens.com.br', served_regions: ['sul', 'norte', 'centro-oeste'], widget_features: live };
+  assert.equal(sameThemeConfig(before, { ...before, widget_features: [...live, ...OFFER_FEATURES] }, OFFER_FEATURES), true);
+  assert.equal(sameThemeConfig(before, { ...before, widget_features: [...live.slice(1), ...OFFER_FEATURES] }, OFFER_FEATURES), false);
+  assert.ok([...live, ...OFFER_FEATURES].join(',').length <= 320);
 });

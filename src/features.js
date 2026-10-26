@@ -22,9 +22,13 @@
 // traz o WhatsApp no menu dele): o nativo só some depois que o nosso montou, e volta ao desmontar. Dados de /__origens/assistente. Convive com o pdp-guide
 // (o guia é um convite no fluxo da compra; o assistente, um botão flutuante para qualquer dúvida). Desligada (ou o assistente desligado no painel) = a
 // INK fica exatamente como é: nem o módulo nem o gateway entram.
+// pdp-cep: o prazo de entrega na própria página de produto (campo de CEP + "Calcular", o prazo logo abaixo) no lugar do link que abre o modal da INK.
+// A data é a da INK (o mesmo formulário de CEP dela, atendido pelo Turbo dela); preço de frete a INK não informa ali, e nós também não.
+// pdp-coupons: os cupons da INK para o produto (frame de cupons nativo) em abas à vista, uma por código, com "Copiar", no lugar do quadro que abre o
+// modal. Só copia: quem valida e aplica é a INK, no carrinho. Desligadas = nem o módulo entra no loader; o link e o quadro nativos ficam como são.
 // cart-incentive: no carrinho tematizado (theme-cart), o incentivo de frete grátis por quantidade de peças, SÓ quando o painel publica uma regra
 // confirmada (Tema da INK › Incentivo). Sem regra, sem theme-cart ou desligada = nada aparece (a INK fica como é).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant'];
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

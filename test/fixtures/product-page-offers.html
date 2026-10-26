@@ -1,0 +1,144 @@
+<!doctype html>
+<!-- PDP real da INK REDUZIDA (loja.useorigens.com.br, 26/10/2026), no prefixo de teste /usesul: o prazo de entrega (frame já carregado, sessão sem CEP)
+     e os cupons (frame carregado), com as mesmas classes, ids e atributos. Token trocado por fictício; sem dado de cliente.
+     O <form> interno do modal do CEP (que a INK insere pelo Turbo, aninhado no formulário de compra) foi omitido: o parser de HTML descarta <form>
+     dentro de <form>. O nosso módulo usa só o formulário EXTERNO (#delivery-estimates-form). -->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Balneário Camboriú | Origem SC</title></head>
+<body class="font-poppins">
+<nav class="navbar"><button type="button" aria-label="Carrinho" id="shopping-cart-menu-desk" class="cart-shopping">Carrinho</button></nav>
+<div class="details-product">
+<div class="container-form" data-controller="ink-store--product-page ink-store--count" data-ink-store--product-page-id-value="3789914">
+  <form id="delivery-estimates-form" data-turbo="true" data-turbo-stream="true" action="/usesul/delivery_estimates" accept-charset="UTF-8" method="get">
+    <input value="3789914" autocomplete="off" type="hidden" name="product_id" id="product_id" />
+  </form>
+  <form id="form-product-3789914" class="form-product-options gap-5" data-turbo="true" data-turbo-frame="cart" data-turbo-stream="true" action="/usesul/cart?product_id=3789914" accept-charset="UTF-8" method="post">
+    <input type="hidden" name="_method" value="put" autocomplete="off" />
+    <input type="hidden" name="authenticity_token" value="token-ficticio-de-teste" autocomplete="off" />
+    <input type="hidden" name="product_variant_id" id="product-variant-id-3789914" value="-1" autocomplete="off" />
+    <div class="flex flex-col items-start gap-1 font-medium mt-5 lg:mt-0">
+      <p class="text-4xl font-medium">R$ 109,90</p>
+    </div>
+    <turbo-frame id="delivery_estimates_frame" src="/usesul/delivery_estimates?product_id=3789914&amp;store_slug=usesul" complete="">
+      <div data-controller="ink-store--modal" data-ink-store--modal-placement-value="bottom-center">
+        <span id="cheapest-estimate" class="text-gray-600 text-base font-normal leading-4">
+        </span>
+        <div id="remaining_delivery_time"></div>
+        <button id="cheapest-estimate-button" type="button" data-action="click->ink-store--modal#show touchend->ink-store--modal#show" class="flex mt-2 gap-2 items-center leading-4 text-blue-600 font-normal text-base">
+          <span class="w-5 h-5"><svg width="20" height="20" viewBox="0 0 20 20"></svg></span>
+            Calcule o prazo de entrega
+        </button>
+        <div id="delivery-estimates-modal" tabindex="-1" data-ink-store--modal-target="modal" class="fixed top-0 left-0 right-0 z-50 hidden md:p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-full max-h-full md:items-center">
+          <div class="relative w-full max-w-2xl max-h-full">
+            <div class="relative bg-white rounded-t-lg md:rounded-lg md:shadow">
+              <turbo-frame id="delivery-estimates-content-modal-frame">
+                <div class="px-4 py-6 md:p-8 flex flex-col gap-6" data-controller="ink-store--delivery-estimate">
+                  <span class="text-black text-base font-medium leading-6">Informe onde quer receber o seu pedido!</span>
+                  <label for="postal-code-field" class="text-gray-900 text-sm font-medium leading-5">CEP</label>
+                  <input data-ink-store--delivery-estimate-target="input" id="postal-code-field" type="text" data-controller="ink-store--mask" data-ink-store--mask-name-value="cep" name="postal_code" form="delivery-estimates-form" required pattern="\d{5}-\d{3}" placeholder="Informe um CEP" class="w-full px-4 py-2">
+                  <button form="delivery-estimates-form" data-ink-store--delivery-estimate-target="button" class="cursor-not-allowed opacity-40"><p class="text-sm font-medium"> Usar CEP </p></button>
+                </div>
+              </turbo-frame>
+            </div>
+          </div>
+        </div>
+      </div>
+    </turbo-frame>
+    <turbo-frame id="product_promotions_frame" src="/usesul/products/3789914/product_promotions" loading="lazy" complete="">
+      <div class="items-center border border-gray-300 p-4 rounded-lg">
+        <div class="flex gap-2 mb-1">
+          <span class="text-base font-medium leading-6 text-gray-900 mr-2">Cupom</span>
+          <a data-modal-target="product-promotions-modal" data-modal-toggle="product-promotions-modal" class="text-blue-600 font-normal underline hover:text-blue-600 cursor-pointer">
+            Ver cupons disponíveis
+          </a>
+        </div>
+        <span class="text-base leading-relaxed text-gray-500 dark:text-gray-400">2 cupons disponíveis para esse produto</span>
+      </div>
+      <div id="product-promotions-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 max-h-full">
+        <div class="absolute md:relative bottom-0 w-full max-w-lg max-h-full">
+          <div class="relative py-8 px-5 bg-white rounded-lg shadow">
+            <div class="space-y-4 gap-6">
+              <p class="text-base leading-relaxed text-gray-500">Cupons disponíveis para esse produto. Você pode apenas aplicar um cupom por compra.</p>
+              <div class="space-y-4 gap-6 max-h-[60vh] md:max-h-[50vh] overflow-y-auto pb-1 no-scrollbar">
+                <div class="items-center border border-gray-300 p-4 rounded-lg">
+                  <div class="flex justify-between">
+                    <span class="flex gap-1 items-center justify-end bg-green-100 text-green-800 text-md font-medium me-2 mb-2 px-2.5 py-0.5 rounded">
+                      PRIMEIRACOMPRA
+                    </span>
+                    <div data-controller="ink-store--clipboard" class="flex flex-row justify-between" data-ink-store--clipboard-text-value="Copiado!">
+                      <input data-ink-store--clipboard-target="input" type="hidden" value="PRIMEIRACOMPRA">
+                      <button type="button" class="text-sm text-gray-500 text-normal" data-action="ink-store--clipboard#copy"><span class="text-gray-500"></span></button>
+                    </div>
+                  </div>
+                  <span class="text-base leading-relaxed text-gray-600">
+                    Você economiza
+                    <span class="text-green-600">R$10,99</span>
+                    na compra
+                  </span>
+                  <ul class="list-disc pl-5 text-base leading-relaxed text-gray-900 my-1">
+                    <li>
+                          10% OFF
+                    </li>
+                  </ul>
+                </div>
+                <div class="items-center border border-gray-300 p-4 rounded-lg">
+                  <div class="flex justify-between">
+                    <span class="flex gap-1 items-center justify-end bg-green-100 text-green-800 text-md font-medium me-2 mb-2 px-2.5 py-0.5 rounded">
+                      LEVEMAIS
+                    </span>
+                    <div data-controller="ink-store--clipboard" class="flex flex-row justify-between" data-ink-store--clipboard-text-value="Copiado!">
+                      <input data-ink-store--clipboard-target="input" type="hidden" value="LEVEMAIS">
+                      <button type="button" class="text-sm text-gray-500 text-normal" data-action="ink-store--clipboard#copy"><span class="text-gray-500"></span></button>
+                    </div>
+                  </div>
+                  <span class="text-base leading-relaxed text-gray-600">
+                    Você economiza até
+                    <span class="text-green-600">R$85,00</span>
+                    na compra
+                  </span>
+                  <ul class="list-disc pl-5 text-base leading-relaxed text-gray-900 my-1">
+                    <li>
+                        Promoção progressiva
+                        <ul class="list-disc pl-5 text-base leading-relaxed text-gray-900">
+                                <li>
+                                  3 itens -
+                                  <span class="font-medium">
+                                    R$25,00 OFF
+                                  </span>
+                                </li>
+                                <li>
+                                  4 itens -
+                                  <span class="font-medium">
+                                    R$40,00 OFF
+                                  </span>
+                                </li>
+                                <li>
+                                  5 itens -
+                                  <span class="font-medium">
+                                    R$60,00 OFF
+                                  </span>
+                                </li>
+                                <li>
+                                  6 itens -
+                                  <span class="font-medium">
+                                    R$85,00 OFF
+                                  </span>
+                                </li>
+                        </ul>
+                    </li>
+                    <li>
+                        Mínimo do carrinho: 3 itens
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </turbo-frame>
+    <turbo-frame loading="lazy" id="product_variants_options_frame" src="/usesul/products/3789914/product_variants"></turbo-frame>
+  </form>
+</div>
+</div>
+<div class="cart-drawer"><turbo-frame id="cart"></turbo-frame></div>
+</body></html>

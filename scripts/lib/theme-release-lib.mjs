@@ -239,3 +239,14 @@ export function evaluateTopBar(ink, site, loader) {
   if (!String(loader || '').includes('/__origens/top-bar')) problems.push('o loader.js não traz o módulo da faixa');
   return { ok: problems.length === 0, problems, messages: texts(ink) };
 }
+
+/** O prazo de entrega e os cupons à vista na PDP (pdp-cep, pdp-coupons): só no navegador, sem gateway nem dado do storefront. */
+export const OFFER_FEATURES = ['pdp-cep', 'pdp-coupons'];
+
+/** Depois do deploy: o loader servido na PDP traz o módulo de cada chave pedida (`names`). */
+export function evaluatePdpOffers(loader, names) {
+  const src = String(loader || '');
+  const problems = names.filter((name) => !src.includes("id: '" + name + "'")).map((name) => 'o loader.js não traz o módulo ' + name);
+  if (!names.length) problems.push('nenhuma chave do prazo/cupons pedida');
+  return { ok: problems.length === 0, problems };
+}

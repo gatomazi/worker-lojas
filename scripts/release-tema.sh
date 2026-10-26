@@ -15,6 +15,9 @@
 #   --add=assistant                          <- liga o assistente "Pergunte aqui" (sem IA) no lugar do "Ajuda?" da INK (produto e casca; docs/assistente.md). Antes,
 #                                               confere que o storefront publica o assistente LIGADO; depois, que /__origens/assistente devolve a MESMA abertura
 #                                               de /api/assistente/sul e que o loader traz o módulo. Rollback = a versão capturada (o "Ajuda?" da INK volta).
+#   --add=pdp-cep,pdp-coupons                <- liga o prazo de entrega na própria página (campo de CEP no lugar do modal) e os cupons em abas com "Copiar"
+#                                               (docs/cep-cupons-pdp.md; uma chave ou as duas). Só navegador, nenhum gateway: depois, confere que o loader da PDP
+#                                               traz o módulo de cada uma. Rollback = a versão capturada (o link do modal e o quadro de cupons da INK voltam).
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -43,16 +46,17 @@ LOGIN_PAGE="$SITE_URL/useorigens/store_sessions/new"
 TRACKING_PAGE="$SITE_URL/useorigens/orders/trackings"
 STOREFRONT_HOME="${STOREFRONT_URL}/sul"
 PHRASE="PUBLICAR-TEMA-INK"
-usage() { sed -n '2,29p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar e assistant (recebido: $ADD)"; exit 2; }
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant|pdp-cep|pdp-coupons' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar, assistant, pdp-cep e pdp-coupons (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
 WITH_TOPBAR=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx top-bar && WITH_TOPBAR=1
 WITH_ASSISTANT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
+OFFERS=$(printf '%s' "$ADD" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
 ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
@@ -173,6 +177,18 @@ smoke_assistant() {
   done
 }
 
+# Prazo e cupons à vista (pdp-cep, pdp-coupons): só navegador. O loader servido na PDP tem de trazer o módulo de cada chave.
+smoke_pdp_offers() {
+  local i loader r
+  for i in 1 2 3 4 5 6; do
+    loader=$(curl -sS --max-time 20 "$SITE_URL$(curl -sS --max-time 20 "$SAMPLE_PDP?origens_smoke=$(date +%s)" 2>/dev/null | grep -oE '/__origens/loader\.js\?v=[^"]+' | head -1 | sed 's/&amp;/\&/g')" 2>/dev/null)
+    r=$(T_LOADER="$loader" node --input-type=module -e 'import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluatePdpOffers(process.env.T_LOADER,process.argv[2].split(",").filter(Boolean)))))' "$LIB" "$OFFERS")
+    [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "prazo e cupons: o loader da PDP traz $OFFERS"; return 0; }
+    [ "$i" = 6 ] && { bad "prazo e cupons: $(printf '%s' "$r" | json_field problems)"; return 1; }
+    sleep 10
+  done
+}
+
 # O storefront precisa ter o assistente publicado e LIGADO: desligado, a chave liga e nada muda na INK (o "Ajuda?" dela fica).
 storefront_assistant() {
   local on; on=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/assistente/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1?String(j.enabled===true):"x")}catch(e){console.log("x")}})')
@@ -256,6 +272,8 @@ if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx theme-checkout && [ -n "$CHECKOUT_UUID" ] && WITH_CHECKOUT=1
   # O assistente no ar: depois do deploy, a INK tem de servir a abertura, o texto do botão e os temas fixos que o storefront publica.
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
+  # Prazo e cupons no ar: depois do deploy, o loader da PDP tem de continuar trazendo os módulos.
+  OFFERS=$(printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
 fi
 [ -n "$HEALTH_NOW" ] && ok "health ($HEALTH_URL): $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log("loader "+h.version+", "+h.ink_host+", escopo "+h.scope_mode+", "+(h.widget_features||[]).length+" features")})')" || bad "health ilegível em $HEALTH_URL"
 git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
@@ -315,6 +333,7 @@ node -e 'import(process.argv[1]).then((m)=>process.exit(m.sameThemeConfig(JSON.p
 smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
 if [ "$WITH_TOPBAR" = 1 ]; then smoke_top_bar || fail "smoke da faixa do topo reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_ASSISTANT" = 1 ]; then smoke_assistant || fail "smoke do assistente reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
+if [ -n "$OFFERS" ]; then smoke_pdp_offers || fail "smoke do prazo e dos cupons reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi
