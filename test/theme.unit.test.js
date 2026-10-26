@@ -292,3 +292,15 @@ test('finishing touches: buttons centre their text when INK draws them as blocks
   // Nunca `display` nas peças da INK que ela mostra/esconde.
   assert.doesNotMatch(css.match(/\.menu-user[^}]*\}/g).join(''), /display:/);
 });
+
+test('CSS: INK\'s cookie notice looks like the storefront\'s (black bar, white square button) on any themed page, without touching what shows or hides it', () => {
+  for (const surfaces of [['pdp'], ['cart'], ['checkout'], ['account'], SURFACES]) {
+    const css = buildThemeCss(normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true, account: true } })), surfaces);
+    const rules = css.match(/[^{}]*\.cookie-acceptance[^{}]*\{[^}]*\}/g) || [];
+    assert.ok(rules.length >= 4, surfaces.join(','));
+    for (const r of rules) assert.match(r.replace(/^@media[^{]*\{/, ''), /^body\[data-origens-theme\] \.cookie-acceptance/, 'only on themed pages: ' + r.slice(0, 60));
+    assert.doesNotMatch(rules.join(''), /[{;]\s*(?:display|visibility|content)\s*:/, 'the INK hidden attribute decides; no text of ours');
+    assert.match(css, /\.cookie-acceptance\{[^}]*background:#000!important[^}]*\}/);
+    assert.match(css, /\.cookie-acceptance button\{[^}]*border-radius:0!important[^}]*background:#fff!important[^}]*text-transform:uppercase/);
+  }
+});

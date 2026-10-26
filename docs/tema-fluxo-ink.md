@@ -92,6 +92,24 @@ Só nela o `<body>` recebe também `data-origens-step="confirmation"`, e as regr
 
 O release-tema não faz smoke nesta página (exigiria um pedido real); a prova de execução é a sonda.
 
+## Aviso de cookies (toda página tematizada)
+
+O aviso de cookies da INK (`.cookie-acceptance`) ganha a cara do aviso do storefront (`ConsentBanner.tsx`), desde 26/10/2026:
+- barra preta de ponta a ponta na base, com a mesma largura de conteúdo do site;
+- uma linha em branco, com a Política de Privacidade em negrito;
+- o botão "Aceitar cookies" branco, retangular e em maiúsculas: a largura toda no celular, à direita no computador.
+
+Antes era um cartão branco translúcido, por cima do preço, com um botão em pílula.
+
+O que continua da INK:
+- **Só aparência.** O nó, o texto, o link para a política da INK e o botão continuam os da INK, e quem mostra e esconde é o atributo `hidden`
+  do controlador dela (nenhum `display` nas regras). Os nossos módulos leem a presença do aviso como "não aceito", então ele nunca é
+  removido.
+- **Sem "Rejeitar".** O storefront tem "Rejeitar", a INK não, e nenhum botão é inventado: o que um aceite libera nas páginas da INK é a
+  INK que decide.
+
+Vale em qualquer superfície ligada (`body[data-origens-theme]`): o aviso aparece na primeira visita, em qualquer página.
+
 ## Rodada 2 (composição)
 
 PDP com galeria fixa no computador e coluna de compra na ordem da decisão (`order` no mesmo pai flex), chips de linha fina com o escolhido cheio, medidas como links, contador da galeria e flutuantes fora do caminho no celular (`theme-ui`), assinatura "USE ORIGENS" no cabeçalho do celular e do checkout (no checkout, o Worker insere o nome no HTML), faixa superior sem sobreposição, carrinho com o nosso bloco depois dos itens e estado vazio com uma abertura só (`discovery-ui`, só com o tema ligado), pagamento com a garantia depois do botão. Detalhes e evidências: [`RELATORIO_RODADA_2_LAYOUT_FLUXO_INK.md`](RELATORIO_RODADA_2_LAYOUT_FLUXO_INK.md) e [`AUDITORIA_PRE_IMPLEMENTACAO_FLUXO_INK.md`](AUDITORIA_PRE_IMPLEMENTACAO_FLUXO_INK.md).

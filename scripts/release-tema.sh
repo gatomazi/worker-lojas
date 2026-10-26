@@ -12,7 +12,7 @@
 #   --add=top-bar                            <- liga a "Faixa do topo" do CMS na faixa preta da INK (produto e casca; docs/top-bar.md). Antes, confere que
 #                                               o storefront tem faixa publicada; depois, que /__origens/top-bar devolve as MESMAS mensagens, estilo e cores
 #                                               de /api/top-bar/sul e que o loader traz o módulo da faixa. Rollback = a versão capturada (a faixa da INK volta).
-#   --add=assistant                          <- liga o assistente "Ajuda" (sem IA) no lugar do "Ajuda?" da INK (produto e casca; docs/assistente.md). Antes,
+#   --add=assistant                          <- liga o assistente "Pergunte aqui" (sem IA) no lugar do "Ajuda?" da INK (produto e casca; docs/assistente.md). Antes,
 #                                               confere que o storefront publica o assistente LIGADO; depois, que /__origens/assistente devolve a MESMA abertura
 #                                               de /api/assistente/sul e que o loader traz o módulo. Rollback = a versão capturada (o "Ajuda?" da INK volta).
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
@@ -158,7 +158,8 @@ smoke_top_bar() {
   done
 }
 
-# O assistente: o que a INK serve tem de ser a abertura publicada no storefront (ligado, texto, sugestões, WhatsApp) e o loader tem de trazer o módulo.
+# O assistente: o que a INK serve tem de ser a abertura publicada no storefront (ligado, texto, sugestões, WhatsApp, texto do botão, temas fixos) e o
+# loader tem de trazer o módulo.
 smoke_assistant() {
   local i ink site loader r
   site=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/assistente/sul" 2>/dev/null)
@@ -253,6 +254,8 @@ if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
   LIVE_FEATURES=$(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log((JSON.parse(s).widget_features||[]).join(",")))')
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx theme-checkout && [ -n "$CHECKOUT_UUID" ] && WITH_CHECKOUT=1
+  # O assistente no ar: depois do deploy, a INK tem de servir a abertura, o texto do botão e os temas fixos que o storefront publica.
+  printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
 fi
 [ -n "$HEALTH_NOW" ] && ok "health ($HEALTH_URL): $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log("loader "+h.version+", "+h.ink_host+", escopo "+h.scope_mode+", "+(h.widget_features||[]).length+" features")})')" || bad "health ilegível em $HEALTH_URL"
 git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"

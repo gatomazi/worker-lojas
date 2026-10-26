@@ -13,7 +13,8 @@
 //   kvBinding      binding do KV do espelho do carrinho: um namespace por loja, nunca compartilhado
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
 //   shellPages     home/listagem/coleções/sobre/conta recebem a navbar? (só onde as rotas da zona foram validadas para isso: Sul, Norte e Centro-Oeste)
-//   theme          cor primária da região, a MESMA do storefront (src/lib/theme/region-theme.ts no useorigens): fixa aqui, nunca vinda de parâmetro
+//   theme          cor primária e de destaque (accent) da região, as MESMAS do storefront (src/lib/theme/region-theme.ts no useorigens): fixas aqui,
+//                  nunca vindas de parâmetro
 //   nextInk        domínio para onde a loja vai mudar na INK (host + prefixo). Só vale com SINGLE_STORE_DOMAIN=next (ver withInkDomain)
 export const STORES = Object.freeze({
   sul: Object.freeze({
@@ -35,7 +36,7 @@ export const STORES = Object.freeze({
     kvBinding: 'CART_REFS',
     ga: 'G-8GYTEJ1F77',
     shellPages: true,
-    theme: Object.freeze({ primary: '#4d543d' }),
+    theme: Object.freeze({ primary: '#4d543d', accent: '#d6ba8d' }),
     ufs: Object.freeze(['PR', 'SC', 'RS']),
     stateNames: Object.freeze({ PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul' }),
     // A loja única vai sair de www.usesul.com.br/usesul para loja.useorigens.com.br/useorigens (mesma loja na INK: mesmos produtos, slugs e pedidos).
@@ -59,7 +60,7 @@ export const STORES = Object.freeze({
     kvBinding: 'NORTE_CART_REFS',
     ga: 'G-BC2SQTM7PL',
     shellPages: true,
-    theme: Object.freeze({ primary: '#234b50' }),
+    theme: Object.freeze({ primary: '#234b50', accent: '#d4b873' }),
     ufs: Object.freeze(['AC', 'AM', 'AP', 'PA', 'RO', 'RR', 'TO']),
     stateNames: Object.freeze({ AC: 'Acre', AM: 'Amazonas', AP: 'Amapá', PA: 'Pará', RO: 'Rondônia', RR: 'Roraima', TO: 'Tocantins' })
   }),
@@ -81,7 +82,7 @@ export const STORES = Object.freeze({
     kvBinding: 'CENTRO_CART_REFS',
     ga: 'G-XVDJYYC7YM',
     shellPages: true,
-    theme: Object.freeze({ primary: '#8c3b1f' }),
+    theme: Object.freeze({ primary: '#8c3b1f', accent: '#e39a2d' }),
     ufs: Object.freeze(['DF', 'GO', 'MS', 'MT']),
     stateNames: Object.freeze({ DF: 'Distrito Federal', GO: 'Goiás', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso' })
   })
@@ -179,5 +180,5 @@ export const clientStore = (store = ACTIVE_STORE) => ({
   cities: store.storefront + store.storefrontBase + '#estados',
   search: store.storefront + store.storefrontBase + '/busca',
   ga: store.ga,
-  theme: { primary: store.theme.primary }
+  theme: { primary: store.theme.primary, accent: store.theme.accent }
 });
