@@ -323,7 +323,7 @@ export const PDP_COUPONS = String.raw`
     '.o-cpn-tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:0;padding:0 14px;border:1px solid var(--o-cpn-line);',
     'border-radius:var(--o-cpn-radius) var(--o-cpn-radius) 0 0;background:var(--o-cpn-surface);color:var(--o-cpn-mute);font:inherit;font-size:13px;font-weight:700;',
     'letter-spacing:.04em;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.o-cpn-tab[aria-selected="true"]{border-bottom-color:var(--o-cpn-paper);background:var(--o-cpn-paper);color:var(--o-cpn-ink);cursor:default}',
+    '.o-cpn-tab:is([aria-selected="true"],[data-current]){border-bottom-color:var(--o-cpn-paper);background:var(--o-cpn-paper);color:var(--o-cpn-ink);cursor:default}',
     'span.o-cpn-tab{cursor:default}',
     '.o-cpn-tab:focus-visible{outline:2px solid var(--o-cpn-ink);outline-offset:-3px}',
     '@media (hover:hover){button.o-cpn-tab[aria-selected="false"]:hover{color:var(--o-cpn-ink)}}',
@@ -431,7 +431,7 @@ export const PDP_COUPONS = String.raw`
         tab.type = 'button'; tab.id = 'o-cpn-tab-' + i;
         tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'o-cpn-panel-' + i);
         tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false'); tab.tabIndex = i === 0 ? 0 : -1;
-      } else tab.setAttribute('aria-selected', 'true');
+      } else tab.setAttribute('data-current', ''); // um cupom só: rótulo, não aba (sem papel de aba, sem aria-selected)
       tabs.push(tab);
       const panel = cpnEl('div', 'o-cpn-panel');
       if (multi) { panel.id = 'o-cpn-panel-' + i; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', 'o-cpn-tab-' + i); panel.tabIndex = 0; }

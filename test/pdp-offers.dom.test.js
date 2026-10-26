@@ -238,6 +238,24 @@ test('pdp-coupons: tabs switch by click and arrows; "Copiar" copies the code, sa
   assert.deepEqual(named(t, 'origens_coupon_copy').map((p) => p.coupon), ['PRIMEIRACOMPRA']);
 });
 
+test('pdp-coupons: a single coupon is a label, not a tablist (no tab roles); its panel and "Copiar" work the same', async () => {
+  const one = FIXTURE.replace(/<div class="items-center border border-gray-300 p-4 rounded-lg">\s*<div class="flex justify-between">\s*<span[^>]*>\s*LEVEMAIS[\s\S]*?Mínimo do carrinho: 3 itens\s*<\/li>\s*<\/ul>\s*<\/div>/, '');
+  assert.ok(!one.includes('LEVEMAIS'), 'fixture reduced to one coupon');
+  const t = setup({ features: ['pdp-coupons'], html: one });
+  await tick();
+  const block = t.doc.querySelector('.o-cpn');
+  assert.equal(block.querySelector('.o-cpn-ttl').textContent, 'Cupom para esta peça');
+  assert.equal(block.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"], [aria-selected]'), null);
+  const label = block.querySelector('.o-cpn-tab');
+  assert.equal(label.tagName, 'SPAN');
+  assert.ok(label.hasAttribute('data-current'));
+  assert.equal(block.querySelectorAll('.o-cpn-panel').length, 1);
+  assert.equal(block.querySelector('.o-cpn-panel').hidden, false);
+  block.querySelector('.o-cpn-copy').click();
+  await tick(20);
+  assert.deepEqual(t.copied, ['PRIMEIRACOMPRA']);
+});
+
 test('pdp-coupons: the lazy frame mounts as soon as the INK renders it; empty/unknown markup keeps the native box; teardown restores it', async () => {
   const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"').replace(/<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame"/, '</turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
   const t = setup({ features: ['pdp-coupons'], html: lazy });

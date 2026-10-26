@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // QA de pdp-cep + pdp-coupons em NAVEGADOR REAL contra uma PDP REAL da INK, sem publicar nada:
-//   PW_PATH=<dir com playwright-core> node scripts/qa-cep-cupons.mjs [--shots <dir>]
+//   PW_PATH=<dir com playwright-core> [PREVIEW_PDP=<caminho do produto>] node scripts/qa-cep-cupons.mjs [--shots <dir>] [--rapido]
 // O HTML do produto passa pelo Worker LOCAL (Miniflare, o mesmo worker.js/loader de produção; scripts/lib/tema-harness.mjs) e o cálculo do prazo vai à
 // INK de verdade, numa sessão ANÔNIMA descartável, com CEPs públicos (01001-000 Praça da Sé, 88010-000 Centro de Florianópolis, 00000-000 sem
 // entrega). Nenhum POST sai (a trava do harness aborta e registra qualquer um). Com e sem o tema da PDP; 1440×900, 390×844 e 360×740.
@@ -87,28 +87,34 @@ async function run({ label, themeFeatures, viewports, shots }) {
         const box = document.querySelector('#product_promotions_frame > div.border');
         return { has: !!document.querySelector('.o-cpn'), nativeHidden: !!box && getComputedStyle(box).display === 'none', tabs: [...document.querySelectorAll('.o-cpn-tab')].map((t) => t.textContent.trim()) };
       });
-      check(tag + ': cupons em abas no lugar do quadro nativo', cpn.has && cpn.nativeHidden && cpn.tabs.length >= 1, JSON.stringify(cpn));
-      if (cpn.tabs.length > 1) {
-        await page.locator('.o-cpn-tab').nth(1).click();
-        const shown = await page.evaluate(() => [...document.querySelectorAll('.o-cpn-panel')].map((p) => !p.hidden));
-        check(tag + ': trocar de aba troca o painel', shown[0] === false && shown[1] === true, JSON.stringify(shown));
-        await page.locator('.o-cpn-tab').nth(0).click();
-      }
-      await page.locator('.o-cpn-panel:not([hidden]) .o-cpn-copy').click();
-      await page.waitForTimeout(300);
-      const copied = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
-      check(tag + ': "Copiar" copia o código', copied === cpn.tabs[0], copied);
-      await page.evaluate(() => document.querySelector('.o-cpn').scrollIntoView({ block: 'center', behavior: 'instant' }));
-      await page.waitForTimeout(300);
-      if (shots) await page.screenshot({ path: shots + '/cupons-' + vp.name + '.png' });
-      if (shots && cpn.tabs.length > 1) {
-        await page.locator('.o-cpn-tab').nth(1).click();
-        await page.waitForTimeout(200);
-        await page.screenshot({ path: shots + '/cupons-progressivo-' + vp.name + '.png' });
+      const nativeCoupons = await page.evaluate(() => document.querySelectorAll('#product_promotions_frame [data-controller~="ink-store--clipboard"] input[type="hidden"]').length);
+      if (!nativeCoupons) {
+        // Produto sem cupom na INK: nada nosso, o frame fica como a INK o deixa.
+        check(tag + ': sem cupom na INK, nenhum bloco nosso', !cpn.has, JSON.stringify(cpn));
+      } else check(tag + ': cupons em abas no lugar do quadro nativo', cpn.has && cpn.nativeHidden && cpn.tabs.length === nativeCoupons, JSON.stringify(cpn));
+      if (cpn.has) {
+        if (cpn.tabs.length > 1) {
+          await page.locator('.o-cpn-tab').nth(1).click();
+          const shown = await page.evaluate(() => [...document.querySelectorAll('.o-cpn-panel')].map((p) => !p.hidden));
+          check(tag + ': trocar de aba troca o painel', shown[0] === false && shown[1] === true, JSON.stringify(shown));
+          await page.locator('.o-cpn-tab').nth(0).click();
+        }
+        await page.locator('.o-cpn-panel:not([hidden]) .o-cpn-copy').click();
+        await page.waitForTimeout(300);
+        const copied = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
+        check(tag + ': "Copiar" copia o código', copied === cpn.tabs[0], copied);
+        await page.evaluate(() => document.querySelector('.o-cpn').scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForTimeout(300);
+        if (shots) await page.screenshot({ path: shots + '/cupons-' + vp.name + '.png' });
+        if (shots && cpn.tabs.length > 1) {
+          await page.locator('.o-cpn-tab').nth(1).click();
+          await page.waitForTimeout(200);
+          await page.screenshot({ path: shots + '/cupons-progressivo-' + vp.name + '.png' });
+        }
       }
       // A PDP nativa SEM tema já rola ~27 px no celular (gaveta fora da tela, conferido em 05/10): aqui vale que os NOSSOS blocos cabem na tela.
       const fit = await page.evaluate(() => { const w = document.documentElement.clientWidth; return [...document.querySelectorAll('.o-cep, .o-cpn')].map((el) => { const r = el.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), w }; }); });
-      check(tag + ': o prazo e os cupons cabem na largura da tela', fit.length === 2 && fit.every((b) => b.left >= 0 && b.right <= b.w), JSON.stringify(fit));
+      check(tag + ': o prazo e os cupons cabem na largura da tela', fit.length === (cpn.has ? 2 : 1) && fit.every((b) => b.left >= 0 && b.right <= b.w), JSON.stringify(fit));
       check(tag + ': sem erro de script nosso', !errors.some((m) => !/buttons' has already been declared|Identifier 'buttons'/.test(m)), errors.join(' | '));
       await s.ctx.close();
     }
@@ -121,8 +127,10 @@ async function run({ label, themeFeatures, viewports, shots }) {
 const desktop = { name: 'desktop', width: 1440, height: 900 };
 const mobile = { name: 'mobile', width: 390, height: 844 };
 const small = { name: 'mobile-360', width: 360, height: 740 };
-await run({ label: 'antes', themeFeatures: 'theme-pdp,theme-cart', viewports: [desktop, mobile], shots: SHOTS });
-await run({ label: 'tema', themeFeatures: 'theme-pdp,theme-cart,pdp-cep,pdp-coupons', viewports: [desktop, mobile, small], shots: SHOTS });
-await run({ label: 'sem-tema', themeFeatures: 'pdp-cep,pdp-coupons', viewports: [desktop, mobile], shots: SHOTS ? SHOTS + '/sem-tema' : null });
+// --rapido: só com o tema, computador e celular (para conferir outros produtos sem refazer as capturas).
+const QUICK = argv.includes('--rapido');
+if (!QUICK) await run({ label: 'antes', themeFeatures: 'theme-pdp,theme-cart', viewports: [desktop, mobile], shots: SHOTS });
+await run({ label: 'tema', themeFeatures: 'theme-pdp,theme-cart,pdp-cep,pdp-coupons', viewports: QUICK ? [desktop, mobile] : [desktop, mobile, small], shots: SHOTS });
+if (!QUICK) await run({ label: 'sem-tema', themeFeatures: 'pdp-cep,pdp-coupons', viewports: [desktop, mobile], shots: SHOTS ? SHOTS + '/sem-tema' : null });
 console.log(failures.length ? '\nFALHOU: ' + failures.length + ' verificação(ões)' : '\nTUDO CERTO');
 process.exit(failures.length ? 1 : 0);
