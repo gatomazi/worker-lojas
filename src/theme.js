@@ -258,6 +258,33 @@ function headerCss() {
   ].join('');
 }
 
+// O aviso de cookies da INK com a cara do aviso do storefront (components/consent/ConsentBanner.tsx): barra preta de ponta a ponta na base, uma linha curta
+// em branco e o botão branco e retangular, em maiúsculas. Antes era um cartão branco translúcido, por cima do preço, com um botão em pílula. Em toda página
+// tematizada (ANY): ele aparece na primeira visita a qualquer uma.
+//   - Só aparência. O nó, o texto e o "Aceitar cookies" continuam os da INK (o controlador ink-store--cookie-acceptance decide quando some). Os nossos
+//     módulos leem a presença dele como "não aceito".
+//   - Nenhum `display`: quem mostra e esconde é o atributo `hidden` da INK.
+//   - A INK não tem "Rejeitar": nenhum botão é inventado, porque quem decide o que um aceite libera é a INK.
+function cookieCss() {
+  const B = ANY + ' .cookie-acceptance';
+  return [
+    B + '{left:0!important;right:0!important;bottom:0!important;width:auto!important;max-width:none!important;margin:0!important;' +
+      'padding:8px max(clamp(16px,4vw,48px),calc((100% - 1440px)/2 + clamp(16px,4vw,48px))) max(8px,env(safe-area-inset-bottom))!important;' +
+      'flex-direction:column!important;align-items:stretch!important;justify-content:space-between!important;gap:8px!important;' +
+      'border:0!important;border-top:1px solid rgba(255,255,255,.15)!important;border-radius:0!important;background:#000!important;color:#fff!important;' +
+      'box-shadow:none!important;transform:none!important;text-align:left!important;font-family:var(--o-font)}',
+    B + ' p{margin:0!important;max-width:42rem;color:rgba(255,255,255,.9)!important;font-size:12px!important;line-height:1.375!important}',
+    B + ' p a{color:#fff!important;font-weight:600;text-decoration:none!important;background-image:linear-gradient(currentColor,currentColor);background-size:0% 1px;background-position:0 100%;background-repeat:no-repeat;transition:background-size .2s var(--o-ease)}',
+    '@media (hover:hover){' + B + ' p a:hover{background-size:100% 1px}}',
+    B + ' button{width:100%;min-height:44px;margin:0!important;padding:0 12px!important;border:2px solid #fff!important;border-radius:0!important;background:#fff!important;' +
+      'color:#000!important;font-family:var(--o-font);font-size:12px!important;font-weight:700!important;letter-spacing:.04em;line-height:1;text-transform:uppercase;white-space:nowrap;cursor:pointer;box-shadow:none!important;transition:background-color .2s,color .2s}',
+    '@media (hover:hover){' + B + ' button:hover{background:transparent!important;color:#fff!important}}',
+    B + ' :is(a,button):focus-visible{outline:2px solid #fff;outline-offset:3px}',
+    '@media (min-width:640px){' + B + '{flex-direction:row!important;align-items:center!important;gap:24px!important;padding-top:12px!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important}' +
+      B + ' p{font-size:14px!important}' + B + ' button{width:auto;flex-shrink:0;padding:0 20px!important;font-size:14px!important}}'
+  ].join('');
+}
+
 function pdpCss() {
   const F = P + ' form[id^="form-product-"]';
   const T = F + ' .form-product-options__select-type';
@@ -696,7 +723,7 @@ export function buildThemeCss(theme, surfaces) {
   const font = FONTS[theme.tokens.font];
   return '/* Use Origens · tema da compra na INK v' + THEME_VERSION + ' (' + list.join(',') + ') */' +
     (font.import ? '@import url("' + font.import + '");' : '') +
-    tokensCss(theme.tokens) + ((list.includes('pdp') || list.includes('checkout')) ? STRIP_KEYFRAMES : '') + list.map((s) => SURFACE_CSS[s]()).join('') +
+    tokensCss(theme.tokens) + ((list.includes('pdp') || list.includes('checkout')) ? STRIP_KEYFRAMES : '') + list.map((s) => SURFACE_CSS[s]()).join('') + cookieCss() +
     paletteCss(theme, list);
 }
 
