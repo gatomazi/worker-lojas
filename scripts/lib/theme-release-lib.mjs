@@ -7,7 +7,7 @@ import { FEATURE_NAMES } from '../../src/features.js';
 export const THEME_FEATURES = ['theme-pdp', 'theme-cart'];
 /** As variáveis que o deploy passa por --var (o TOML é fail-closed nelas); as demais do TOML vão como estão e TÊM de ser iguais às da produção. */
 export const DEPLOY_VARS = ['ENABLE_WIDGET', 'WIDGET_ALLOWLIST', 'WIDGET_FEATURES', 'WIDGET_SCOPE_MODE'];
-const MAX_FEATURES_LENGTH = 260; // o mesmo teto de src/features.js parseFeatures
+const MAX_FEATURES_LENGTH = 320; // o mesmo teto de src/features.js parseFeatures
 const PRODUCT_PATH = /^\/useorigens\/product\/[a-z0-9][a-z0-9_-]{0,127}$/;
 
 const list = (raw) => String(raw || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -205,6 +205,24 @@ export function evaluateCheckoutPage(html) {
  * mesmas mensagens, na mesma ordem, o mesmo estilo e as mesmas cores; e o loader da página tem de trazer o módulo da faixa. `ink` e `site` são os JSON
  * já lidos (ou null); `loader` é o texto do loader.js. Retorna { ok, problems, messages }.
  */
+/**
+ * Smoke do assistente (`assistant`): o que a INK serve em /__origens/assistente tem de ser a abertura publicada no storefront (/api/assistente/<região>):
+ * ligado, o mesmo texto, as mesmas sugestões e o mesmo atalho do WhatsApp; e o loader da página tem de trazer o módulo. `ink` e `site` são os JSON já
+ * lidos (ou null); `loader` é o texto do loader.js. Retorna { ok, problems, opening }.
+ */
+export function evaluateAssistant(ink, site, loader) {
+  const problems = [];
+  if (!site || site.v !== 1 || site.enabled !== true || !site.opening) problems.push('o storefront não publica o assistente ligado (Atendimento › Assistente: ligar e Publicar)');
+  if (!ink || ink.v !== 1 || ink.enabled !== true || !ink.opening) problems.push('/__origens/assistente não respondeu a abertura v1 ligada (a feature não está no ar?)');
+  else if (site && site.opening) {
+    if (ink.opening.text !== site.opening.text) problems.push(`abertura diferente: INK ${JSON.stringify(ink.opening.text)} x storefront ${JSON.stringify(site.opening.text)}`);
+    if (JSON.stringify(ink.opening.suggestions ?? []) !== JSON.stringify(site.opening.suggestions ?? [])) problems.push('sugestões da abertura diferentes das do storefront');
+    if ((ink.whatsapp ?? null) !== (site.whatsapp ?? null)) problems.push(`atalho do WhatsApp diferente: INK ${ink.whatsapp ?? 'nenhum'} x storefront ${site.whatsapp ?? 'nenhum'}`);
+  }
+  if (!String(loader || '').includes('/__origens/assistente')) problems.push('o loader.js não traz o módulo do assistente');
+  return { ok: problems.length === 0, problems, opening: ink?.opening?.text ?? null };
+}
+
 export function evaluateTopBar(ink, site, loader) {
   const problems = [];
   const texts = (p) => (Array.isArray(p?.messages) ? p.messages.map((m) => String(m?.text ?? '')) : []);
