@@ -170,4 +170,10 @@ test('evaluateAssistant: the INK serves the opening the storefront publishes (on
   assert.match(evaluateAssistant({ ...ink, opening: { ...opening, text: 'Outra' } }, site, loader).problems[0], /abertura diferente/);
   assert.match(evaluateAssistant({ ...ink, whatsapp: undefined }, site, loader).problems[0], /WhatsApp diferente/);
   assert.match(evaluateAssistant(ink, site, 'nada').problems[0], /loader\.js não traz o módulo do assistente/);
+  // The button's text and the fixed topics: compared when the storefront sends them (a Worker before them drops both and fails here).
+  const topics = ['Achar estampa', 'Rastrear pedido', 'Trocar pedido', 'Frete e prazo'];
+  const site2 = { ...site, label: 'Pergunte aqui', topics };
+  assert.equal(evaluateAssistant({ ...ink, label: 'Pergunte aqui', topics }, site2, loader).ok, true);
+  assert.deepEqual(evaluateAssistant(ink, site2, loader).problems, ['texto do botão diferente: INK null x storefront "Pergunte aqui"', 'temas fixos diferentes: INK null x storefront ["Achar estampa","Rastrear pedido","Trocar pedido","Frete e prazo"]']);
+  assert.equal(evaluateAssistant({ ...ink, label: 'Pergunte aqui', topics: [] }, { ...site2, topics: [] }, loader).ok, true);
 });

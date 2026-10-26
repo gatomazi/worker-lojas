@@ -1,18 +1,24 @@
-// assistant: o assistente "Ajuda" do storefront (sem IA) nas páginas da INK cobertas pelo Worker (produto e casca), NO LUGAR do botão "Ajuda?" da INK.
+// assistant: o assistente "Pergunte aqui" do storefront (sem IA) nas páginas da INK cobertas pelo Worker (produto e casca), NO LUGAR do "Ajuda?" da INK.
 //   Dados:    GET /__origens/assistente abre o chat (respostas publicadas no CMS do storefront; v1, revalidado aqui) e POST responde uma mensagem. A abertura
 //             é lembrada por um minuto (sessionStorage). Desligado, erro, timeout ou JSON inválido => NADA nosso aparece e o "Ajuda?" da INK fica como está.
 //   Troca:    o botão nativo ([data-controller~="ink-store--help-button"], com Status do pedido, Troca, Devolução e WhatsApp) só é escondido DEPOIS que o
 //             nosso montou, por um <style> dentro do nosso nó: desmontou (Turbo para fora do escopo, feature desligada) = o nativo volta sozinho.
-//   Botão:    canto inferior DIREITO (o de cupons fica à esquerda), "Ajuda" com ícone; sobe acima do CTA fixo (#add-to-cart-mob) e do aviso de cookies; some
-//             com o carrinho, um modal, o menu, o teclado virtual ou quando cobriria controles do formulário de compra.
+//   Botão:    canto inferior DIREITO (o de cupons fica à esquerda), com o texto do painel ("Pergunte aqui" por padrão) e ícone; sobe acima do CTA fixo
+//             (#add-to-cart-mob) e do aviso de cookies; some com o carrinho, um modal, o menu, o teclado virtual ou quando cobriria controles do formulário de
+//             compra. Brilho suave na cor de destaque da região até a pessoa abrir o chat uma vez na visita: três respirações lentas, depois um halo parado.
 //   Painel:   celular = folha inferior (modal, foco preso, rolagem travada); telas maiores = cartão ancorado ao botão. Cartões de estampa (foto e preço reais),
-//             botões (pedidos da INK, página do storefront, WhatsApp) e sugestões. A conversa desta visita fica na aba (sessionStorage).
+//             botões (pedidos da INK, página do storefront, WhatsApp) e sugestões. Os temas fixos do painel ficam sempre acima do campo (tocar = enviar o
+//             texto do tema). A conversa desta visita fica na aba (sessionStorage).
 //   Privacidade: CPF, cartão ou senha são recusados AQUI, antes de enviar (o storefront recusa de novo). A medição nunca leva o texto digitado.
 // Todo texto vem do storefront e entra só por textContent; links só os que o gateway validou (e revalidados aqui).
 export const ASSISTANT = String.raw`
   const ASSIST_ENDPOINT = '/__origens/assistente';
   const ASSIST_BOOT_KEY = 'origens:assistant:boot:v1';
   const ASSIST_TALK_KEY = 'origens:assistant:v1';
+  // Aberto uma vez nesta visita = o botão para de brilhar (a mesma regra do "quiet" do botão de cupons).
+  const ASSIST_SEEN_KEY = 'origens:assistant:seen';
+  // O texto do botão quando o storefront não manda um (o padrão do painel).
+  const ASSIST_LABEL = 'Pergunte aqui';
   const ASSIST_BOOT_MS = 60 * 1000;
   const ASSIST_FETCH_MS = 6000;
   const ASSIST_MAX_MESSAGE = 300;
@@ -38,6 +44,9 @@ export const ASSISTANT = String.raw`
   const ASSIST_NATIVE = '[data-controller~="ink-store--help-button"]';
   // A cor do cabeçalho da região (stores.js), a mesma do guia e do "Compartilhar": botão, balão de quem pergunta e o hover dos botões.
   const ASSIST_TINT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.primary)) ? STORE.theme.primary : '#1f2328';
+  // O brilho do botão: a cor de destaque da região (stores.js, a mesma do storefront), com transparência.
+  const ASSIST_ACCENT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.accent)) ? STORE.theme.accent : '#d6ba8d';
+  const assistAlpha = (hex, a) => 'rgba(' + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(',') + ',' + a + ')';
 
   function assistLine(value, max) {
     const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
@@ -76,6 +85,14 @@ export const ASSISTANT = String.raw`
   }
   // O atalho do WhatsApp do cabeçalho: só wa.me (o gateway já validou; o storage é do visitante).
   function assistWhatsapp(value) { const href = typeof value === 'string' ? assistHref(value) : null; return href && href.indexOf('https://wa.me/') === 0 ? href : null; }
+  // A abertura que o chat usa: o texto do botão (ou o padrão) e os temas fixos, revalidados aqui também (o storage é do visitante).
+  function assistOpen(data) {
+    const opening = data && data.v === 1 && data.enabled === true ? assistReply(data.opening) : null;
+    if (!opening) return null;
+    const topics = [];
+    for (const raw of Array.isArray(data.topics) ? data.topics.slice(0, 4) : []) { const t = assistLine(raw, 40); if (t && topics.indexOf(t) < 0) topics.push(t); }
+    return { opening: opening, whatsapp: assistWhatsapp(data.whatsapp), label: assistLine(data.label, 24) || ASSIST_LABEL, topics: topics };
+  }
   function assistFollowUp(message, previous) {
     if (!previous) return null;
     const all = previous.links.find((l) => l.kind === 'search' || l.kind === 'page' || l.kind === 'collection');
@@ -89,8 +106,7 @@ export const ASSISTANT = String.raw`
       const stored = JSON.parse(window.sessionStorage.getItem(ASSIST_BOOT_KEY) || 'null');
       if (!stored || stored.region !== STORE.region || typeof stored.at !== 'number' || Date.now() - stored.at > ASSIST_BOOT_MS || stored.at > Date.now()) return undefined;
       if (stored.data === null) return null;
-      const opening = stored.data && stored.data.enabled === true ? assistReply(stored.data.opening) : null;
-      return opening ? { opening: opening, whatsapp: assistWhatsapp(stored.data.whatsapp) } : null;
+      return assistOpen(stored.data);
     } catch (_) { return undefined; }
   }
   function assistBootWrite(data) { try { window.sessionStorage.setItem(ASSIST_BOOT_KEY, JSON.stringify({ at: Date.now(), region: STORE.region, data: data })); } catch (_) { /* sem storage: só não há cache */ } }
@@ -108,11 +124,11 @@ export const ASSISTANT = String.raw`
         const response = await fetch(withRegion(ASSIST_ENDPOINT), { credentials: 'omit', headers: { accept: 'application/json' }, signal: controller.signal });
         if (!response.ok) throw new Error('status');
         const data = await response.json();
-        const opening = data && data.v === 1 && data.enabled === true ? assistReply(data.opening) : null;
         if (data && data.v === 1 && data.enabled === false) { assistBootWrite(null); return null; }
-        if (!opening) throw new Error('schema');
+        const boot = assistOpen(data);
+        if (!boot) throw new Error('schema');
         assistBootWrite(data);
-        return { opening: opening, whatsapp: assistWhatsapp(data.whatsapp) };
+        return boot;
       } catch (_) {
         assistBootWrite(null);
         return null;
@@ -132,6 +148,8 @@ export const ASSISTANT = String.raw`
       return out;
     } catch (_) { return []; }
   }
+  function assistSeen() { try { return !!window.sessionStorage.getItem(ASSIST_SEEN_KEY); } catch (_) { return false; } }
+  function assistMarkSeen() { try { window.sessionStorage.setItem(ASSIST_SEEN_KEY, '1'); } catch (_) { /* sem storage: só esta página */ } }
   function assistTalkWrite(entries) { try { window.sessionStorage.setItem(ASSIST_TALK_KEY, JSON.stringify({ region: STORE.region, entries: entries.slice(-ASSIST_KEEP) })); } catch (_) { /* idem */ } }
 
   const assistShown = (selector) => { const el = document.querySelector(selector); return !!el && el.getClientRects().length > 0; };
@@ -165,6 +183,11 @@ export const ASSISTANT = String.raw`
     '#o-assist *{box-sizing:border-box}',
     '#o-assist .o-assist-fab{position:fixed;z-index:' + ASSIST_Z + ';display:inline-flex;align-items:center;gap:8px;height:' + ASSIST_HEIGHT + 'px;padding:0 16px 0 14px;margin:0;border:0;border-radius:12px;background:' + ASSIST_TINT + ';color:#fff;font:inherit;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;box-shadow:0 6px 18px rgba(0,0,0,.24);cursor:pointer;outline-offset:4px;-webkit-tap-highlight-color:transparent}',
     '#o-assist .o-assist-fab[hidden]{display:none}',
+    // O brilho: a sombra de um pseudo-elemento, para só a opacidade mexer (sombra externa nunca pinta por cima do botão). Sem movimento: o halo parado.
+    '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + assistAlpha(ASSIST_ACCENT, 0.75) + ',0 0 22px 6px ' + assistAlpha(ASSIST_ACCENT, 0.85) + ';opacity:.6;pointer-events:none}',
+    '#o-assist .o-assist-fab[data-glow="pulse"]::before{animation:o-assist-glow 2.4s ease-in-out .8s 3}',
+    '@keyframes o-assist-glow{0%,100%{opacity:.6}50%{opacity:1}}',
+    '@media (prefers-reduced-motion: reduce){#o-assist .o-assist-fab[data-glow]::before{animation:none}}',
     '#o-assist .o-assist-backdrop{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45)}',
     '#o-assist .o-assist-panel{position:fixed;z-index:2147483001;display:flex;flex-direction:column;background:#f2f2f0;color:#111827;box-shadow:0 18px 40px rgba(0,0,0,.28);text-align:left;font-size:15px;line-height:1.35}',
     '#o-assist .o-assist-panel.is-sheet{left:0;right:0;bottom:0;height:min(85vh,672px);border-top:2px solid #111827;padding-bottom:env(safe-area-inset-bottom,0px)}',
@@ -202,6 +225,13 @@ export const ASSISTANT = String.raw`
     '#o-assist .o-assist-chip{min-height:40px;padding:6px 12px;border:1px solid rgba(0,0,0,.3);border-radius:0;background:#fff;color:#111827;font:inherit;font-size:13px;font-weight:500;line-height:1.2;text-align:left;cursor:pointer;transition:border-color .2s,background-color .2s}',
     '#o-assist .o-assist-chip:hover{border-color:#111827;background:#f2f2f0}',
     '#o-assist .o-assist-chip:disabled{opacity:.5}',
+    // Temas fixos: no celular, uma linha que rola para o lado (o fim esmaece enquanto houver mais); no cartão do computador, uma grade de duas colunas.
+    '#o-assist .o-assist-topics{display:flex;gap:6px;padding:8px 10px;border-top:1px solid rgba(0,0,0,.15);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}',
+    '#o-assist .o-assist-topics::-webkit-scrollbar{display:none}',
+    '#o-assist .o-assist-panel.is-pop .o-assist-topics{display:grid;grid-template-columns:1fr 1fr;overflow:visible}',
+    '#o-assist .o-assist-panel.is-sheet .o-assist-topics[data-more]{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent)}',
+    '#o-assist .o-assist-topic{flex-shrink:0;min-height:40px;margin:0;padding:0 12px;border:1px solid rgba(0,0,0,.3);border-radius:3px;background:#fff;color:#111827;font:inherit;font-size:13px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:border-color .2s,background-color .2s}',
+    '#o-assist .o-assist-topic:hover{border-color:#111827;background:#f2f2f0}#o-assist .o-assist-topic:disabled{opacity:.5}',
     '#o-assist .o-assist-form{display:flex;align-items:stretch;gap:0;padding:10px;border-top:2px solid #111827;background:#fff}',
     '#o-assist .o-assist-input{flex:1;min-width:0;min-height:44px;margin:0;padding:0 14px;border:2px solid #111827;border-right:0;border-radius:0;background:#fff;color:#111827;font:inherit;font-size:16px;-webkit-appearance:none;appearance:none}',
     '#o-assist .o-assist-input::placeholder{color:#56564f;opacity:1}',
@@ -229,6 +259,8 @@ export const ASSISTANT = String.raw`
     pending: false,
     timer: null,
     open: false,
+    label: ASSIST_LABEL,
+    topics: [],
 
     mount() {
       if (!pageNow()) return this.unmount();
@@ -240,6 +272,8 @@ export const ASSISTANT = String.raw`
         if (!boot || !pageNow() || document.getElementById('o-assist')) return;
         this.opening = boot.opening;
         this.whatsapp = boot.whatsapp;
+        this.label = boot.label;
+        this.topics = boot.topics;
         this.entries = assistTalkRead();
         this.build();
       }).catch(() => { this.loading = false; });
@@ -252,7 +286,10 @@ export const ASSISTANT = String.raw`
       root.appendChild(assistEl('span', { class: 'o-assist-probe', 'aria-hidden': 'true' }));
       const fab = assistEl('button', { type: 'button', class: 'o-assist-fab', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'o-assist-panel', 'data-assist-fab': '' });
       fab.innerHTML = ASSIST_ICON;
-      fab.appendChild(assistEl('span', { 'data-assist-label': '' }, 'Ajuda'));
+      fab.appendChild(assistEl('span', { 'data-assist-label': '' }, this.label));
+      // Brilha até ser aberto nesta visita; depois das respirações (animationend), fica o halo parado: reaparecer (hidden) não recomeça o pulso.
+      if (!assistSeen()) fab.setAttribute('data-glow', 'pulse');
+      fab.addEventListener('animationend', () => { if (fab.getAttribute('data-glow') === 'pulse') fab.setAttribute('data-glow', 'rest'); });
       root.appendChild(fab);
       document.body.appendChild(root);
       this.ac = new AbortController();
@@ -354,7 +391,7 @@ export const ASSISTANT = String.raw`
       const panel = assistEl('div', { id: 'o-assist-panel', class: 'o-assist-panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'o-assist-title' });
       const head = assistEl('div', { class: 'o-assist-head' });
       const titles = assistEl('div');
-      titles.appendChild(assistEl('h2', { id: 'o-assist-title' }, 'Ajuda'));
+      titles.appendChild(assistEl('h2', { id: 'o-assist-title' }, this.label));
       titles.appendChild(assistEl('p', null, 'Estampas, pedidos e trocas'));
       head.appendChild(titles);
       if (this.whatsapp) {
@@ -362,7 +399,7 @@ export const ASSISTANT = String.raw`
         wa.addEventListener('click', () => assistTrack('origens_assistant_link_click', { link_kind: 'whatsapp_shortcut' }), { signal: panelAc.signal });
         head.appendChild(wa);
       }
-      const x = assistEl('button', { type: 'button', class: 'o-assist-x', 'aria-label': 'Fechar a ajuda', 'data-assist-close': '' });
+      const x = assistEl('button', { type: 'button', class: 'o-assist-x', 'aria-label': 'Fechar o assistente', 'data-assist-close': '' });
       x.innerHTML = ASSIST_CLOSE;
       x.addEventListener('click', () => this.close(true), { signal: panelAc.signal });
       head.appendChild(x);
@@ -375,13 +412,30 @@ export const ASSISTANT = String.raw`
       input.addEventListener('input', () => { send.disabled = this.pending || input.value.trim() === ''; }, { signal: panelAc.signal });
       form.addEventListener('submit', (event) => { event.preventDefault(); this.ask(input.value, 'typed'); }, { signal: panelAc.signal });
       form.appendChild(input); form.appendChild(send);
-      panel.appendChild(head); panel.appendChild(body); panel.appendChild(form);
+      panel.appendChild(head); panel.appendChild(body);
+      if (this.topics.length) {
+        const row = assistEl('div', { class: 'o-assist-topics', role: 'group', 'aria-label': 'Temas', 'data-assist-topics': '' });
+        for (const topic of this.topics) {
+          const b = assistEl('button', { type: 'button', class: 'o-assist-topic', 'data-assist-topic': '' }, topic);
+          b.addEventListener('click', () => this.ask(topic, 'topic'), { signal: panelAc.signal });
+          row.appendChild(b);
+        }
+        // Celular: enquanto houver temas escondidos à direita, o fim da linha esmaece.
+        const more = () => { if (row.scrollWidth - row.clientWidth - row.scrollLeft > 4) row.setAttribute('data-more', ''); else row.removeAttribute('data-more'); };
+        row.addEventListener('scroll', more, { passive: true, signal: panelAc.signal });
+        window.addEventListener('resize', more, { signal: panelAc.signal });
+        panel.appendChild(row);
+        requestAnimationFrame(more);
+      }
+      panel.appendChild(form);
       panel.appendChild(assistEl('p', { class: 'o-assist-note' }, 'Não envie CPF, cartão ou senha. Pedidos e trocas ficam em Meus pedidos, na loja.'));
       const fab = root.querySelector('.o-assist-fab');
       root.insertBefore(backdrop, fab);
       root.insertBefore(panel, fab);
       fab.setAttribute('aria-expanded', 'true');
       fab.querySelector('[data-assist-label]').textContent = 'Fechar';
+      fab.removeAttribute('data-glow');
+      assistMarkSeen();
       fab.hidden = false;
       this.render();
       this.placePanel();
@@ -438,7 +492,9 @@ export const ASSISTANT = String.raw`
           }
           li.appendChild(links);
         }
-        if (i === lastBot && reply.suggestions.length) {
+        // As sugestões da abertura repetiriam os temas fixos ("Frete e prazo" e "Como é calculado o frete?"): com a linha de temas, ficam escondidas.
+        // O storefront continua mandando: um Worker sem temas segue mostrando as sugestões.
+        if (i === lastBot && reply.suggestions.length && !(i === 0 && this.topics.length)) {
           const chips = assistEl('div', { class: 'o-assist-chips' });
           for (const s of reply.suggestions) {
             const chip = assistEl('button', { type: 'button', class: 'o-assist-chip' }, s);
@@ -456,6 +512,7 @@ export const ASSISTANT = String.raw`
         typing.appendChild(assistEl('span', null, ' digitando'));
         list.appendChild(typing);
       }
+      for (const b of document.querySelectorAll('#o-assist [data-assist-topic]')) b.disabled = this.pending;
       const body = list.parentElement;
       if (body) body.scrollTop = body.scrollHeight;
     },
@@ -513,7 +570,7 @@ export const ASSISTANT = String.raw`
       const fab = document.querySelector('#o-assist .o-assist-fab');
       if (fab) {
         fab.setAttribute('aria-expanded', 'false');
-        const label = fab.querySelector('[data-assist-label]'); if (label) label.textContent = 'Ajuda';
+        const label = fab.querySelector('[data-assist-label]'); if (label) label.textContent = this.label;
         if (refocus) fab.focus({ preventScroll: true });
       }
       assistTrack('origens_assistant_close');
@@ -525,7 +582,7 @@ export const ASSISTANT = String.raw`
       if (this.panelAc) { this.panelAc.abort(); this.panelAc = null; }
       if (this.ac) { this.ac.abort(); this.ac = null; }
       if (this.locked) { document.documentElement.style.overflow = this.lock || ''; this.locked = false; }
-      this.open = false; this.opening = null; this.whatsapp = null; this.pending = false;
+      this.open = false; this.opening = null; this.whatsapp = null; this.pending = false; this.label = ASSIST_LABEL; this.topics = [];
       const root = document.getElementById('o-assist');
       if (root) root.remove();
     }

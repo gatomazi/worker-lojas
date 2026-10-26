@@ -207,7 +207,8 @@ export function evaluateCheckoutPage(html) {
  */
 /**
  * Smoke do assistente (`assistant`): o que a INK serve em /__origens/assistente tem de ser a abertura publicada no storefront (/api/assistente/<região>):
- * ligado, o mesmo texto, as mesmas sugestões e o mesmo atalho do WhatsApp; e o loader da página tem de trazer o módulo. `ink` e `site` são os JSON já
+ * ligado, o mesmo texto, as mesmas sugestões, o mesmo atalho do WhatsApp, o mesmo texto do botão e os mesmos temas fixos (os dois só quando o
+ * storefront os manda); e o loader da página tem de trazer o módulo. `ink` e `site` são os JSON já
  * lidos (ou null); `loader` é o texto do loader.js. Retorna { ok, problems, opening }.
  */
 export function evaluateAssistant(ink, site, loader) {
@@ -218,6 +219,8 @@ export function evaluateAssistant(ink, site, loader) {
     if (ink.opening.text !== site.opening.text) problems.push(`abertura diferente: INK ${JSON.stringify(ink.opening.text)} x storefront ${JSON.stringify(site.opening.text)}`);
     if (JSON.stringify(ink.opening.suggestions ?? []) !== JSON.stringify(site.opening.suggestions ?? [])) problems.push('sugestões da abertura diferentes das do storefront');
     if ((ink.whatsapp ?? null) !== (site.whatsapp ?? null)) problems.push(`atalho do WhatsApp diferente: INK ${ink.whatsapp ?? 'nenhum'} x storefront ${site.whatsapp ?? 'nenhum'}`);
+    if (site.label !== undefined && ink.label !== site.label) problems.push(`texto do botão diferente: INK ${JSON.stringify(ink.label ?? null)} x storefront ${JSON.stringify(site.label)}`);
+    if (site.topics !== undefined && JSON.stringify(ink.topics ?? null) !== JSON.stringify(site.topics)) problems.push(`temas fixos diferentes: INK ${JSON.stringify(ink.topics ?? null)} x storefront ${JSON.stringify(site.topics)}`);
   }
   if (!String(loader || '').includes('/__origens/assistente')) problems.push('o loader.js não traz o módulo do assistente');
   return { ok: problems.length === 0, problems, opening: ink?.opening?.text ?? null };

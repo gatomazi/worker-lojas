@@ -92,6 +92,20 @@ test('normalizeReply/normalizeBoot: v1 of THIS region only; a bad card or link d
   assert.equal(normalizeReply({ v: 1, kind: 'chat', text: 'Por nada!' }).kind, 'chat');
 });
 
+test('normalizeBoot: the button\'s text and the fixed topics pass revalidated; out of format = the client\'s default text, a bad topic drops alone', () => {
+  const topics = ['Achar estampa', 'Rastrear pedido', 'Trocar pedido', 'Frete e prazo'];
+  const boot = normalizeBoot({ v: 1, region: 'sul', enabled: true, opening, label: 'Pergunte aqui', topics });
+  assert.equal(boot.label, 'Pergunte aqui');
+  assert.deepEqual(boot.topics, topics);
+  const bad = normalizeBoot({ v: 1, region: 'sul', enabled: true, opening, label: '<b>Oi</b>', topics: ['  Achar   estampa ', '<x>', 'Achar estampa', 9, 'y'.repeat(41), 'A', 'B', 'C', 'D'] });
+  assert.equal(bad.label, undefined);
+  assert.deepEqual(bad.topics, ['Achar estampa', 'A', 'B', 'C']);
+  assert.equal(normalizeBoot({ v: 1, region: 'sul', enabled: true, opening, label: 'x'.repeat(25) }).label, undefined);
+  const old = normalizeBoot({ v: 1, region: 'sul', enabled: true, opening });
+  assert.deepEqual(Object.keys(old), ['v', 'enabled', 'opening'], 'a storefront without them: neither field (the client shows its default text and no topics)');
+  assert.deepEqual(normalizeBoot({ v: 1, region: 'sul', enabled: true, opening, topics: [] }).topics, []);
+});
+
 test('flag OFF: the route is INK\'s (its 404); nothing reaches the storefront', async () => {
   const mf = await worker(OFF); calls.length = 0;
   const res = await mf.dispatchFetch(HOST + '/__origens/assistente');

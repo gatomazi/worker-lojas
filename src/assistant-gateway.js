@@ -1,4 +1,4 @@
-// GET|POST /__origens/assistente — gateway do assistente "Ajuda" (o chat do storefront, sem IA) nas páginas da INK, onde ele fica no lugar do botão
+// GET|POST /__origens/assistente — gateway do assistente "Pergunte aqui" (o chat do storefront, sem IA) nas páginas da INK, onde ele fica no lugar do botão
 // "Ajuda?" e do WhatsApp da própria INK. Os dados vêm do storefront (/api/assistente/<região>, contrato v1: respostas da loja publicadas no CMS, busca do
 // catálogo sincronizado, páginas de pedidos da INK), que não envia CORS para o host da INK: só o SERVIDOR (este Worker) fala com ele e re-serve no
 // mesmo domínio. Mesmo desenho de guide-gateway.js:
@@ -18,6 +18,10 @@ export const MAX_MESSAGE = 300;
 export const MAX_ITEMS = 4;
 const MAX_LINKS = 4;
 const MAX_SUGGESTIONS = 4;
+// O texto do botão e os temas fixos acima do campo (opcionais no v1). Tetos um pouco acima dos do painel (18 e 28), para um ajuste lá não sumir aqui.
+const MAX_LABEL = 24;
+const MAX_TOPIC = 40;
+const MAX_TOPICS = 4;
 const KINDS = new Set(['greeting', 'answer', 'designs', 'order', 'handoff', 'refuse', 'ask', 'not-found', 'fallback', 'chat']);
 // page = página do storefront; collection = página de uma categoria NA INK (uma que o storefront não tem); orders/tracking = pedidos da INK.
 const LINK_KINDS = new Set(['page', 'collection', 'orders', 'tracking', 'whatsapp', 'search']);
@@ -122,9 +126,15 @@ export function normalizeBoot(data, store = ACTIVE_STORE) {
   if (!data.enabled) return { v: 1, enabled: false };
   const opening = normalizeReply(data.opening, store);
   if (!opening || opening.kind !== 'greeting') return null;
+  const out = { v: 1, enabled: true, opening };
   // O atalho do WhatsApp (sempre à mão no cabeçalho do chat): o mesmo filtro dos botões de WhatsApp; fora do formato = sem atalho.
   const whatsapp = typeof data.whatsapp === 'string' ? validateLink({ kind: 'whatsapp', label: 'WhatsApp', href: data.whatsapp }, store) : null;
-  return whatsapp ? { v: 1, enabled: true, opening, whatsapp: whatsapp.href } : { v: 1, enabled: true, opening };
+  if (whatsapp) out.whatsapp = whatsapp.href;
+  // Texto do botão fora do formato = o padrão do cliente ("Pergunte aqui"). Um tema fora do formato cai sozinho; lista ausente = sem temas.
+  const label = cleanLine(data.label, MAX_LABEL);
+  if (label) out.label = label;
+  if (Array.isArray(data.topics)) out.topics = [...new Set(data.topics.slice(0, 8).map((t) => cleanLine(t, MAX_TOPIC)).filter(Boolean))].slice(0, MAX_TOPICS);
+  return out;
 }
 
 // Hash do endereço do visitante (nunca o endereço): o limite por visitante do storefront, sem identificar ninguém. Sem endereço = sem cabeçalho.
