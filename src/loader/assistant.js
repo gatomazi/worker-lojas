@@ -44,9 +44,8 @@ export const ASSISTANT = String.raw`
   const ASSIST_NATIVE = '[data-controller~="ink-store--help-button"]';
   // A cor do cabeçalho da região (stores.js), a mesma do guia e do "Compartilhar": botão, balão de quem pergunta e o hover dos botões.
   const ASSIST_TINT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.primary)) ? STORE.theme.primary : '#1f2328';
-  // O brilho do botão: a cor de destaque da região (stores.js, a mesma do storefront), com transparência.
+  // O brilho do botão: a cor de destaque da região (stores.js, a mesma do storefront).
   const ASSIST_ACCENT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.accent)) ? STORE.theme.accent : '#d6ba8d';
-  const assistAlpha = (hex, a) => 'rgba(' + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(',') + ',' + a + ')';
 
   function assistLine(value, max) {
     const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
@@ -175,7 +174,8 @@ export const ASSISTANT = String.raw`
     } catch (_) { /* medir nunca quebra a INK */ }
   }
 
-  const ASSIST_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z"/><path d="M9.2 9.6a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 2.2-2.6 3.6"/><path d="M12 17h.01"/></svg>';
+  // Balão quadrado com três pontos (conversa; quadrado como as formas da marca): o mesmo desenho do botão do storefront.
+  const ASSIST_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path stroke-width="2.8" d="M8 10h.01M12 10h.01M16 10h.01"/></svg>';
   const ASSIST_CLOSE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const ASSIST_CSS = [
     ASSIST_NATIVE + '{display:none!important}',
@@ -184,9 +184,9 @@ export const ASSISTANT = String.raw`
     '#o-assist .o-assist-fab{position:fixed;z-index:' + ASSIST_Z + ';display:inline-flex;align-items:center;gap:8px;height:' + ASSIST_HEIGHT + 'px;padding:0 16px 0 14px;margin:0;border:0;border-radius:12px;background:' + ASSIST_TINT + ';color:#fff;font:inherit;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;box-shadow:0 6px 18px rgba(0,0,0,.24);cursor:pointer;outline-offset:4px;-webkit-tap-highlight-color:transparent}',
     '#o-assist .o-assist-fab[hidden]{display:none}',
     // O brilho: a sombra de um pseudo-elemento, para só a opacidade mexer (sombra externa nunca pinta por cima do botão). Sem movimento: o halo parado.
-    '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + assistAlpha(ASSIST_ACCENT, 0.75) + ',0 0 22px 6px ' + assistAlpha(ASSIST_ACCENT, 0.85) + ';opacity:.6;pointer-events:none}',
+    '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + ASSIST_ACCENT + ',0 0 18px 3px ' + ASSIST_ACCENT + ';opacity:.4;pointer-events:none}',
     '#o-assist .o-assist-fab[data-glow="pulse"]::before{animation:o-assist-glow 2.4s ease-in-out .8s 3}',
-    '@keyframes o-assist-glow{0%,100%{opacity:.6}50%{opacity:1}}',
+    '@keyframes o-assist-glow{0%,100%{opacity:.4}50%{opacity:.75}}',
     '@media (prefers-reduced-motion: reduce){#o-assist .o-assist-fab[data-glow]::before{animation:none}}',
     '#o-assist .o-assist-backdrop{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45)}',
     '#o-assist .o-assist-panel{position:fixed;z-index:2147483001;display:flex;flex-direction:column;background:#f2f2f0;color:#111827;box-shadow:0 18px 40px rgba(0,0,0,.28);text-align:left;font-size:15px;line-height:1.35}',

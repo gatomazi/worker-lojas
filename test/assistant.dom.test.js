@@ -124,7 +124,7 @@ test('the glow: in the region\'s accent until the chat is opened once in the vis
   await tick();
   const fab = t.q('#o-assist .o-assist-fab');
   assert.equal(fab.getAttribute('data-glow'), 'pulse');
-  assert.match(t.q('#o-assist style').textContent, /0 0 22px 6px rgba\(214,186,141,0\.85\)/, 'Sul: sand gold, the storefront\'s accent');
+  assert.match(t.q('#o-assist style').textContent, /0 0 18px 3px #d6ba8d;opacity:\.4/, 'Sul: sand gold, the storefront\'s accent');
   assert.match(t.q('#o-assist style').textContent, /prefers-reduced-motion: reduce\)\{#o-assist \.o-assist-fab\[data-glow\]::before\{animation:none\}/);
   fab.dispatchEvent(new t.w.Event('animationend'));
   assert.equal(fab.getAttribute('data-glow'), 'rest', 'after the breaths, a still halo (showing it again does not restart them)');
