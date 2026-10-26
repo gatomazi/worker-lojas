@@ -44,8 +44,10 @@ export const ASSISTANT = String.raw`
   const ASSIST_NATIVE = '[data-controller~="ink-store--help-button"]';
   // A cor do cabeçalho da região (stores.js), a mesma do guia e do "Compartilhar": botão, balão de quem pergunta e o hover dos botões.
   const ASSIST_TINT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.primary)) ? STORE.theme.primary : '#1f2328';
-  // O brilho do botão: a cor de destaque da região (stores.js, a mesma do storefront).
+  // O brilho do botão: a cor de destaque da região (stores.js, a mesma do storefront) no anel e, no halo, um tom mais fundo dela (o mesmo
+  // color-mix do storefront: 65% do destaque com #a8741f), porque o areia puro some no cinza-claro das páginas.
   const ASSIST_ACCENT = (STORE.theme && /^#[0-9a-f]{6}$/i.test(STORE.theme.accent)) ? STORE.theme.accent : '#d6ba8d';
+  const ASSIST_HALO = '#' + [1, 3, 5].map((i) => Math.round(parseInt(ASSIST_ACCENT.slice(i, i + 2), 16) * 0.65 + parseInt('a8741f'.slice(i - 1, i + 1), 16) * 0.35).toString(16).padStart(2, '0')).join('');
 
   function assistLine(value, max) {
     const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
@@ -186,9 +188,9 @@ export const ASSISTANT = String.raw`
     // Celular: só o ícone (um quadrado de 48px), para o botão não disputar a atenção com a loja; o texto fica para leitores de tela.
     '@media (max-width:639px){#o-assist .o-assist-fab{width:' + ASSIST_HEIGHT + 'px;padding:0;justify-content:center}#o-assist .o-assist-fab [data-assist-label]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}}',
     // O brilho: a sombra de um pseudo-elemento, para só a opacidade mexer (sombra externa nunca pinta por cima do botão). Sem movimento: o halo parado.
-    '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + ASSIST_ACCENT + ',0 0 18px 3px ' + ASSIST_ACCENT + ';opacity:.4;pointer-events:none}',
+    '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + ASSIST_ACCENT + ',0 0 18px 3px ' + ASSIST_HALO + ';opacity:.5;pointer-events:none}',
     '#o-assist .o-assist-fab[data-glow="pulse"]::before{animation:o-assist-glow 2.4s ease-in-out .8s 3}',
-    '@keyframes o-assist-glow{0%,100%{opacity:.4}50%{opacity:.75}}',
+    '@keyframes o-assist-glow{0%,100%{opacity:.5}50%{opacity:.85}}',
     '@media (prefers-reduced-motion: reduce){#o-assist .o-assist-fab[data-glow]::before{animation:none}}',
     '#o-assist .o-assist-backdrop{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45)}',
     '#o-assist .o-assist-panel{position:fixed;z-index:2147483001;display:flex;flex-direction:column;background:#f2f2f0;color:#111827;box-shadow:0 18px 40px rgba(0,0,0,.28);text-align:left;font-size:15px;line-height:1.35}',
