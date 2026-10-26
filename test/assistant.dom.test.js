@@ -50,6 +50,8 @@ test('on: ONE "Pergunte aqui" button bottom-right; INK\'s own "Ajuda?" (with its
   await tick();
   assert.equal(t.all('#o-assist').length, 1);
   assert.equal(t.q('#o-assist [data-assist-label]').textContent, 'Pergunte aqui', 'a storefront that sends no text: the default one');
+  // Phones: the icon alone; the word stays in the button for screen readers (visually hidden, never removed).
+  assert.match(t.q('#o-assist style').textContent, /@media \(max-width:639px\)\{#o-assist \.o-assist-fab\{width:48px;padding:0;justify-content:center\}#o-assist \.o-assist-fab \[data-assist-label\]\{position:absolute;width:1px;height:1px/);
   assert.match(t.q('#o-assist .o-assist-fab').style.right, /16px/);
   assert.match(t.q('#o-assist style').textContent, /\[data-controller~="ink-store--help-button"\]\{display:none!important\}/);
   assert.ok(t.q('[data-controller~="ink-store--help-button"]'), 'the native node is never removed, only hidden by our style');

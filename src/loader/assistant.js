@@ -3,7 +3,7 @@
 //             é lembrada por um minuto (sessionStorage). Desligado, erro, timeout ou JSON inválido => NADA nosso aparece e o "Ajuda?" da INK fica como está.
 //   Troca:    o botão nativo ([data-controller~="ink-store--help-button"], com Status do pedido, Troca, Devolução e WhatsApp) só é escondido DEPOIS que o
 //             nosso montou, por um <style> dentro do nosso nó: desmontou (Turbo para fora do escopo, feature desligada) = o nativo volta sozinho.
-//   Botão:    canto inferior DIREITO (o de cupons fica à esquerda), com o texto do painel ("Pergunte aqui" por padrão) e ícone; sobe acima do CTA fixo
+//   Botão:    canto inferior DIREITO (o de cupons fica à esquerda), com o texto do painel ("Pergunte aqui" por padrão) e ícone (no celular, só o ícone); sobe acima do CTA fixo
 //             (#add-to-cart-mob) e do aviso de cookies; some com o carrinho, um modal, o menu, o teclado virtual ou quando cobriria controles do formulário de
 //             compra. Brilho suave na cor de destaque da região até a pessoa abrir o chat uma vez na visita: três respirações lentas, depois um halo parado.
 //   Painel:   celular = folha inferior (modal, foco preso, rolagem travada); telas maiores = cartão ancorado ao botão. Cartões de estampa (foto e preço reais),
@@ -183,6 +183,8 @@ export const ASSISTANT = String.raw`
     '#o-assist *{box-sizing:border-box}',
     '#o-assist .o-assist-fab{position:fixed;z-index:' + ASSIST_Z + ';display:inline-flex;align-items:center;gap:8px;height:' + ASSIST_HEIGHT + 'px;padding:0 16px 0 14px;margin:0;border:0;border-radius:12px;background:' + ASSIST_TINT + ';color:#fff;font:inherit;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;box-shadow:0 6px 18px rgba(0,0,0,.24);cursor:pointer;outline-offset:4px;-webkit-tap-highlight-color:transparent}',
     '#o-assist .o-assist-fab[hidden]{display:none}',
+    // Celular: só o ícone (um quadrado de 48px), para o botão não disputar a atenção com a loja; o texto fica para leitores de tela.
+    '@media (max-width:639px){#o-assist .o-assist-fab{width:' + ASSIST_HEIGHT + 'px;padding:0;justify-content:center}#o-assist .o-assist-fab [data-assist-label]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}}',
     // O brilho: a sombra de um pseudo-elemento, para só a opacidade mexer (sombra externa nunca pinta por cima do botão). Sem movimento: o halo parado.
     '#o-assist .o-assist-fab[data-glow]::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 2px ' + ASSIST_ACCENT + ',0 0 18px 3px ' + ASSIST_ACCENT + ';opacity:.4;pointer-events:none}',
     '#o-assist .o-assist-fab[data-glow="pulse"]::before{animation:o-assist-glow 2.4s ease-in-out .8s 3}',

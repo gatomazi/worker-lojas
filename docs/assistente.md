@@ -12,7 +12,9 @@ storefront (`/api/assistente/<região>`, contrato v1; ver `docs/storefront/assis
   - Cada cartão e cada link é revalidado. Os links de pedidos são remontados a partir da loja. O WhatsApp só passa como wa.me.
   - Qualquer falha devolve 503 JSON.
 - **Texto do botão e temas fixos.**
-  - O GET traz `label` (o texto do botão e o título do chat) e `topics` (até 4 temas sempre acima do campo). Os dois são opcionais no v1 e
+  - O GET traz `label` (o texto do botão e o título do chat) e `topics` (até 4 temas sempre acima do campo).
+  - No celular (abaixo de 640px), o botão é só o ícone (48px), para não disputar a atenção com a loja. O texto fica no botão,
+    escondido só da vista, para leitores de tela. Os dois são opcionais no v1 e
     revalidados aqui e no navegador.
   - Texto fora do formato vira o padrão do loader ("Pergunte aqui"). Um tema fora do formato cai sozinho. Sem `topics`, não há linha de
     temas.
