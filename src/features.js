@@ -28,7 +28,10 @@
 // modal. Só copia: quem valida e aplica é a INK, no carrinho. Desligadas = nem o módulo entra no loader; o link e o quadro nativos ficam como são.
 // cart-incentive: no carrinho tematizado (theme-cart), o incentivo de frete grátis por quantidade de peças, SÓ quando o painel publica uma regra
 // confirmada (Tema da INK › Incentivo). Sem regra, sem theme-cart ou desligada = nada aparece (a INK fica como é).
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons'];
+// post-add-kit: "Monte seu kit" no modal "Produto adicionado ao carrinho" (página de produto): as faixas da promoção progressiva da INK escolhida no CMS,
+// com o preço da peça adicionada (de/por, cada, economia) e o código para copiar; os botões nativos ganham os rótulos "Escolher mais produtos" e
+// "Finalizar compra" (continuam os da INK). Dados de /__origens/kit. Sem kit publicado, erro ou desligada = o modal fica como a INK desenha.
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons', 'post-add-kit'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

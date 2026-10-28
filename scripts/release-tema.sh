@@ -18,6 +18,9 @@
 #   --add=pdp-cep,pdp-coupons                <- liga o prazo de entrega na própria página (campo de CEP no lugar do modal) e os cupons em abas com "Copiar"
 #                                               (docs/cep-cupons-pdp.md; uma chave ou as duas). Só navegador, nenhum gateway: depois, confere que o loader da PDP
 #                                               traz o módulo de cada uma. Rollback = a versão capturada (o link do modal e o quadro de cupons da INK voltam).
+#   --add=post-add-kit                       <- liga o "Monte seu kit" no modal "Produto adicionado ao carrinho" (docs/post-add-kit.md). Antes, confere que o
+#                                               storefront responde /api/post-add-kit/sul (kit publicado ou desligado); depois, que /__origens/kit devolve o
+#                                               MESMO kit (código e faixas) e que o loader da PDP traz o módulo. Rollback = a versão capturada (o modal da INK volta).
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -46,17 +49,18 @@ LOGIN_PAGE="$SITE_URL/useorigens/store_sessions/new"
 TRACKING_PAGE="$SITE_URL/useorigens/orders/trackings"
 STOREFRONT_HOME="${STOREFRONT_URL}/sul"
 PHRASE="PUBLICAR-TEMA-INK"
-usage() { sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant|pdp-cep|pdp-coupons' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar, assistant, pdp-cep e pdp-coupons (recebido: $ADD)"; exit 2; }
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant|pdp-cep|pdp-coupons|post-add-kit' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar, assistant, pdp-cep, pdp-coupons e post-add-kit (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
 WITH_TOPBAR=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx top-bar && WITH_TOPBAR=1
 WITH_ASSISTANT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
 OFFERS=$(printf '%s' "$ADD" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
+WITH_KIT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx post-add-kit && WITH_KIT=1
 ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
@@ -189,6 +193,28 @@ smoke_pdp_offers() {
   done
 }
 
+# "Monte seu kit": o que a INK serve tem de ser o kit que o storefront publica (código, tipo e faixas da promoção da INK) e o loader tem de trazer o módulo.
+smoke_kit() {
+  local i ink site loader r
+  site=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/post-add-kit/sul" 2>/dev/null)
+  for i in 1 2 3 4 5 6; do
+    ink=$(curl -sS --max-time 15 "$SITE_URL/__origens/kit?origens_r=sul&origens_smoke=$(date +%s)" 2>/dev/null)
+    loader=$(curl -sS --max-time 20 "$SITE_URL$(curl -sS --max-time 20 "$SAMPLE_PDP?origens_smoke=$(date +%s)" 2>/dev/null | grep -oE '/__origens/loader\.js\?v=[^"]+' | head -1 | sed 's/&amp;/\&/g')" 2>/dev/null)
+    r=$(T_INK="$ink" T_SITE="$site" T_LOADER="$loader" node --input-type=module -e 'const p=(s)=>{try{return JSON.parse(s)}catch(e){return null}};import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluatePostAddKit(p(process.env.T_INK),p(process.env.T_SITE),process.env.T_LOADER))))' "$LIB")
+    [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "kit: a INK serve o kit do storefront ($(printf '%s' "$r" | json_field code)) e o loader traz o módulo"; return 0; }
+    [ "$i" = 6 ] && { bad "kit: $(printf '%s' "$r" | json_field problems)"; return 1; }
+    sleep 10
+  done
+}
+
+# O storefront precisa responder o kit no contrato v1. Desligado (kit null), a chave liga e o modal fica como a INK desenha até publicar ligado.
+storefront_kit() {
+  local on; on=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/post-add-kit/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1&&("kit" in j)?(j.kit?j.kit.code+" com "+j.kit.tiers.length+" faixas":"off"):"x")}catch(e){console.log("x")}})')
+  if [ "$on" = x ]; then bad "storefront: /api/post-add-kit/sul indisponível ou fora do contrato v1 (o storefront com o kit já está no ar?)"
+  elif [ "$on" = off ]; then warn "storefront: Monte seu kit DESLIGADO (ou sem promoção valendo na INK): a chave liga e o modal fica como a INK desenha até publicar ligado"
+  else ok "storefront: kit publicado ($on)"; fi
+}
+
 # O storefront precisa ter o assistente publicado e LIGADO: desligado, a chave liga e nada muda na INK (o "Ajuda?" dela fica).
 storefront_assistant() {
   local on; on=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/assistente/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1?String(j.enabled===true):"x")}catch(e){console.log("x")}})')
@@ -264,6 +290,7 @@ log "== pré-condições =="
 storefront_theme
 [ "$WITH_TOPBAR" = 1 ] && storefront_top_bar
 [ "$WITH_ASSISTANT" = 1 ] && storefront_assistant
+[ "$WITH_KIT" = 1 ] && storefront_kit
 HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 # --update: confere o que já está ligado (a conta sempre; o checkout só com um carrinho de teste).
 if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
@@ -274,6 +301,8 @@ if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
   # Prazo e cupons no ar: depois do deploy, o loader da PDP tem de continuar trazendo os módulos.
   OFFERS=$(printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
+  # O kit no ar: depois do deploy, a INK tem de servir o mesmo kit do storefront.
+  printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx post-add-kit && WITH_KIT=1
 fi
 [ -n "$HEALTH_NOW" ] && ok "health ($HEALTH_URL): $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log("loader "+h.version+", "+h.ink_host+", escopo "+h.scope_mode+", "+(h.widget_features||[]).length+" features")})')" || bad "health ilegível em $HEALTH_URL"
 git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
@@ -334,6 +363,7 @@ smoke_theme || fail "smoke do tema reprovado: $(IFS='; '; echo "${FAILS[*]}")"
 if [ "$WITH_TOPBAR" = 1 ]; then smoke_top_bar || fail "smoke da faixa do topo reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_ASSISTANT" = 1 ]; then smoke_assistant || fail "smoke do assistente reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ -n "$OFFERS" ]; then smoke_pdp_offers || fail "smoke do prazo e dos cupons reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
+if [ "$WITH_KIT" = 1 ]; then smoke_kit || fail "smoke do kit reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi

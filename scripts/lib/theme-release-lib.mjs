@@ -250,3 +250,17 @@ export function evaluatePdpOffers(loader, names) {
   if (!names.length) problems.push('nenhuma chave do prazo/cupons pedida');
   return { ok: problems.length === 0, problems };
 }
+
+/**
+ * "Monte seu kit" (post-add-kit): depois do deploy, /__origens/kit tem de servir o MESMO kit que o storefront publica (código, tipo e faixas) e o loader da
+ * PDP tem de trazer o módulo. Com o kit desligado no painel (`kit: null` nos dois), basta o módulo: a chave liga e o modal fica como a INK desenha.
+ */
+export function evaluatePostAddKit(ink, site, loader) {
+  const problems = [];
+  const sum = (p) => (p && p.kit ? JSON.stringify({ code: p.kit.code, kind: p.kit.kind, auto: p.kit.auto, tiers: p.kit.tiers }) : null);
+  if (!site || site.v !== 1 || !('kit' in site)) problems.push('o storefront não respondeu /api/post-add-kit/sul no contrato v1 (o storefront com o kit já está no ar?)');
+  if (!ink || ink.v !== 1 || !('kit' in ink)) problems.push('/__origens/kit não respondeu o contrato v1 (a feature não está no ar?)');
+  else if (site && sum(ink) !== sum(site)) problems.push(`kit diferente: INK ${sum(ink) ?? 'nenhum'} x storefront ${sum(site) ?? 'nenhum'}`);
+  if (!String(loader || '').includes("id: 'post-add-kit'")) problems.push('o loader.js não traz o módulo post-add-kit');
+  return { ok: problems.length === 0, problems, code: ink?.kit?.code ?? null };
+}

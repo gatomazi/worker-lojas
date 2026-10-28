@@ -9,6 +9,7 @@
 //   promotionsApi  cupons e promoções publicados no CMS (contrato v1), lidos SOMENTE pelo Worker no servidor
 //   inkThemeApi    tema da compra na INK publicado no CMS (contrato v1, src/theme.js), lido SOMENTE pelo Worker no servidor
 //   topBarApi      mensagens da "Faixa do topo" publicadas no CMS (contrato v1), lidas SOMENTE pelo Worker no servidor
+//   kitApi         "Monte seu kit" publicado no CMS (contrato v1; as faixas são as da promoção progressiva da INK), lido SOMENTE pelo Worker no servidor
 //   citiesApi      índice público de cidades (busca "cidade ou estado"), lido SOMENTE pelo Worker no servidor
 //   kvBinding      binding do KV do espelho do carrinho: um namespace por loja, nunca compartilhado
 //   ga             propriedade GA4 que a PRÓPRIA página da INK e o storefront da região carregam (conferida ao vivo)
@@ -29,6 +30,7 @@ export const STORES = Object.freeze({
     navbarApi: '/api/navbar/sul',
     promotionsApi: '/api/promotions/sul',
     topBarApi: '/api/top-bar/sul',
+    kitApi: '/api/post-add-kit/sul',
     inkThemeApi: '/api/ink-theme/sul',
     citiesApi: '/api/cidades/sul',
     // "Meus Lugares" (ver docs/buy-session-contract.md): o Worker só faz GET <buySessionApi>/<id>, nunca minta nem interpreta o id.
@@ -54,6 +56,7 @@ export const STORES = Object.freeze({
     navbarApi: '/api/navbar/norte',
     promotionsApi: '/api/promotions/norte',
     topBarApi: '/api/top-bar/norte',
+    kitApi: '/api/post-add-kit/norte',
     inkThemeApi: '/api/ink-theme/norte',
     citiesApi: '/api/cidades/norte',
     buySessionApi: '/api/buy-session',
@@ -76,6 +79,7 @@ export const STORES = Object.freeze({
     navbarApi: '/api/navbar/centro-oeste',
     promotionsApi: '/api/promotions/centro-oeste',
     topBarApi: '/api/top-bar/centro-oeste',
+    kitApi: '/api/post-add-kit/centro-oeste',
     inkThemeApi: '/api/ink-theme/centro-oeste',
     citiesApi: '/api/cidades/centro-oeste',
     buySessionApi: '/api/buy-session',
@@ -95,7 +99,7 @@ export const STORE_IDS = Object.freeze(Object.keys(STORES));
 // continuam os da loja. Ligado só por SERVE_REGIONS (var do TOML da loja); sem ela, cada Worker atende só a própria região, como sempre.
 export const REGION_PARAM = 'origens_r';
 export const REGION_COOKIE = 'origens_r';
-const REGION_FIELDS = ['region', 'name', 'storefrontBase', 'navbarApi', 'promotionsApi', 'topBarApi', 'inkThemeApi', 'citiesApi', 'theme', 'ufs', 'stateNames'];
+const REGION_FIELDS = ['region', 'name', 'storefrontBase', 'navbarApi', 'promotionsApi', 'topBarApi', 'kitApi', 'inkThemeApi', 'citiesApi', 'theme', 'ufs', 'stateNames'];
 const PROFILES = Object.freeze(Object.fromEntries(Object.values(STORES).map((s) => [s.region, Object.freeze(Object.fromEntries(REGION_FIELDS.map((k) => [k, s[k]])))])));
 export const REGION_SLUGS = Object.freeze(Object.keys(PROFILES));
 
