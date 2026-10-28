@@ -20,7 +20,7 @@ Estado: **Fase 2C (allowlist), nada publicado**. Sem deploy, sem rota em produç
 
 ## Flags
 
-`WIDGET_FEATURES`: módulos do loader por deploy (`return-link`, `post-add-discovery`, `city-search`, `cart-discovery`, `cart-mirror`, `product-discovery`, `header-nav`, `list-session`, `promo-fab`, `auto-recommendations`, `pdp-share`, `size-guide`, `pdp-guide`, `size-fit`, `theme-pdp`, `theme-cart`, `theme-checkout`); ausente = `return-link`; nome desconhecido = nenhum módulo. Arquitetura em [`docs/architecture-loader.md`](docs/architecture-loader.md); guia da página de produto em [`docs/pdp-guide.md`](docs/pdp-guide.md); tema da compra (PDP, carrinho e checkout com a cara do site) em [`docs/tema-fluxo-ink.md`](docs/tema-fluxo-ink.md).
+`WIDGET_FEATURES`: módulos do loader por deploy (`return-link`, `post-add-discovery`, `city-search`, `cart-discovery`, `cart-mirror`, `product-discovery`, `header-nav`, `list-session`, `promo-fab`, `auto-recommendations`, `pdp-share`, `size-guide`, `pdp-guide`, `size-fit`, `theme-pdp`, `theme-cart`, `theme-checkout`, `product-wait`); ausente = `return-link`; nome desconhecido = nenhum módulo. Arquitetura em [`docs/architecture-loader.md`](docs/architecture-loader.md); guia da página de produto em [`docs/pdp-guide.md`](docs/pdp-guide.md); tema da compra (PDP, carrinho e checkout com a cara do site) em [`docs/tema-fluxo-ink.md`](docs/tema-fluxo-ink.md); camiseta em criação (a pílula da compra direta do storefront também na INK) em [`docs/produto-em-criacao.md`](docs/produto-em-criacao.md).
 
 `ENABLE_WIDGET`: `"false"` (padrão, e qualquer valor desconhecido) · `"dry-run"` (nada é reescrito; só loga o caminho) · `"true"`.
 

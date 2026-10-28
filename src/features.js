@@ -31,7 +31,11 @@
 // post-add-kit: "Monte seu kit" no modal "Produto adicionado ao carrinho" (página de produto): as faixas da promoção progressiva da INK escolhida no CMS,
 // com o preço da peça adicionada (de/por, cada, economia) e o código para copiar; os botões nativos ganham os rótulos "Escolher mais produtos" e
 // "Finalizar compra" (continuam os da INK). Dados de /__origens/kit. Sem kit publicado, erro ou desligada = o modal fica como a INK desenha.
-export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons', 'post-add-kit'];
+// product-wait: a pílula "Criando camiseta…" / "Camiseta pronta!" da compra direta do storefront (personalização com o sobrenome) também nas páginas da
+// INK (produto e casca), no centro de baixo, entre o botão de cupons e o assistente. Só monta com o cookie compartilhado uo_produtos (ids de trabalho
+// gravados pelo storefront no domínio .useorigens.com.br) e com ao menos um deles respondido por /__origens/produto/<id>. Sem cookie, fora do domínio
+// compartilhado, erro ou desligada = nada aparece (nem o módulo nem o gateway entram).
+export const FEATURE_NAMES = ['return-link', 'post-add-discovery', 'city-search', 'cart-discovery', 'cart-mirror', 'product-discovery', 'header-nav', 'list-session', 'promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons', 'post-add-kit', 'product-wait'];
 export const DEFAULT_FEATURES = ['return-link'];
 
 export function parseFeatures(raw) {

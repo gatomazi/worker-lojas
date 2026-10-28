@@ -21,6 +21,9 @@
 #   --add=post-add-kit                       <- liga o "Monte seu kit" no modal "Produto adicionado ao carrinho" (docs/post-add-kit.md). Antes, confere que o
 #                                               storefront responde /api/post-add-kit/sul (kit publicado ou desligado); depois, que /__origens/kit devolve o
 #                                               MESMO kit (código e faixas) e que o loader da PDP traz o módulo. Rollback = a versão capturada (o modal da INK volta).
+#   --add=product-wait                       <- liga a pílula "Criando camiseta…" da compra direta nas páginas da INK (produto e casca; docs/produto-em-criacao.md).
+#                                               Antes, confere que o storefront responde /api/personalizar/produto/<id> (404 JSON para um id que não existe);
+#                                               depois, que /__origens/produto/<id> responde o mesmo 404 JSON e que o loader traz o módulo. Rollback = a versão capturada.
 #   --add=theme-account                      <- liga o tema da conta (login, pedidos, detalhe, rastreio, avaliação, trocas). As rotas da tela do login e de
 #                                               trocas vêm do TOML com este deploy; depois, smoke do login (só CSS, nenhum loader, "Voltar"/símbolo para a home
 #                                               do storefront) e do rastreio (casca), e a sonda (node scripts/checkout-routes.mjs probe --conta). Com a "Conta"
@@ -49,18 +52,19 @@ LOGIN_PAGE="$SITE_URL/useorigens/store_sessions/new"
 TRACKING_PAGE="$SITE_URL/useorigens/orders/trackings"
 STOREFRONT_HOME="${STOREFRONT_URL}/sul"
 PHRASE="PUBLICAR-TEMA-INK"
-usage() { sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { log "PARADO: $*"; exit 1; }
 
 MODE=""; ADD="theme-pdp,theme-cart"; UPDATE=0
 for arg in "$@"; do case "$arg" in --deploy) MODE=deploy ;; --check) MODE=check ;; --add=*) ADD="${arg#--add=}" ;; --update) UPDATE=1; ADD="" ;; -h|--help) usage; exit 0 ;; *) usage; log ""; log "argumento desconhecido: $arg"; exit 2 ;; esac; done
-[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant|pdp-cep|pdp-coupons|post-add-kit' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar, assistant, pdp-cep, pdp-coupons e post-add-kit (recebido: $ADD)"; exit 2; }
+[ "$UPDATE" = 1 ] || ! printf '%s' "$ADD" | tr ',' '\n' | grep -qvxE 'theme-pdp|theme-cart|theme-checkout|theme-account|top-bar|assistant|pdp-cep|pdp-coupons|post-add-kit|product-wait' || { log "--add aceita só theme-pdp, theme-cart, theme-checkout, theme-account, top-bar, assistant, pdp-cep, pdp-coupons, post-add-kit e product-wait (recebido: $ADD)"; exit 2; }
 WITH_CHECKOUT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-checkout && WITH_CHECKOUT=1
 WITH_ACCOUNT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx theme-account && WITH_ACCOUNT=1
 WITH_TOPBAR=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx top-bar && WITH_TOPBAR=1
 WITH_ASSISTANT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx assistant && WITH_ASSISTANT=1
 OFFERS=$(printf '%s' "$ADD" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
 WITH_KIT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx post-add-kit && WITH_KIT=1
+WITH_WAIT=0; printf '%s' "$ADD" | tr ',' '\n' | grep -qx product-wait && WITH_WAIT=1
 ACCOUNT_ON=0
 CHECKOUT_UUID="${TEMA_CHECKOUT_UUID:-}"
 [ -z "$CHECKOUT_UUID" ] || [[ "$CHECKOUT_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { log "TEMA_CHECKOUT_UUID fora do formato de uuid"; exit 2; }
@@ -207,6 +211,37 @@ smoke_kit() {
   done
 }
 
+# Camiseta em criação: GET de um id no formato que não existe (nenhum pedido real é tocado). Imprime { status, type, body } para evaluateProductWait.
+probe_json() {
+  local out code type body
+  out=$(curl -sS --max-time 15 -o /tmp/produto-probe.$$ -w '%{http_code} %{content_type}' "$1" 2>/dev/null); code=${out%% *}; type=${out#* }
+  body=$(head -c 2048 /tmp/produto-probe.$$ 2>/dev/null); rm -f /tmp/produto-probe.$$
+  T_CODE="$code" T_TYPE="$type" T_BODY="$body" node -e 'console.log(JSON.stringify({status:Number(process.env.T_CODE),type:process.env.T_TYPE,body:process.env.T_BODY}))'
+}
+wait_probe_id() { node --input-type=module -e 'import(process.argv[1]).then((m)=>console.log(m.PRODUCT_WAIT_PROBE))' "$LIB"; }
+
+# O storefront precisa ter a compra direta no ar: a rota de andamento responde 404 JSON para um id que não existe (uma página 404 em HTML = ainda não).
+storefront_product_wait() {
+  local site r; site=$(probe_json "$STOREFRONT_URL/api/personalizar/produto/$(wait_probe_id)")
+  r=$(T_SITE="$site" node --input-type=module -e 'import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluateProductWait(JSON.parse(process.env.T_SITE)))))' "$LIB")
+  if [ "$(printf '%s' "$r" | json_field ok)" = "true" ]; then ok "storefront: /api/personalizar/produto/<id> no ar (404 JSON para um id que não existe)"
+  else bad "storefront: $(printf '%s' "$r" | json_field problems)"; fi
+}
+
+# Depois do deploy: /__origens/produto/<id> é o nosso gateway (o mesmo 404 JSON do storefront) e o loader da PDP traz o módulo.
+smoke_product_wait() {
+  local i site ink loader r id; id=$(wait_probe_id)
+  site=$(probe_json "$STOREFRONT_URL/api/personalizar/produto/$id")
+  for i in 1 2 3 4 5 6; do
+    ink=$(probe_json "$SITE_URL/__origens/produto/$id")
+    loader=$(curl -sS --max-time 20 "$SITE_URL$(curl -sS --max-time 20 "$SAMPLE_PDP?origens_smoke=$(date +%s)" 2>/dev/null | grep -oE '/__origens/loader\.js\?v=[^"]+' | head -1 | sed 's/&amp;/\&/g')" 2>/dev/null)
+    r=$(T_SITE="$site" T_INK="$ink" T_LOADER="$loader" node --input-type=module -e 'import(process.argv[1]).then((m)=>console.log(JSON.stringify(m.evaluateProductWait(JSON.parse(process.env.T_SITE),JSON.parse(process.env.T_INK),process.env.T_LOADER))))' "$LIB")
+    [ "$(printf '%s' "$r" | json_field ok)" = "true" ] && { ok "camiseta em criação: /__origens/produto/<id> é o gateway (404 JSON) e o loader traz o módulo"; return 0; }
+    [ "$i" = 6 ] && { bad "camiseta em criação: $(printf '%s' "$r" | json_field problems)"; return 1; }
+    sleep 10
+  done
+}
+
 # O storefront precisa responder o kit no contrato v1. Desligado (kit null), a chave liga e o modal fica como a INK desenha até publicar ligado.
 storefront_kit() {
   local on; on=$(curl -sS --max-time 15 "$STOREFRONT_URL/api/post-add-kit/sul" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.v===1&&("kit" in j)?(j.kit?j.kit.code+" com "+j.kit.tiers.length+" faixas":"off"):"x")}catch(e){console.log("x")}})')
@@ -291,6 +326,7 @@ storefront_theme
 [ "$WITH_TOPBAR" = 1 ] && storefront_top_bar
 [ "$WITH_ASSISTANT" = 1 ] && storefront_assistant
 [ "$WITH_KIT" = 1 ] && storefront_kit
+[ "$WITH_WAIT" = 1 ] && storefront_product_wait
 HEALTH_NOW=$(health_json 2>/dev/null) || HEALTH_NOW=""
 # --update: confere o que já está ligado (a conta sempre; o checkout só com um carrinho de teste).
 if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
@@ -303,6 +339,8 @@ if [ "$UPDATE" = 1 ] && [ -n "$HEALTH_NOW" ]; then
   OFFERS=$(printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -xE 'pdp-cep|pdp-coupons' | paste -sd, -)
   # O kit no ar: depois do deploy, a INK tem de servir o mesmo kit do storefront.
   printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx post-add-kit && WITH_KIT=1
+  # A camiseta em criação no ar: depois do deploy, o gateway e o módulo continuam lá.
+  printf '%s' "$LIVE_FEATURES" | tr ',' '\n' | grep -qx product-wait && WITH_WAIT=1
 fi
 [ -n "$HEALTH_NOW" ] && ok "health ($HEALTH_URL): $(printf '%s' "$HEALTH_NOW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log("loader "+h.version+", "+h.ink_host+", escopo "+h.scope_mode+", "+(h.widget_features||[]).length+" features")})')" || bad "health ilegível em $HEALTH_URL"
 git diff --quiet HEAD -- "$CFG" 2>/dev/null && ok "$CFG sem alterações locais" || bad "$CFG modificado localmente"
@@ -364,6 +402,7 @@ if [ "$WITH_TOPBAR" = 1 ]; then smoke_top_bar || fail "smoke da faixa do topo re
 if [ "$WITH_ASSISTANT" = 1 ]; then smoke_assistant || fail "smoke do assistente reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ -n "$OFFERS" ]; then smoke_pdp_offers || fail "smoke do prazo e dos cupons reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_KIT" = 1 ]; then smoke_kit || fail "smoke do kit reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
+if [ "$WITH_WAIT" = 1 ]; then smoke_product_wait || fail "smoke da camiseta em criação reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
   node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi
