@@ -70,7 +70,8 @@ export function sanitizeCheckout(html, learned = new Map()) {
 // nem cobrança; a resposta também é sanitizada. Pagamento (process_payment), contato e entrega continuam abortados.
 // proposta: 'A' | 'B' injeta a proposta de cor (scripts/lib/propostas-cor.mjs) no fim do <head> das páginas reescritas: SÓ na prévia, para comparar.
 // rotulo: etiqueta fixa no canto (só na prévia aberta à mão), para distinguir janelas de versões diferentes.
-export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false, proposta = null, rotulo = null } = {}) {
+// `storefront`: respostas fixas do storefront por caminho ({ '/api/post-add-kit/sul': {...} }), para provar um contrato que a produção ainda não serve.
+export async function createHarness({ config = REFERENCE_THEME, off = false, headed = false, allowCart = false, themeFeatures = 'theme-pdp,theme-cart,theme-checkout', sanitize = false, allowPaymentDiscount = false, proposta = null, rotulo = null, storefront = {} } = {}) {
   const etiqueta = rotulo ? 'body::before{content:' + JSON.stringify(rotulo) + ';position:fixed;top:6px;left:6px;z-index:2147483647;padding:3px 8px;background:#1b1d19;color:#fff;font:700 11px/1.3 system-ui;letter-spacing:.04em;pointer-events:none;opacity:.88}' : '';
   const propostaStyle = proposta || etiqueta ? '<style data-origens-proposta="' + (proposta || 'atual') + '">' + (proposta ? propostaCss(proposta) : '') + etiqueta + '</style>' : '';
   const require = createRequire((process.env.PW_PATH || '.') + '/');
@@ -87,6 +88,7 @@ export async function createHarness({ config = REFERENCE_THEME, off = false, hea
     outboundService: async (req) => {
       const url = new URL(req.url);
       if (url.host === 'useorigens.com.br' && url.pathname === store.inkThemeApi) return Response.json(config);
+      if (url.host === 'useorigens.com.br' && Object.hasOwn(storefront, url.pathname)) return Response.json(storefront[url.pathname]);
       if (url.host === 'useorigens.com.br') return fetch(req.url, { headers: { accept: 'application/json' } });
       return new Response(upstream.html, { status: upstream.status, headers: { 'content-type': 'text/html; charset=utf-8' } });
     }

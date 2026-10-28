@@ -21,6 +21,7 @@ import { PDP_GUIDE } from './loader/pdp-guide.js';
 import { PDP_CEP, PDP_COUPONS } from './loader/pdp-offers.js';
 import { SIZE_FIT_TABLES, SIZE_FIT_CALC, SIZE_FIT } from './loader/size-fit.js';
 import { THEME_UI } from './loader/theme-ui.js';
+import { POST_ADD_KIT } from './loader/post-add-kit.js';
 import { ACTIVE_STORE, clientStore } from './stores.js';
 import { buildDiscoverySource } from './loader/discovery-ui.js';
 import { DEFAULT_FEATURES } from './features.js';
@@ -78,6 +79,8 @@ export function buildLoaderSource(allowedPaths = [], features = DEFAULT_FEATURES
   // Prazo de entrega e cupons à vista (sem os modais da INK): o cálculo e os códigos continuam os da INK. Cada um atrás da sua flag.
   if (features.includes('pdp-cep')) parts.push(PDP_CEP);
   if (features.includes('pdp-coupons')) parts.push(PDP_COUPONS);
+  // "Monte seu kit" (CMS do storefront + promoção progressiva da INK) no modal pós-adição: as faixas antes dos botões nativos, que só mudam de rótulo.
+  if (features.includes('post-add-kit')) parts.push(POST_ADD_KIT);
   // Tema da compra (theme-pdp / theme-cart): só o que o CSS não faz sozinho (barra fixa do celular, Esc no carrinho). O checkout nunca recebe o loader.
   if (features.includes('theme-pdp') || features.includes('theme-cart')) parts.push(THEME_UI);
   parts.push(RUNTIME_TAIL);
