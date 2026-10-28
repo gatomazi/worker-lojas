@@ -15,7 +15,9 @@ modal, enquanto há kit, vira **topo fixo + meio que rola + pé fixo** (celular 
 "Finalizar compra" preso embaixo (levado ao fim do conteúdo só na exibição, com `order`, num corpo em coluna; nada é movido no DOM) e o kit, a busca e
 "As mais vendidas" rolando no meio. No celular a folha da INK **cresce com o conteúdo** (sem altura máxima, presa ao pé da tela): com o kit ela passava
 da tela e o topo com o × sumia para cima, sem como fechar (visto ao vivo em 28/10/2026, logo depois do primeiro deploy). Por isso, no celular, a folha
-vai no máximo até a altura da tela (`100dvh`, sem folga: a folga mostrava a faixa preta do topo da INK) e rola por dentro, com os cantos de cima retos. Ao fechar o
+vai no máximo até a altura da tela (`100dvh`, sem folga: a folga mostrava a faixa preta do topo da INK) e rola por dentro, com os cantos de cima retos. O conteúdo é alinhado pelo topo (`align-items:flex-start`): a folha da INK é flex em linha com
+`items-center`, e com o conteúdo mais alto que ela o centro empurrava metade da sobra para cima, fora do alcance da rolagem (o começo do kit sumia sob
+o topo fixo, visto num iPhone de verdade em 28/10/2026). Ao fechar o
 modal ou sair da página, o bloco sai, o rótulo volta e o "Continuar comprando" reaparece.
 
 ## Dados
@@ -54,7 +56,8 @@ GA4 da própria INK, só com cookies aceitos (a regra de `tracking.js`): `kit_vi
 - Visual (SIMULAÇÃO, sem carrinho real): `PW_PATH=<pasta com playwright-core> node scripts/qa-post-add-kit.mjs --out docs/evidence/post-add-kit --antes`.
   A PDP real passa pelo Worker local; o modal é reconstruído com os ids/classes da auditoria (`docs/evidence/drawer/before-drawer-*.audit.json`) e a
   geometria medida: no celular a folha CRESCE com o conteúdo, como a real (a 1ª versão da simulação limitava a altura e escondeu o topo cortado). O
-  script mede se o × e "Finalizar compra" ficam à vista, também depois de rolar. Prints em `docs/evidence/post-add-kit/` e, da correção da folha,
+  script mede se o × e "Finalizar compra" ficam à vista, também depois de rolar, e se o começo do kit é alcançável (a folha simulada é flex com
+  items-center, como a real). Prints em `docs/evidence/post-add-kit/` e, da correção da folha,
   `docs/evidence/post-add-kit-folha/` (com `antes-da-correcao/`).
 
 ## Rollout (nada publicado)
