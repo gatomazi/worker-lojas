@@ -10,8 +10,12 @@ no CMS do storefront (Marketing › Monte seu kit; `docs/storefront/kit-pos-adic
 
 Abaixo do kit fica **um botão só**, na largura toda: "Ver carrinho" → **"Finalizar compra"** (o mesmo botão da INK, só o texto do rótulo muda, sem
 caixa alta e com o ícone colado ao texto; o clique abre o carrinho, onde o cliente cola o cupom). O "Continuar comprando" nativo fica **escondido**
-enquanto há kit (decisão do dono em 27/10/2026: a busca logo abaixo já leva a outras estampas; o × e o clique fora continuam fechando o modal). No
-celular o botão fica preso ao pé da folha enquanto se rola o kit. A busca (`post-add-discovery`) e "As mais vendidas" continuam abaixo. Ao fechar o
+enquanto há kit (decisão do dono em 27/10/2026: a busca logo abaixo já leva a outras estampas; o × e o clique fora continuam fechando o modal). O
+modal, enquanto há kit, vira **topo fixo + meio que rola + pé fixo** (celular e desktop): "Produto adicionado ao carrinho" e o × presos no alto,
+"Finalizar compra" preso embaixo (levado ao fim do conteúdo só na exibição, com `order`, num corpo em coluna; nada é movido no DOM) e o kit, a busca e
+"As mais vendidas" rolando no meio. No celular a folha da INK **cresce com o conteúdo** (sem altura máxima, presa ao pé da tela): com o kit ela passava
+da tela e o topo com o × sumia para cima, sem como fechar (visto ao vivo em 28/10/2026, logo depois do primeiro deploy). Por isso, no celular, a folha
+vai no máximo até a altura da tela (`100dvh`, sem folga: a folga mostrava a faixa preta do topo da INK) e rola por dentro, com os cantos de cima retos. Ao fechar o
 modal ou sair da página, o bloco sai, o rótulo volta e o "Continuar comprando" reaparece.
 
 ## Dados
@@ -49,7 +53,9 @@ GA4 da própria INK, só com cookies aceitos (a regra de `tracking.js`): `kit_vi
 - `test/theme-release.test.js`: `evaluatePostAddKit`. `test/store-release.test.js`: um release de rotina nunca liga `post-add-kit`.
 - Visual (SIMULAÇÃO, sem carrinho real): `PW_PATH=<pasta com playwright-core> node scripts/qa-post-add-kit.mjs --out docs/evidence/post-add-kit --antes`.
   A PDP real passa pelo Worker local; o modal é reconstruído com os ids/classes da auditoria (`docs/evidence/drawer/before-drawer-*.audit.json`) e a
-  geometria medida. Prints em `docs/evidence/post-add-kit/`.
+  geometria medida: no celular a folha CRESCE com o conteúdo, como a real (a 1ª versão da simulação limitava a altura e escondeu o topo cortado). O
+  script mede se o × e "Finalizar compra" ficam à vista, também depois de rolar. Prints em `docs/evidence/post-add-kit/` e, da correção da folha,
+  `docs/evidence/post-add-kit-folha/` (com `antes-da-correcao/`).
 
 ## Rollout (nada publicado)
 

@@ -92,6 +92,10 @@ test('post-add-kit: the block goes BEFORE the native buttons, with the price of 
   assert.notEqual(t.w.getComputedStyle(t.doc.querySelector('.checkout-btn')).display, 'none');
   assert.ok(t.doc.querySelector('.checkout-btn svg'));
   assert.ok(t.doc.querySelector('.add-product-modal__modal-content__footer').hasAttribute('data-origens-kit-footer'));
+  // A folha e o topo com o × marcados para o CSS do celular (folha com altura da tela, topo preso no alto).
+  assert.ok(t.doc.getElementById('modal-wrapper').hasAttribute('data-origens-kit-open'));
+  assert.equal(t.doc.querySelector('[data-origens-kit-head]'), t.doc.getElementById('modal-close-button').parentElement);
+  assert.equal(t.doc.querySelector('[data-origens-kit-body]'), t.doc.querySelector('.add-product-modal__modal-content__footer').parentElement);
   assert.ok(t.doc.getElementById('most_sold_frame'), '"As mais vendidas" continua');
   // Uma busca, sem credenciais, com a região; medição sem código nem preço.
   assert.equal(t.fetches.length, 1);
@@ -178,7 +182,7 @@ test('post-add-kit: closing the modal or leaving the page takes the block out an
   assert.notEqual(t.w.getComputedStyle(t.doc.getElementById('continue-shopping-button')).display, 'none', 'sem kit, o "Continuar comprando" volta');
   t.doc.getElementById('modal-wrapper').style.display = 'none';
   await tick();
-  assert.equal(t.doc.querySelector('[data-origens-kit-footer]'), null);
+  assert.equal(t.doc.querySelector('[data-origens-kit-footer], [data-origens-kit-head], [data-origens-kit-open], [data-origens-kit-body]'), null);
   // Reaberto (nova adição, os mesmos nós): o bloco volta, com o preço desta adição.
   add(t, 'form-product-4400001');
   t.doc.getElementById('modal-wrapper').style.display = '';

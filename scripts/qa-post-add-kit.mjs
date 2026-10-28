@@ -21,12 +21,13 @@ const VIEWPORTS = [{ name: 'desktop-1440', width: 1440, height: 900 }, { name: '
 // A marcação da INK (ids e classes da auditoria) com a geometria medida: no celular a folha encosta embaixo e rola por dentro; no desktop é a gaveta da direita.
 const modalHtml = (imgs, mobile) => {
   const wrap = mobile
-    ? 'position:fixed;left:0;right:0;bottom:0;max-height:76dvh;z-index:50;display:flex;overflow:hidden auto;background:#fff;border-radius:24px 24px 0 0'
+    // Sem altura máxima: a folha real CRESCE com o conteúdo, presa ao pé (visto ao vivo em 28/10/2026; a simulação com 76dvh escondia o topo cortado).
+    ? 'position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;overflow:hidden auto;background:#fff;border-radius:24px 24px 0 0'
     : 'position:fixed;top:0;right:0;bottom:0;width:450px;z-index:50;display:flex;overflow:hidden auto;background:#fff';
   const sold = imgs.slice(0, 6).map((src) => '<li class="flex shrink-0 h-[135px]"><a class="flex shrink-0 h-[135px]" href="#"><img class="w-[130px] h-[135px] object-cover" style="width:130px;height:135px;object-fit:cover;background:#e5e5e5" src="' + src + '"></a></li>').join('');
   return '<div aria-hidden="true" style="position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.45)"></div>' +
     '<div id="modal-wrapper" class="add-product-modal overflow-y-auto overflow-x-hidden" role="dialog" aria-modal="true" style="' + wrap + '"><div class="relative w-full md:h-[100dvh]"><div class="w-full p-4 md:min-h-screen" style="padding:16px">' +
-    '<div class="flex items-center justify-between" style="display:flex;align-items:center;justify-content:space-between"><div class="flex items-center" style="display:flex;align-items:center;gap:10px">' +
+    '<div class="flex items-center justify-between rounded-t w-full pb-6" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding-bottom:24px"><div class="flex items-center" style="display:flex;align-items:center;gap:10px">' +
     '<svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#22a06b"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.4" fill="none"/></svg>' +
     '<h3 class="text-center font-medium text-black-500" style="margin:0;font-size:' + (mobile ? 16 : 16) + 'px">Produto adicionado ao carrinho</h3></div>' +
     '<button id="modal-close-button" class="focus:ring-4 font-medium text-center" style="border:0;background:none;font-size:22px" aria-label="Fechar">✕</button></div>' +
@@ -58,18 +59,21 @@ for (const [tag, payload] of runs) {
       const m = await page.evaluate(() => {
         const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const x = e.getBoundingClientRect(); return { y: Math.round(x.y), bottom: Math.round(x.bottom), h: Math.round(x.height), w: Math.round(x.width) }; };
         const label = (sel) => document.querySelector(sel + ' span')?.textContent ?? null;
-        return { vh: innerHeight, kit: r('[data-origens-kit]'), priced: document.querySelector('[data-origens-kit]')?.getAttribute('data-priced') ?? null, tiers: document.querySelectorAll('.o-kit-tier').length,
+        return { vh: innerHeight, kit: r('[data-origens-kit]'), close: r('#modal-close-button'), sheet: r('#modal-wrapper'), priced: document.querySelector('[data-origens-kit]')?.getAttribute('data-priced') ?? null, tiers: document.querySelectorAll('.o-kit-tier').length,
           checkout: r('#modal-wrapper .checkout-btn'), more: r('#continue-shopping-button'), labels: [label('#modal-wrapper .checkout-btn'), label('#continue-shopping-button')],
           hScroll: document.documentElement.scrollWidth > innerWidth, sheetScroll: (() => { const w = document.getElementById('modal-wrapper'); return w ? w.scrollWidth > w.clientWidth : null; })() };
       });
       const visible = m.checkout && m.checkout.y >= 0 && m.checkout.bottom <= m.vh;
-      console.log(`[${tag} ${vp.name}${priced ? '' : ' sem preço'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela');
+      const closable = m.close && m.close.y >= 0 && m.close.bottom <= m.vh;
+      console.log(`[${tag} ${vp.name}${priced ? '' : ' sem preço'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela', closable ? '| OK: × à vista' : '| ATENÇÃO: × fora da tela');
       const name = `${tag}-${vp.name}${priced ? '' : '-sem-preco'}`;
       await page.screenshot({ path: `${OUT}/${name}.png` });
       if (s.mobile && tag === 'depois' && priced) {
         // Rola a folha até o fim: os botões seguem presos ao pé enquanto há kit; depois a busca e "As mais vendidas".
         await page.evaluate(() => { const w = document.getElementById('modal-wrapper'); if (w) w.scrollTop = w.scrollHeight; });
         await page.waitForTimeout(500);
+        const after = await page.evaluate(() => { const c = document.getElementById('modal-close-button'); const b = document.querySelector('#modal-wrapper .checkout-btn'); const r = (e) => e ? Math.round(e.getBoundingClientRect().y) : null; return { closeY: r(c), checkoutY: r(b), vh: innerHeight }; });
+        console.log(`[${tag} ${vp.name} rolado]`, JSON.stringify(after), after.closeY !== null && after.closeY >= 0 ? 'OK: × continua à vista' : 'ATENÇÃO: × sumiu');
         await page.screenshot({ path: `${OUT}/${name}-rolado.png` });
         await page.evaluate(() => { const w = document.getElementById('modal-wrapper'); if (w) w.scrollTop = 0; });
       }
