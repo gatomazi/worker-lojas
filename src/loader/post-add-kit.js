@@ -5,9 +5,10 @@
 //   Preço:    o da peça que ACABOU de ser adicionada, lido no próprio formulário de compra enviado (form-product-<id>: o da página, o do "compre junto" ou o do
 //             quick add), no envio. Sem preço legível (ou envio de mais de 30 s atrás), as faixas mostram só o desconto ("R$ 25 OFF no total"), sem contas.
 //             As contas são as da INK aplicadas a esse preço: `value` = R$ fora do total; `percentage` = % fora do total. Quem aplica é o carrinho da INK.
-//   Modal:    o bloco entra ANTES dos botões nativos; "Ver carrinho" vira "Finalizar compra" e "Continuar comprando" vira "Escolher mais produtos", lado a lado
-//             (os mesmos botões da INK, só o texto do rótulo muda; ao desmontar, o texto volta). No celular os botões ficam presos ao pé da folha enquanto se
-//             rola, para "Finalizar compra" nunca sair da tela. A busca e "As mais vendidas" continuam abaixo.
+//   Modal:    o bloco entra ANTES dos botões nativos; "Ver carrinho" vira "Finalizar compra" (o mesmo botão da INK, só o texto do rótulo muda) e ocupa a
+//             largura toda: "Continuar comprando" fica escondido enquanto há kit (decisão do dono: a busca logo abaixo já leva a outras estampas, e o × e o
+//             clique fora continuam fechando o modal). Ao desmontar, o texto e o botão voltam. No celular o botão fica preso ao pé da folha enquanto se rola,
+//             para "Finalizar compra" nunca sair da tela. A busca e "As mais vendidas" continuam abaixo.
 //   Copiar:   SÓ copia o código (Clipboard API e, sem ela, execCommand; sem nenhum, o código fica selecionado). Nunca toca no campo de cupom da INK.
 // Todo texto vem do CMS e entra só por textContent.
 export const POST_ADD_KIT = String.raw`
@@ -22,7 +23,6 @@ export const POST_ADD_KIT = String.raw`
   const KIT_LIMITS = { eyebrow: 40, title: 60, lead: 160 };
   const KIT_MONEY = /^R\$\s?(\d{1,3}(?:\.\d{3})*|\d{1,6}),(\d{2})$/;
   const KIT_LABEL_CHECKOUT = 'Finalizar compra';
-  const KIT_LABEL_MORE = 'Escolher mais produtos';
   const KIT_NOTE = 'Em peças com preços diferentes, o total do kit pode variar.';
 
   function kitText(value, max) {
@@ -175,6 +175,18 @@ export const POST_ADD_KIT = String.raw`
     return svg;
   }
 
+  // Dois retângulos sobrepostos (copiar).
+  function kitCopyIcon() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+    const front = document.createElementNS(ns, 'rect'); front.setAttribute('x', '9'); front.setAttribute('y', '9'); front.setAttribute('width', '12'); front.setAttribute('height', '12'); front.setAttribute('rx', '2');
+    const back = document.createElementNS(ns, 'path'); back.setAttribute('d', 'M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1');
+    svg.appendChild(front); svg.appendChild(back);
+    return svg;
+  }
+
   const KIT_PRIMARY = (STORE.theme && STORE.theme.primary) || '#4d543d';
   const KIT_CSS = [
     // Cores e raio do tema da compra (theme-cart) quando ele está no ar; sem ele, a cor da região e o raio dos botões da INK.
@@ -184,9 +196,12 @@ export const POST_ADD_KIT = String.raw`
     '[data-origens-kit] .o-kit-eyebrow svg{width:14px;height:14px;flex:none}',
     '[data-origens-kit] .o-kit-title{margin:0;font-size:20px;line-height:1.2;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--k-ink)}',
     '[data-origens-kit] .o-kit-lead{margin:6px 0 0;font-size:13px;line-height:1.4;color:var(--k-mute)}',
-    '[data-origens-kit] .o-kit-code{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0}',
-    '[data-origens-kit] .o-kit-chip{display:inline-flex;align-items:center;gap:.3em;min-height:36px;padding:6px 12px;border-radius:var(--k-radius);background:color-mix(in srgb,var(--k-accent) 12%,var(--k-surface));color:var(--k-accent);font-size:14px;font-weight:700;line-height:1.2}',
-    '[data-origens-kit] .o-kit-copy{display:inline-flex;align-items:center;min-height:44px;margin:0 -4px 0 0;padding:0 4px;border:0;background:transparent;color:var(--k-accent);font-size:14px;font-weight:700;line-height:1.2;text-decoration:underline;text-underline-offset:3px;cursor:pointer}',
+    '[data-origens-kit] .o-kit-code{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0}',
+    '[data-origens-kit] .o-kit-chip{display:inline-flex;align-items:center;gap:.3em;min-height:40px;padding:6px 12px;border-radius:var(--k-radius);background:color-mix(in srgb,var(--k-accent) 12%,var(--k-surface));color:var(--k-accent);font-size:14px;font-weight:700;line-height:1.2}',
+    // "Copiar cupom" é um botão de verdade (borda, ícone), não um texto: a mesma altura do selo do cupom ao lado.
+    '[data-origens-kit] .o-kit-copy{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:none;min-height:40px;margin:0;padding:0 14px;border:1.5px solid var(--k-accent);border-radius:var(--k-radius);background:var(--k-surface);color:var(--k-accent);font-size:14px;font-weight:700;line-height:1.2;letter-spacing:normal;text-transform:none;text-decoration:none;cursor:pointer;transition:background-color .15s,color .15s}',
+    '[data-origens-kit] .o-kit-copy svg{width:16px;height:16px;flex:none}',
+    '[data-origens-kit] .o-kit-copy:hover,[data-origens-kit] .o-kit-copy[data-copied]{background:var(--k-accent);color:var(--o-on-selected,#fff)}',
     '[data-origens-kit] .o-kit-copy:focus-visible{outline:2px solid var(--k-accent);outline-offset:2px}',
     '[data-origens-kit] .o-kit-tiers{display:grid;gap:8px;margin:10px 0 0;padding:0;list-style:none}',
     '[data-origens-kit] .o-kit-tier{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:56px;margin:0;padding:8px 12px;border:1px solid var(--k-line);border-radius:var(--k-radius);background:var(--k-surface)}',
@@ -201,13 +216,17 @@ export const POST_ADD_KIT = String.raw`
     '[data-origens-kit] .o-kit-off{grid-column:2 / 4;justify-self:end;font-size:15px;font-weight:700;color:var(--k-accent)}',
     '[data-origens-kit] .o-kit-note{margin:8px 0 0;font-size:11.5px;line-height:1.4;color:var(--k-mute)}',
     '[data-origens-kit] .o-kit-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}',
-    // Os dois botões nativos lado a lado: "Escolher mais produtos" (o de continuar) à esquerda, "Finalizar compra" à direita.
-    '#modal-wrapper [data-origens-kit-footer]{display:grid!important;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch}',
-    // !important: o tema da compra (theme-cart) dá largura total e 24 px de lado aos dois; lado a lado, o texto quebra em duas linhas antes de cortar.
-    '#modal-wrapper [data-origens-kit-footer] > *{width:auto!important;min-width:0;margin:0!important;padding-left:10px!important;padding-right:10px!important;font-size:14px!important;letter-spacing:.02em!important;white-space:normal;text-align:center;justify-content:center}',
-    '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{order:1}',
-    '#modal-wrapper [data-origens-kit-footer] .checkout-btn{order:2}',
-    // Celular (folha inferior que rola): os botões presos ao pé da folha enquanto o kit passa por baixo.
+    // Um botão só, na largura toda: "Finalizar compra". O "Continuar comprando" nativo fica escondido enquanto há kit (a busca logo abaixo faz esse papel).
+    '#modal-wrapper [data-origens-kit-footer]{display:grid!important;grid-template-columns:1fr;gap:8px;align-items:stretch}',
+    // !important: o tema da compra (theme-cart) põe caixa alta e espaçamento no botão; aqui a letra é a do resto do bloco, e o ícone do carrinho fica
+    // colado ao texto, os dois centralizados juntos.
+    '#modal-wrapper [data-origens-kit-footer] > *{display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:auto!important;min-width:0;min-height:52px!important;margin:0!important;padding:6px 12px!important;font-size:15px!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:normal;text-align:center}',
+    '#modal-wrapper [data-origens-kit-footer] > * > span{padding:0!important;margin:0!important}',
+    '#modal-wrapper [data-origens-kit-footer] > * > :is(svg,i,img){flex:none;width:16px;height:16px;margin:0!important;font-size:16px;line-height:1}',
+    '#modal-wrapper [data-origens-kit-footer] .checkout-btn{font-weight:700!important}',
+    // Depois da regra geral acima (ordem e especificidade dizem o mesmo).
+    '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{display:none!important}',
+    // Celular (folha inferior que rola): o botão preso ao pé da folha enquanto o kit passa por baixo.
     '@media (max-width:767px){#modal-wrapper [data-origens-kit-footer]{position:sticky;bottom:0;z-index:2;margin:0 -16px!important;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
     '@media (max-width:359px){[data-origens-kit] .o-kit-tier{column-gap:8px;padding:8px 10px}[data-origens-kit] .o-kit-each small{display:none}}',
     '@media (max-height:700px){[data-origens-kit] .o-kit-lead{display:none}}'
@@ -249,13 +268,16 @@ export const POST_ADD_KIT = String.raw`
       const chip = kitEl('span', { class: 'o-kit-chip' }, 'Cupom');
       const codeText = kitEl('span', { 'data-origens-kit-code': '' }, kit.code);
       chip.appendChild(codeText);
-      const copy = kitEl('button', { type: 'button', class: 'o-kit-copy', 'aria-label': 'Copiar o cupom ' + kit.code }, 'Copiar cupom');
+      const copy = kitEl('button', { type: 'button', class: 'o-kit-copy', 'aria-label': 'Copiar o cupom ' + kit.code });
+      copy.appendChild(kitCopyIcon());
+      const copyLabel = kitEl('span', null, 'Copiar cupom');
+      copy.appendChild(copyLabel);
       let reset = null;
       copy.addEventListener('click', async () => {
         const ok = await kitCopy(kit.code, root);
         if (ok) {
-          copy.textContent = 'Copiado'; status.textContent = 'Cupom ' + kit.code + ' copiado. Cole no carrinho.';
-          clearTimeout(reset); reset = setTimeout(() => { copy.textContent = 'Copiar cupom'; status.textContent = ''; }, 2000);
+          copyLabel.textContent = 'Copiado'; copy.setAttribute('data-copied', ''); status.textContent = 'Cupom ' + kit.code + ' copiado. Cole no carrinho.';
+          clearTimeout(reset); reset = setTimeout(() => { copyLabel.textContent = 'Copiar cupom'; copy.removeAttribute('data-copied'); status.textContent = ''; }, 2000);
           kitTrack('kit_coupon_copy', kit);
         } else {
           // Sem área de transferência: o código fica selecionado para copiar à mão.
@@ -358,12 +380,9 @@ export const POST_ADD_KIT = String.raw`
         footer.insertAdjacentElement('beforebegin', root);
         footer.setAttribute('data-origens-kit-footer', '');
         const checkout = footer.querySelector('.checkout-btn');
-        const more = footer.querySelector('#continue-shopping-button');
         kitRelabel(checkout, KIT_LABEL_CHECKOUT);
-        kitRelabel(more, KIT_LABEL_MORE);
-        // Só medimos: o clique segue para a INK (abrir o carrinho, fechar o modal) exatamente como antes.
+        // Só medimos: o clique segue para a INK (abrir o carrinho) exatamente como antes.
         if (checkout) checkout.addEventListener('click', () => kitTrack('kit_checkout_click', data.kit), { signal: this.clicks.signal });
-        if (more) more.addEventListener('click', () => kitTrack('kit_more_click', data.kit), { signal: this.clicks.signal });
         this.shown = { at: Date.now(), kit: data.kit };
         kitTrack('kit_view', data.kit);
       });

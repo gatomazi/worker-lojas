@@ -4,14 +4,15 @@ Feature opt-in `post-add-kit`. No modal **"Produto adicionado ao carrinho"** da 
 no CMS do storefront (Marketing › Monte seu kit; `docs/storefront/kit-pos-adicao.md` no useorigens):
 
 - chamada, título e texto de apoio (do CMS);
-- "Cupom LEVEMAIS" + **Copiar cupom** (ou "Desconto aplicado no carrinho", quando a INK aplica sozinha);
+- "Cupom LEVEMAIS" + o botão **Copiar cupom** (com borda e ícone; "Copiado" por 2 s), ou "Desconto aplicado no carrinho" quando a INK aplica sozinha;
 - uma linha por faixa (até 6): `3 peças | de R$ 329,70 por R$ 304,70 | R$ 101,57 cada, economize R$ 25,00`; a maior faixa em destaque;
 - o aviso "Em peças com preços diferentes, o total do kit pode variar.".
 
-Os botões nativos ficam **lado a lado** e só trocam o texto do rótulo: "Continuar comprando" → **"Escolher mais produtos"** (à esquerda),
-"Ver carrinho" → **"Finalizar compra"** (à direita). O clique continua sendo o da INK (fechar o modal / abrir o carrinho, onde o cliente cola o cupom).
-No celular os dois ficam presos ao pé da folha enquanto se rola o kit, para "Finalizar compra" não sair da tela. A busca (`post-add-discovery`) e
-"As mais vendidas" continuam abaixo. Ao fechar o modal ou sair da página, o bloco sai e os rótulos voltam.
+Abaixo do kit fica **um botão só**, na largura toda: "Ver carrinho" → **"Finalizar compra"** (o mesmo botão da INK, só o texto do rótulo muda, sem
+caixa alta e com o ícone colado ao texto; o clique abre o carrinho, onde o cliente cola o cupom). O "Continuar comprando" nativo fica **escondido**
+enquanto há kit (decisão do dono em 27/10/2026: a busca logo abaixo já leva a outras estampas; o × e o clique fora continuam fechando o modal). No
+celular o botão fica preso ao pé da folha enquanto se rola o kit. A busca (`post-add-discovery`) e "As mais vendidas" continuam abaixo. Ao fechar o
+modal ou sair da página, o bloco sai, o rótulo volta e o "Continuar comprando" reaparece.
 
 ## Dados
 
@@ -37,12 +38,12 @@ total = só os descontos. **Quem aplica é o carrinho da INK**: isto é só o qu
 
 ## Medição
 
-GA4 da própria INK, só com cookies aceitos (a regra de `tracking.js`): `kit_view`, `kit_coupon_copy`, `kit_checkout_click`, `kit_more_click`, com
+GA4 da própria INK, só com cookies aceitos (a regra de `tracking.js`): `kit_view`, `kit_coupon_copy`, `kit_checkout_click`, com
 `region`, `surface=ink`, `promo_id`, `tiers`. Nunca o código nem preços.
 
 ## Testes
 
-- `test/post-add-kit.dom.test.js` (7): posição, contas, rótulos (com o ícone), copiar, preço do formulário enviado (promoção do "compre junto"), sem
+- `test/post-add-kit.dom.test.js` (8): posição, contas, rótulo (com o ícone) e "Continuar comprando" escondido, copiar, preço do formulário enviado (promoção do "compre junto"), sem
   preço, promoção automática, fechar/sair devolve os rótulos, fail-closed (desligada não busca nada).
 - `test/kit-gateway.workerd.test.js` (5): contrato, cabeçalhos, origem fixa, 503 em tudo fora do contrato, só com `post-add-kit`, região da loja única.
 - `test/theme-release.test.js`: `evaluatePostAddKit`. `test/store-release.test.js`: um release de rotina nunca liga `post-add-kit`.

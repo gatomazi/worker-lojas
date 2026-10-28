@@ -63,7 +63,7 @@ const kit = (t) => t.doc.querySelector('[data-origens-kit]');
 const rows = (t) => [...t.doc.querySelectorAll('.o-kit-tier')].map((li) => [...li.querySelectorAll('[aria-hidden="true"], .o-kit-qty, .o-kit-off')].filter((n) => n.parentElement === li).map((n) => n.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
 const labels = (t) => [...t.doc.querySelectorAll('.add-product-modal__modal-content__footer span')].map((s) => s.textContent);
 
-test('post-add-kit: the block goes BEFORE the native buttons, with the price of the piece just added; the native buttons only change their label', async () => {
+test('post-add-kit: the block goes BEFORE the native buttons, with the price of the piece just added; "Ver carrinho" only changes its label and "Continuar comprando" is hidden while the kit is there', async () => {
   const t = setup();
   await tick();
   add(t);
@@ -86,8 +86,10 @@ test('post-add-kit: the block goes BEFORE the native buttons, with the price of 
   assert.equal(nbsp(t.doc.querySelector('.o-kit-tier .o-kit-sr').textContent), '3 peças: de R$ 329,70 por R$ 304,70, R$ 101,57 cada, economia de R$ 25,00.');
   assert.deepEqual([...t.doc.querySelectorAll('.o-kit-tier')].map((li) => li.hasAttribute('data-best')), [false, false, false, true]);
   assert.equal(block.querySelector('.o-kit-note').textContent, 'Em peças com preços diferentes, o total do kit pode variar.');
-  // Os mesmos botões da INK, com o ícone; só o texto do rótulo.
-  assert.deepEqual(labels(t), ['Finalizar compra', 'Escolher mais produtos']);
+  // O mesmo botão da INK, com o ícone; só o texto do rótulo. O "Continuar comprando" fica escondido (a busca abaixo faz esse papel), com o rótulo dele.
+  assert.deepEqual(labels(t), ['Finalizar compra', 'Continuar comprando']);
+  assert.equal(t.w.getComputedStyle(t.doc.getElementById('continue-shopping-button')).display, 'none');
+  assert.notEqual(t.w.getComputedStyle(t.doc.querySelector('.checkout-btn')).display, 'none');
   assert.ok(t.doc.querySelector('.checkout-btn svg'));
   assert.ok(t.doc.querySelector('.add-product-modal__modal-content__footer').hasAttribute('data-origens-kit-footer'));
   assert.ok(t.doc.getElementById('most_sold_frame'), '"As mais vendidas" continua');
@@ -110,6 +112,8 @@ test('post-add-kit: "Copiar cupom" only copies the code, says so, and measures w
   await tick(20);
   assert.deepEqual(t.copied, ['KITTESTE']);
   assert.equal(copy.textContent, 'Copiado');
+  assert.ok(copy.hasAttribute('data-copied'));
+  assert.ok(copy.querySelector('svg'), 'um botão com ícone, não um texto');
   assert.equal(t.doc.querySelector('[data-origens-kit] > [role="status"]').textContent, 'Cupom KITTESTE copiado. Cole no carrinho.');
   assert.equal(named(t, 'kit_coupon_copy').length, 1);
   let inkClicks = 0;
@@ -170,6 +174,10 @@ test('post-add-kit: closing the modal or leaving the page takes the block out an
   await tick();
   assert.equal(kit(t), null);
   assert.deepEqual(labels(t), ['Ver carrinho', 'Continuar comprando']);
+  t.doc.getElementById('modal-wrapper').style.display = '';
+  assert.notEqual(t.w.getComputedStyle(t.doc.getElementById('continue-shopping-button')).display, 'none', 'sem kit, o "Continuar comprando" volta');
+  t.doc.getElementById('modal-wrapper').style.display = 'none';
+  await tick();
   assert.equal(t.doc.querySelector('[data-origens-kit-footer]'), null);
   // Reaberto (nova adição, os mesmos nós): o bloco volta, com o preço desta adição.
   add(t, 'form-product-4400001');
