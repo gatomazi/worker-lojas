@@ -98,7 +98,18 @@ test('cookie with a job being made: ONE pill "Criando camiseta…" bottom-centre
   assert.equal(pill.querySelector('.o-wait-dot').hidden, false);
   assert.equal(pill.classList.contains('o-wait-nudge'), false, 'only the ready state shakes');
   assert.equal(pill.getAttribute('data-wait-state'), 'making');
-  assert.ok(pill.querySelector('svg'), 'the shirt icon');
+  // Fazendo: a caixa de 28px com as setas girando (28px) e a camiseta de 14px no centro (o WorkingIcon do storefront).
+  const working = pill.querySelector('[data-wait-icon="working"].o-wait-working');
+  assert.ok(working, 'the turning-arrows box');
+  const arrows = working.querySelector('svg.o-wait-arrows');
+  assert.deepEqual([arrows.getAttribute('viewBox'), arrows.getAttribute('stroke-width'), arrows.getAttribute('stroke-linecap'), arrows.getAttribute('stroke-linejoin')], ['0 0 24 24', '1.6', 'round', 'round']);
+  assert.deepEqual([...arrows.querySelectorAll('path')].map((p) => p.getAttribute('d')), ['M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16', 'M8 16H3v5']);
+  assert.equal(working.querySelector('svg.o-wait-shirt-sm').getAttribute('stroke-width'), '2.2');
+  const pcss = t.q('#o-wait style').textContent;
+  assert.ok(pcss.includes('.o-wait-pill .o-wait-working{position:relative;align-items:center;justify-content:center;width:28px;height:28px}'));
+  assert.ok(pcss.includes('.o-wait-pill .o-wait-arrows{position:absolute;inset:0;width:28px;height:28px}') && pcss.includes('.o-wait-pill .o-wait-shirt-sm{width:14px;height:14px}'));
+  assert.ok(pcss.includes('@keyframes o-wait-spin{to{transform:rotate(360deg)}}'));
+  assert.match(pcss, /@media \(prefers-reduced-motion: no-preference\)\{[^@]*\.o-wait-arrows\{animation:o-wait-spin 1\.6s linear infinite\}/, 'turning only without reduced motion');
   assert.equal(pill.style.left, '195px', 'centred on the 390 px screen');
   assert.equal(pill.style.maxWidth, '214px', 'never touching the coupons (left) nor the assistant (right)');
   assert.match(pill.style.bottom, /calc\(16px/);
@@ -115,6 +126,9 @@ test('ready: "Camiseta pronta!" filled with the region colour, with the attentio
   assert.ok(pill.classList.contains('is-ready') && pill.classList.contains('o-wait-nudge'));
   assert.equal(pill.getAttribute('data-wait-state'), 'ready');
   assert.equal(pill.querySelector('.o-wait-dot').hidden, true);
+  assert.equal(pill.querySelector('.o-wait-arrows'), null, 'ready: no turning arrows');
+  assert.equal(pill.querySelector('[data-wait-icon]').getAttribute('data-wait-icon'), 'shirt');
+  assert.equal(pill.querySelectorAll('svg').length, 1, 'the plain shirt icon');
   const css = t.q('#o-wait style').textContent;
   assert.ok(css.includes('.o-wait-pill.is-ready{border-color:#4d543d;background:#4d543d;color:#fff}'), 'the Sul primary colour (stores.js theme)');
   assert.ok(css.includes('@keyframes uo-nudge{0%,70%,100%{rotate:0deg}74%{rotate:-5deg}78%{rotate:5deg}82%{rotate:-3deg}86%{rotate:3deg}90%{rotate:0deg}}'));
@@ -213,6 +227,7 @@ test('polling: every 5 s only while the tab is visible, only for the jobs still 
   await tick(150);
   const done = t.calls(A);
   assert.equal(t.pill().querySelector('[data-wait-label]').textContent, 'Camiseta pronta!');
+  assert.equal(t.pill().querySelector('.o-wait-arrows'), null, 'the arrows go when it is ready');
   await tick(300);
   assert.equal(t.calls(A), done, 'ready = polling stops');
 });

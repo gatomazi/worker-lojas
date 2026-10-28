@@ -9,8 +9,10 @@ leem o armazenamento do site.
 
 - **Pílula** no centro de baixo da página de produto e das páginas de casca, entre o botão de cupons (esquerda) e o assistente (direita).
   - Visual igual ao do storefront: borda de 2px na cor de tinta, texto em negrito de 14px, altura mínima de 48px e o ícone de camiseta.
-  - Fazendo: "Criando camiseta…", com um pontinho amarelo pulsando.
-  - Pronta: "Camiseta pronta!" (ou "2 camisetas prontas!"), cheia na cor da região (`theme.primary` em `stores.js`; no Sul, `#4d543d`). Pulsa
+  - Fazendo: "Criando camiseta…". No lugar do ícone, uma caixa de 28px com duas setas girando (uma volta a cada 1,6 s) em volta de uma camiseta
+    de 14px, como o `WorkingIcon` do storefront. Depois do texto, um pontinho amarelo pulsando. O giro também só existe com
+    `prefers-reduced-motion: no-preference`.
+  - Pronta: "Camiseta pronta!" (ou "2 camisetas prontas!"), com a camiseta simples, cheia na cor da região (`theme.primary` em `stores.js`; no Sul, `#4d543d`). Pulsa
     (`uo-glow`) e dá uma mexidinha a cada 2,8 s (`uo-nudge`). As duas animações são as do storefront e só existem com
     `prefers-reduced-motion: no-preference`. A mexidinha usa a propriedade `rotate`, para não brigar com o `translate` que centraliza a pílula.
   - Só falhas ("não deu"): "Sua camiseta".

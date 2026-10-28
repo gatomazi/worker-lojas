@@ -9,7 +9,7 @@
 //   Pílula:   centro de baixo, entre o botão de cupons (esquerda) e o assistente (direita), largura limitada para não encostar neles no celular. Sobe
 //             acima do CTA fixo do celular (#add-to-cart-mob e a barra dele) e do aviso de cookies, como eles; some com o carrinho, um modal, o menu, o
 //             painel do assistente ou dos cupons, o teclado virtual, sem espaço sob o cabeçalho ou quando cobriria controles do formulário de compra.
-//             Fazendo: borda de tinta e um ponto amarelo pulsando. Pronta: cheia na cor da região, pulsando e com uma "mexidinha" a cada 2,8 s (a mesma
+//             Fazendo: borda de tinta, setas girando em volta de uma camiseta menor e um ponto amarelo pulsando. Pronta: cheia na cor da região, pulsando e com uma "mexidinha" a cada 2,8 s (a mesma
 //             do storefront, em `rotate` para não brigar com o translate do centro). Com prefers-reduced-motion, nada se move.
 //   Painel:   "Sua camiseta": por camiseta, o rótulo, os quatro passos com o atual marcado, a foto e "Ver minha camiseta" quando pronta, o aviso quando
 //             não deu, e sempre "Tirar da lista". Não é modal: Esc, "Fechar" ou um toque fora fecham.
@@ -126,8 +126,11 @@ export const PRODUCT_WAIT = String.raw`
     return jobs.some((j) => !waitFinished(j)) ? 'Criando camiseta…' : 'Sua camiseta';
   }
 
-  // Camiseta (a mesma do storefront), visto, estrela do passo atual.
-  const WAIT_SHIRT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3.5 4 5.5 2.5 10l3 1.2V20.5h13V11.2l3-1.2L20 5.5l-4-2c-.6 1.5-2.1 2.5-4 2.5S8.6 5 8 3.5Z"/></svg>';
+  // Camiseta (a mesma do storefront); fazendo, as duas setas girando em volta dela, menor (o WorkingIcon do storefront); visto e estrela do passo atual.
+  const WAIT_SHIRT_PATH = 'M8 3.5 4 5.5 2.5 10l3 1.2V20.5h13V11.2l3-1.2L20 5.5l-4-2c-.6 1.5-2.1 2.5-4 2.5S8.6 5 8 3.5Z';
+  const WAIT_SHIRT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="' + WAIT_SHIRT_PATH + '"/></svg>';
+  const WAIT_WORKING = '<svg class="o-wait-arrows" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>' +
+    '<svg class="o-wait-shirt-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="' + WAIT_SHIRT_PATH + '"/></svg>';
   const WAIT_CHECK = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10.5l4 4 8-9"/></svg>';
   const WAIT_STAR = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10 1.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3.1-5.4 3.1 1.2-6L1.3 7.8l6.1-.7z"/></svg>';
   const WAIT_CSS = [
@@ -137,6 +140,11 @@ export const PRODUCT_WAIT = String.raw`
     '#o-wait .o-wait-pill{position:fixed;z-index:' + WAIT_Z + ';display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:' + WAIT_HEIGHT + 'px;margin:0;padding:0 12px;border:2px solid #111827;border-radius:0;background:#f2f2f0;color:#111827;font:inherit;font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer;transform:translateX(-50%);outline-offset:4px;-webkit-tap-highlight-color:transparent}',
     '#o-wait .o-wait-pill[hidden]{display:none}',
     '#o-wait .o-wait-pill svg{width:20px;height:20px;flex-shrink:0}',
+    '#o-wait .o-wait-icon{display:inline-flex;flex-shrink:0}',
+    // Fazendo: uma caixa de 28px com as setas (28px, por cima) e a camiseta de 14px no centro.
+    '#o-wait .o-wait-pill .o-wait-working{position:relative;align-items:center;justify-content:center;width:28px;height:28px}',
+    '#o-wait .o-wait-pill .o-wait-arrows{position:absolute;inset:0;width:28px;height:28px}',
+    '#o-wait .o-wait-pill .o-wait-shirt-sm{width:14px;height:14px}',
     '#o-wait .o-wait-pill [data-wait-label]{min-width:0;overflow:hidden;text-overflow:ellipsis}',
     '#o-wait .o-wait-dot{display:block;width:8px;height:8px;flex-shrink:0;border-radius:999px;background:#d8a800}',
     '#o-wait .o-wait-dot[hidden]{display:none}',
@@ -144,8 +152,9 @@ export const PRODUCT_WAIT = String.raw`
     '@keyframes o-wait-pulse{50%{opacity:.5}}',
     '@keyframes uo-nudge{0%,70%,100%{rotate:0deg}74%{rotate:-5deg}78%{rotate:5deg}82%{rotate:-3deg}86%{rotate:3deg}90%{rotate:0deg}}',
     '@keyframes uo-glow{50%{opacity:.82}}',
-    // Só com movimento liberado: o ponto e a estrela pulsam; a pronta pulsa e mexe. Com movimento reduzido, tudo parado.
-    '@media (prefers-reduced-motion: no-preference){#o-wait .o-wait-dot,#o-wait .o-wait-star{animation:o-wait-pulse 2s cubic-bezier(.4,0,.6,1) infinite}#o-wait .o-wait-pill.o-wait-nudge{animation:uo-nudge 2.8s ease-in-out infinite,uo-glow 1.4s ease-in-out infinite}}',
+    '@keyframes o-wait-spin{to{transform:rotate(360deg)}}',
+    // Só com movimento liberado: o ponto e a estrela pulsam, as setas giram; a pronta pulsa e mexe. Com movimento reduzido, tudo parado.
+    '@media (prefers-reduced-motion: no-preference){#o-wait .o-wait-dot,#o-wait .o-wait-star{animation:o-wait-pulse 2s cubic-bezier(.4,0,.6,1) infinite}#o-wait .o-wait-pill .o-wait-arrows{animation:o-wait-spin 1.6s linear infinite}#o-wait .o-wait-pill.o-wait-nudge{animation:uo-nudge 2.8s ease-in-out infinite,uo-glow 1.4s ease-in-out infinite}}',
     '#o-wait a:focus-visible,#o-wait button:focus-visible{outline:2px solid ' + WAIT_TINT + ';outline-offset:2px}',
     '#o-wait .o-wait-pill.is-ready:focus-visible{outline-color:#111827}',
     '#o-wait .o-wait-panel{position:fixed;z-index:' + WAIT_PANEL_Z + ';overflow-y:auto;overscroll-behavior:contain;padding:16px;border:2px solid #111827;background:#f2f2f0;color:#111827;box-shadow:0 18px 40px rgba(0,0,0,.28);text-align:left;font-size:15px;line-height:1.35}',
@@ -261,7 +270,15 @@ export const PRODUCT_WAIT = String.raw`
       pill.classList.toggle('o-wait-nudge', ready);
       pill.setAttribute('data-wait-state', ready ? 'ready' : jobs.some((j) => !waitFinished(j)) ? 'making' : 'idle');
       pill.querySelector('[data-wait-label]').textContent = label;
-      pill.querySelector('.o-wait-dot').hidden = ready || !jobs.some((j) => !waitFinished(j));
+      // Fazendo (nenhuma pronta e alguma em andamento): as setas girando e o ponto amarelo; senão, a camiseta simples (a mesma regra do storefront).
+      const working = !ready && jobs.some((j) => !waitFinished(j));
+      const icon = pill.querySelector('[data-wait-icon]');
+      if (icon.getAttribute('data-wait-icon') !== (working ? 'working' : 'shirt')) {
+        icon.setAttribute('data-wait-icon', working ? 'working' : 'shirt');
+        icon.className = working ? 'o-wait-icon o-wait-working' : 'o-wait-icon';
+        icon.innerHTML = working ? WAIT_WORKING : WAIT_SHIRT;
+      }
+      pill.querySelector('.o-wait-dot').hidden = !working;
       // Leitor de tela: anuncia a mudança (não a primeira pintura).
       if (this.said && this.said !== label) root.querySelector('[data-wait-live]').textContent = label;
       this.said = label;
@@ -275,7 +292,7 @@ export const PRODUCT_WAIT = String.raw`
       root.appendChild(waitEl('span', { class: 'o-wait-probe', 'aria-hidden': 'true' }));
       root.appendChild(waitEl('p', { class: 'o-wait-sr', 'aria-live': 'polite', 'data-wait-live': '' }));
       const pill = waitEl('button', { type: 'button', class: 'o-wait-pill', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'o-wait-panel', 'data-wait-pill': '' });
-      pill.innerHTML = WAIT_SHIRT;
+      pill.appendChild(waitEl('span', { class: 'o-wait-icon', 'data-wait-icon': '', 'aria-hidden': 'true' }));
       pill.appendChild(waitEl('span', { 'data-wait-label': '' }));
       pill.appendChild(waitEl('span', { class: 'o-wait-dot', 'aria-hidden': 'true' }));
       pill.addEventListener('click', () => (this.open ? this.close(true) : this.show()), { signal: this.ac.signal });
