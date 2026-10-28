@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, evaluateAssistant, evaluatePdpOffers, evaluatePostAddKit, OFFER_FEATURES, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
+import { planThemeRelease, sameThemeConfig, evaluateThemePage, evaluateCheckoutPage, evaluateAccountPage, parseTomlVars, parseTomlRoutes, parseLiveRoutes, checkoutRoutes, accountRoutes, checkoutRoutesState, checkoutProbeSet, accountProbeSet, evaluateTopBar, evaluateAssistant, evaluatePdpOffers, evaluatePostAddKit, evaluateProductWait, PRODUCT_WAIT_PROBE, OFFER_FEATURES, THEME_FEATURES } from '../scripts/lib/theme-release-lib.mjs';
 
 // A produção de 17/10/2026 (versão do domínio novo): 14 features, catálogo, 5 caminhos na allowlist.
 const FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
@@ -205,4 +205,18 @@ test('evaluatePostAddKit: after --add=post-add-kit the INK serves the storefront
   assert.deepEqual(evaluatePostAddKit({ v: 1, kit }, { v: 1, region: 'sul', kit }, buildLoaderSource([], ['theme-cart'], 'product-catalog')).problems, ['o loader.js não traz o módulo post-add-kit']);
   assert.equal(evaluatePostAddKit(null, { v: 1, region: 'sul', kit }, loader).ok, false);
   assert.equal(evaluatePostAddKit({ v: 1, kit }, null, loader).ok, false);
+});
+
+test('evaluateProductWait: before --add=product-wait the storefront answers a well-formed unknown id with 404 JSON; after it, the INK path is OUR 404 JSON and the loader carries the module', async () => {
+  const { buildLoaderSource } = await import('../src/loader-source.js');
+  const { JOB_ID } = await import('../src/product-wait-gateway.js');
+  assert.match(PRODUCT_WAIT_PROBE, JOB_ID, 'the probe id passes the gateway format check');
+  const notFound = { status: 404, type: 'application/json', body: '{"error":"not found"}' };
+  const loader = buildLoaderSource([], ['theme-pdp', 'product-wait'], 'product-catalog');
+  assert.deepEqual(evaluateProductWait(notFound), { ok: true, problems: [] }, 'pre-condition only');
+  assert.deepEqual(evaluateProductWait(notFound, notFound, loader), { ok: true, problems: [] });
+  assert.match(evaluateProductWait({ status: 404, type: 'text/html', body: '<html>' }).problems[0], /compra direta já está no ar/);
+  assert.match(evaluateProductWait(notFound, { status: 404, type: 'text/html', body: 'INK 404' }, loader).problems[0], /feature não está no ar/);
+  assert.match(evaluateProductWait(notFound, { status: 503, type: 'application/json', body: '{"error":"unavailable"}' }, loader).problems[0], /HTTP 503/);
+  assert.deepEqual(evaluateProductWait(notFound, notFound, buildLoaderSource([], ['theme-pdp'], 'product-catalog')).problems, ['o loader.js não traz o módulo product-wait']);
 });

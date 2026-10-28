@@ -264,3 +264,19 @@ export function evaluatePostAddKit(ink, site, loader) {
   if (!String(loader || '').includes("id: 'post-add-kit'")) problems.push('o loader.js não traz o módulo post-add-kit');
   return { ok: problems.length === 0, problems, code: ink?.kit?.code ?? null };
 }
+
+/**
+ * Camiseta em criação (product-wait): sem um pedido real não há id para seguir, então a prova usa um id no formato e que não existe (PRODUCT_WAIT_PROBE).
+ * Antes do deploy, o storefront tem de responder esse id com 404 JSON (a rota da compra direta está no ar; uma página 404 em HTML = ainda não). Depois,
+ * /__origens/produto/<id> tem de responder o MESMO 404 em JSON (o gateway é nosso: o 404 da INK é HTML) e o loader tem de trazer o módulo.
+ * `site` e `ink` = { status, type, body } (body já como texto); `loader` = o texto do loader.js. Sem `ink`/`loader`, só a pré-condição do storefront.
+ */
+export const PRODUCT_WAIT_PROBE = '00000000000000000000000000';
+export function evaluateProductWait(site, ink, loader) {
+  const problems = [];
+  const notFound = (r) => { if (!r || r.status !== 404 || !/json/i.test(r.type || '')) return false; try { return JSON.parse(r.body).error === 'not found'; } catch (_) { return false; } };
+  if (!notFound(site)) problems.push(`o storefront não respondeu /api/personalizar/produto/<id> com 404 JSON (HTTP ${site?.status ?? '?'}): a compra direta já está no ar?`);
+  if (ink !== undefined && !notFound(ink)) problems.push(`/__origens/produto/<id> não respondeu o 404 JSON do gateway (HTTP ${ink?.status ?? '?'}): a feature não está no ar?`);
+  if (loader !== undefined && !String(loader || '').includes("id: 'product-wait'")) problems.push('o loader.js não traz o módulo product-wait');
+  return { ok: problems.length === 0, problems };
+}

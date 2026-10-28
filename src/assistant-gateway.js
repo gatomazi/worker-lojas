@@ -138,7 +138,8 @@ export function normalizeBoot(data, store = ACTIVE_STORE) {
 }
 
 // Hash do endereço do visitante (nunca o endereço): o limite por visitante do storefront, sem identificar ninguém. Sem endereço = sem cabeçalho.
-async function visitorKey(request, store) {
+// O mesmo hash vai no acompanhamento da camiseta em criação (product-wait-gateway.js).
+export async function visitorKey(request, store) {
   const ip = request.headers.get('cf-connecting-ip');
   if (!ip || !globalThis.crypto || !crypto.subtle) return null;
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('origens-assistente|' + store.id + '|' + ip));
