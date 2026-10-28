@@ -22,11 +22,13 @@ const VIEWPORTS = [{ name: 'desktop-1440', width: 1440, height: 900 }, { name: '
 const modalHtml = (imgs, mobile) => {
   const wrap = mobile
     // Sem altura máxima: a folha real CRESCE com o conteúdo, presa ao pé (visto ao vivo em 28/10/2026; a simulação com 76dvh escondia o topo cortado).
-    ? 'position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;overflow:hidden auto;background:#fff;border-radius:24px 24px 0 0'
-    : 'position:fixed;top:0;right:0;bottom:0;width:450px;z-index:50;display:flex;overflow:hidden auto;background:#fff';
+    // Como a real (sonda de 28/10/2026): flex em LINHA com items-center/justify-center. Com o conteúdo mais alto que a folha, o centro empurra metade
+    // da sobra para cima, fora do alcance da rolagem: o começo do kit ficava inalcançável (visto num iPhone de verdade).
+    ? 'position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:center;justify-content:center;overflow:hidden auto;background:#fff;border-radius:24px 24px 0 0'
+    : 'position:fixed;top:0;right:0;bottom:0;width:450px;z-index:50;display:flex;align-items:center;justify-content:center;overflow:hidden auto;background:#fff';
   const sold = imgs.slice(0, 6).map((src) => '<li class="flex shrink-0 h-[135px]"><a class="flex shrink-0 h-[135px]" href="#"><img class="w-[130px] h-[135px] object-cover" style="width:130px;height:135px;object-fit:cover;background:#e5e5e5" src="' + src + '"></a></li>').join('');
   return '<div aria-hidden="true" style="position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.45)"></div>' +
-    '<div id="modal-wrapper" class="add-product-modal overflow-y-auto overflow-x-hidden" role="dialog" aria-modal="true" style="' + wrap + '"><div class="relative w-full md:h-[100dvh]"><div class="w-full p-4 md:min-h-screen" style="padding:16px">' +
+    '<div id="modal-wrapper" class="add-product-modal overflow-y-auto overflow-x-hidden" role="dialog" aria-modal="true" style="' + wrap + '"><div class="relative max-md:w-full md:h-[100dvh] md:w-[438px]" style="width:100%"><div class="w-full p-4 md:min-h-screen relative bg-white" style="padding:16px;background:#fff">' +
     '<div class="flex items-center justify-between rounded-t w-full pb-6" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding-bottom:24px"><div class="flex items-center" style="display:flex;align-items:center;gap:10px">' +
     '<svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#22a06b"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.4" fill="none"/></svg>' +
     '<h3 class="text-center font-medium text-black-500" style="margin:0;font-size:' + (mobile ? 16 : 16) + 'px">Produto adicionado ao carrinho</h3></div>' +
@@ -59,13 +61,16 @@ for (const [tag, payload] of runs) {
       const m = await page.evaluate(() => {
         const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const x = e.getBoundingClientRect(); return { y: Math.round(x.y), bottom: Math.round(x.bottom), h: Math.round(x.height), w: Math.round(x.width) }; };
         const label = (sel) => document.querySelector(sel + ' span')?.textContent ?? null;
-        return { vh: innerHeight, kit: r('[data-origens-kit]'), close: r('#modal-close-button'), sheet: r('#modal-wrapper'), priced: document.querySelector('[data-origens-kit]')?.getAttribute('data-priced') ?? null, tiers: document.querySelectorAll('.o-kit-tier').length,
+        const w = document.getElementById('modal-wrapper'); if (w) w.scrollTop = 0;
+        const eyebrow = r('[data-origens-kit] .o-kit-eyebrow'); const head = r('[data-origens-kit-head]');
+        return { vh: innerHeight, kit: r('[data-origens-kit]'), close: r('#modal-close-button'), sheet: r('#modal-wrapper'), reach: eyebrow && head ? eyebrow.y - head.bottom : (eyebrow ? eyebrow.y : null), priced: document.querySelector('[data-origens-kit]')?.getAttribute('data-priced') ?? null, tiers: document.querySelectorAll('.o-kit-tier').length,
           checkout: r('#modal-wrapper .checkout-btn'), more: r('#continue-shopping-button'), labels: [label('#modal-wrapper .checkout-btn'), label('#continue-shopping-button')],
           hScroll: document.documentElement.scrollWidth > innerWidth, sheetScroll: (() => { const w = document.getElementById('modal-wrapper'); return w ? w.scrollWidth > w.clientWidth : null; })() };
       });
       const visible = m.checkout && m.checkout.y >= 0 && m.checkout.bottom <= m.vh;
       const closable = m.close && m.close.y >= 0 && m.close.bottom <= m.vh;
-      console.log(`[${tag} ${vp.name}${priced ? '' : ' sem preço'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela', closable ? '| OK: × à vista' : '| ATENÇÃO: × fora da tela');
+      const reachable = m.reach === null || m.reach === undefined || m.reach >= 0;
+      console.log(`[${tag} ${vp.name}${priced ? '' : ' sem preço'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela', closable ? '| OK: × à vista' : '| ATENÇÃO: × fora da tela', reachable ? '| OK: começo do kit alcançável' : '| ATENÇÃO: começo do kit ' + (-m.reach) + ' px escondido (a rolagem não chega)');
       const name = `${tag}-${vp.name}${priced ? '' : '-sem-preco'}`;
       await page.screenshot({ path: `${OUT}/${name}.png` });
       if (s.mobile && tag === 'depois' && priced) {

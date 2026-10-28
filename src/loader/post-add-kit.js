@@ -228,7 +228,9 @@ export const POST_ADD_KIT = String.raw`
     '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{display:none!important}',
     // Enquanto há kit, o modal é TOPO fixo + MEIO que rola + PÉ fixo (pedido do dono em 28/10/2026): o topo ("Produto adicionado ao carrinho" e o ×)
     // preso no alto, "Finalizar compra" preso embaixo, e o kit, a busca e "As mais vendidas" rolando entre os dois. Vale no celular e no desktop.
-    '#modal-wrapper[data-origens-kit-open]{overflow-y:auto!important;overscroll-behavior:contain}',
+    // align-items:flex-start: a folha da INK é flex em linha com items-center; com o conteúdo mais alto que ela, o centro empurrava metade da sobra para
+    // CIMA, fora do alcance da rolagem (o começo do kit sumia sob o topo fixo, visto num iPhone de verdade; medido: o corpo começava 64 px acima da folha).
+    '#modal-wrapper[data-origens-kit-open]{align-items:flex-start!important;overflow-y:auto!important;overscroll-behavior:contain}',
     // Topo e pé de ponta a ponta da folha: o recuo que eles "desfazem" é o MEDIDO no corpo da INK (kitBleed: --k-bl/--k-br/--k-bt/--k-bb, em px), não um
     // número fixo (com 16 px fixos a faixa do topo não chegava à borda direita no modal real, no celular e no desktop).
     // width:auto: o topo da INK vem com w-full (100% do conteúdo), que travava a largura 32 px abaixo da folha mesmo com as margens negativas (medido no
