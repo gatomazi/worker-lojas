@@ -183,6 +183,7 @@ test('post-add-kit: closing the modal or leaving the page takes the block out an
   t.doc.getElementById('modal-wrapper').style.display = 'none';
   await tick();
   assert.equal(t.doc.querySelector('[data-origens-kit-footer], [data-origens-kit-head], [data-origens-kit-open], [data-origens-kit-body]'), null);
+  assert.ok(![t.doc.getElementById('modal-close-button').parentElement, t.doc.querySelector('.add-product-modal__modal-content__footer')].some((el) => /--k-b/.test(el.getAttribute('style') || '')), 'as medidas saem junto');
   // Reaberto (nova adição, os mesmos nós): o bloco volta, com o preço desta adição.
   add(t, 'form-product-4400001');
   t.doc.getElementById('modal-wrapper').style.display = '';
