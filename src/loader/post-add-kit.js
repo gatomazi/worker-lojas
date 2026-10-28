@@ -226,8 +226,17 @@ export const POST_ADD_KIT = String.raw`
     '#modal-wrapper [data-origens-kit-footer] .checkout-btn{font-weight:700!important}',
     // Depois da regra geral acima (ordem e especificidade dizem o mesmo).
     '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{display:none!important}',
-    // Celular (folha inferior que rola): o botão preso ao pé da folha enquanto o kit passa por baixo.
-    '@media (max-width:767px){#modal-wrapper [data-origens-kit-footer]{position:sticky;bottom:0;z-index:2;margin:0 -16px!important;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
+    // Enquanto há kit, o modal é TOPO fixo + MEIO que rola + PÉ fixo (pedido do dono em 28/10/2026): o topo ("Produto adicionado ao carrinho" e o ×)
+    // preso no alto, "Finalizar compra" preso embaixo, e o kit, a busca e "As mais vendidas" rolando entre os dois. Vale no celular e no desktop.
+    '#modal-wrapper[data-origens-kit-open]{overflow-y:auto!important;overscroll-behavior:contain}',
+    '#modal-wrapper [data-origens-kit-head]{position:sticky;top:0;z-index:3;margin:-16px -16px 0!important;padding:16px 16px 12px!important;background:var(--o-surface,#fff);box-shadow:0 1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
+    // O pé vai para o FIM do conteúdo só na exibição (order, num corpo em coluna): preso embaixo do começo ao fim da rolagem, também sobre a busca e
+    // "As mais vendidas" (no HTML da INK ele vem antes delas; nada é movido no DOM).
+    '#modal-wrapper [data-origens-kit-body]{display:flex!important;flex-direction:column!important}',
+    '#modal-wrapper [data-origens-kit-body] > [data-origens-kit-footer]{order:99;position:sticky;bottom:0;z-index:2;margin:auto -16px -16px!important;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
+    // Celular: a folha da INK CRESCE com o conteúdo (sem altura máxima, presa ao pé da tela). Com o kit ela passava da tela e o topo, com o ×, sumia para
+    // cima sem volta (visto ao vivo em 28/10/2026). Aqui ela vai no máximo até a altura da tela e rola por dentro (no desktop a gaveta já tem a altura da tela).
+    '@media (max-width:767px){#modal-wrapper[data-origens-kit-open]{max-height:calc(100vh - 12px)!important;max-height:calc(100dvh - 12px)!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
     '@media (max-width:359px){[data-origens-kit] .o-kit-tier{column-gap:8px;padding:8px 10px}[data-origens-kit] .o-kit-each small{display:none}}',
     '@media (max-height:700px){[data-origens-kit] .o-kit-lead{display:none}}'
   ].join('');
@@ -251,6 +260,9 @@ export const POST_ADD_KIT = String.raw`
     for (const block of root.querySelectorAll('[data-origens-kit]')) block.remove();
     for (const label of root.querySelectorAll('[data-origens-kit-label]')) { label.textContent = label.getAttribute('data-origens-kit-label'); label.removeAttribute('data-origens-kit-label'); }
     for (const footer of root.querySelectorAll('[data-origens-kit-footer]')) footer.removeAttribute('data-origens-kit-footer');
+    for (const head of root.querySelectorAll('[data-origens-kit-head]')) head.removeAttribute('data-origens-kit-head');
+    for (const sheet of root.querySelectorAll('[data-origens-kit-open]')) sheet.removeAttribute('data-origens-kit-open');
+    for (const body of root.querySelectorAll('[data-origens-kit-body]')) body.removeAttribute('data-origens-kit-body');
   }
 
   function kitBuild(kit, unit, signal) {
@@ -379,6 +391,11 @@ export const POST_ADD_KIT = String.raw`
         const root = kitBuild(data.kit, kitPrice(), this.clicks.signal);
         footer.insertAdjacentElement('beforebegin', root);
         footer.setAttribute('data-origens-kit-footer', '');
+        // A folha (o próprio #modal-wrapper), o corpo (o pai dos botões, que vira coluna) e o topo com o × (o pai do botão de fechar), para o CSS.
+        current.setAttribute('data-origens-kit-open', '');
+        if (footer.parentElement && footer.parentElement !== current) footer.parentElement.setAttribute('data-origens-kit-body', '');
+        const close = current.querySelector('#modal-close-button');
+        if (close && close.parentElement && close.parentElement !== current && !close.parentElement.contains(footer)) close.parentElement.setAttribute('data-origens-kit-head', '');
         const checkout = footer.querySelector('.checkout-btn');
         kitRelabel(checkout, KIT_LABEL_CHECKOUT);
         // Só medimos: o clique segue para a INK (abrir o carrinho) exatamente como antes.
@@ -391,7 +408,7 @@ export const POST_ADD_KIT = String.raw`
     // Tira o bloco e devolve os rótulos (o modal fechou, foi trocado ou a rota saiu do escopo).
     clear() {
       if (this.clicks) { this.clicks.abort(); this.clicks = null; }
-      if (this.shown || document.querySelector('[data-origens-kit], [data-origens-kit-label], [data-origens-kit-footer]')) kitRestore();
+      if (this.shown || document.querySelector('[data-origens-kit], [data-origens-kit-label], [data-origens-kit-footer], [data-origens-kit-head], [data-origens-kit-open], [data-origens-kit-body]')) kitRestore();
       this.shown = null;
     },
 
