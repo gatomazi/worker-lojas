@@ -240,7 +240,10 @@ export const POST_ADD_KIT = String.raw`
     '#modal-wrapper [data-origens-kit-body] > [data-origens-kit-footer]{order:99;position:sticky;bottom:0;z-index:2;width:auto!important;max-width:none!important;align-self:stretch;border-radius:0!important;border-bottom-left-radius:inherit!important;border-bottom-right-radius:inherit!important;margin:auto calc(-1 * var(--k-br,16px)) calc(-1 * var(--k-bb,16px)) calc(-1 * var(--k-bl,16px))!important;padding:10px var(--k-br,16px) calc(10px + env(safe-area-inset-bottom,0px)) var(--k-bl,16px)!important;background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
     // Celular: a folha da INK CRESCE com o conteúdo (sem altura máxima, presa ao pé da tela). Com o kit ela passava da tela e o topo, com o ×, sumia para
     // cima sem volta (visto ao vivo em 28/10/2026). Aqui ela vai no máximo até a altura da tela e rola por dentro (no desktop a gaveta já tem a altura da tela).
-    '@media (max-width:767px){#modal-wrapper[data-origens-kit-open]{max-height:calc(100vh - 12px)!important;max-height:calc(100dvh - 12px)!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
+    // Altura inteira (sem folga em cima: ela mostrava a faixa preta do topo da INK atrás) e cantos retos no alto (arredondados, deixavam a faixa
+    // aparecer nas pontas).
+    '@media (max-width:767px){#modal-wrapper[data-origens-kit-open]{max-height:100vh!important;max-height:100dvh!important}' +
+      '#modal-wrapper [data-origens-kit-body],#modal-wrapper [data-origens-kit-head]{border-top-left-radius:0!important;border-top-right-radius:0!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
     '@media (max-width:359px){[data-origens-kit] .o-kit-tier{column-gap:8px;padding:8px 10px}[data-origens-kit] .o-kit-each small{display:none}}',
     '@media (max-height:700px){[data-origens-kit] .o-kit-lead{display:none}}'
   ].join('');

@@ -15,7 +15,7 @@ modal, enquanto há kit, vira **topo fixo + meio que rola + pé fixo** (celular 
 "Finalizar compra" preso embaixo (levado ao fim do conteúdo só na exibição, com `order`, num corpo em coluna; nada é movido no DOM) e o kit, a busca e
 "As mais vendidas" rolando no meio. No celular a folha da INK **cresce com o conteúdo** (sem altura máxima, presa ao pé da tela): com o kit ela passava
 da tela e o topo com o × sumia para cima, sem como fechar (visto ao vivo em 28/10/2026, logo depois do primeiro deploy). Por isso, no celular, a folha
-vai no máximo até a altura da tela (`100dvh − 12px`) e rola por dentro. Ao fechar o
+vai no máximo até a altura da tela (`100dvh`, sem folga: a folga mostrava a faixa preta do topo da INK) e rola por dentro, com os cantos de cima retos. Ao fechar o
 modal ou sair da página, o bloco sai, o rótulo volta e o "Continuar comprando" reaparece.
 
 ## Dados
