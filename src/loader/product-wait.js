@@ -33,8 +33,9 @@ export const PRODUCT_WAIT = String.raw`
   const WAIT_MARGIN = 16;
   const WAIT_GAP = 8;
   const WAIT_HEIGHT = 48;
-  // Espaço reservado de cada lado no celular: o botão de cupons (16 + 56) e o assistente (16 + 48) com folga. O mesmo calc(100vw - 11rem) do storefront.
-  const WAIT_SIDE = 88;
+  // Espaço reservado de cada lado no celular: o botão de cupons (16 + 56) e o assistente (16 + 48), mais 8 de folga. O mesmo calc(100vw - 10rem) do
+  // storefront: "Criando camiseta…" com as setas cabe inteiro a partir de 360 px.
+  const WAIT_SIDE = 80;
   // O mesmo z-index do botão de cupons e do assistente; o painel fica acima de tudo, como os painéis deles.
   const WAIT_Z = 31;
   const WAIT_PANEL_Z = 2147483001;
@@ -137,7 +138,7 @@ export const PRODUCT_WAIT = String.raw`
     '#o-wait{font-family:inherit;color:#111827}',
     '#o-wait *{box-sizing:border-box}',
     // O centro é um translate; a mexidinha é a propriedade rotate (as duas convivem).
-    '#o-wait .o-wait-pill{position:fixed;z-index:' + WAIT_Z + ';display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:' + WAIT_HEIGHT + 'px;margin:0;padding:0 12px;border:2px solid #111827;border-radius:0;background:#f2f2f0;color:#111827;font:inherit;font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer;transform:translateX(-50%);outline-offset:4px;-webkit-tap-highlight-color:transparent}',
+    '#o-wait .o-wait-pill{position:fixed;z-index:' + WAIT_Z + ';display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:' + WAIT_HEIGHT + 'px;margin:0;padding:0 10px;border:2px solid #111827;border-radius:0;background:#f2f2f0;color:#111827;font:inherit;font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer;transform:translateX(-50%);outline-offset:4px;-webkit-tap-highlight-color:transparent}',
     '#o-wait .o-wait-pill[hidden]{display:none}',
     '#o-wait .o-wait-pill svg{width:20px;height:20px;flex-shrink:0}',
     '#o-wait .o-wait-icon{display:inline-flex;flex-shrink:0}',

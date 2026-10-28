@@ -28,7 +28,7 @@ leem o armazenamento do site.
     cookies.
   - Some com o carrinho, um modal, o menu, o painel do assistente ou dos cupons, o "Ajuda?" nativo aberto e o teclado virtual. Também some sem espaço
     sob o cabeçalho e quando cobriria controles do formulário de compra ou os botões do guia.
-  - No celular, a largura é limitada a `100vw - 176px`, o mesmo cálculo do storefront, para não encostar nos botões dos cantos.
+  - No celular, a largura é limitada a `100vw - 160px`, o mesmo cálculo do storefront (8 px de folga para os botões dos cantos): "Criando camiseta…" com as setas cabe inteiro a partir de 360 px.
   - `data-wait-hidden` no `#o-wait` diz por que ela saiu da frente.
 
 ## Contrato com o storefront (fixo)

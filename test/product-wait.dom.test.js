@@ -111,7 +111,7 @@ test('cookie with a job being made: ONE pill "Criando camiseta…" bottom-centre
   assert.ok(pcss.includes('@keyframes o-wait-spin{to{transform:rotate(360deg)}}'));
   assert.match(pcss, /@media \(prefers-reduced-motion: no-preference\)\{[^@]*\.o-wait-arrows\{animation:o-wait-spin 1\.6s linear infinite\}/, 'turning only without reduced motion');
   assert.equal(pill.style.left, '195px', 'centred on the 390 px screen');
-  assert.equal(pill.style.maxWidth, '214px', 'never touching the coupons (left) nor the assistant (right)');
+  assert.equal(pill.style.maxWidth, '230px', 'never touching the coupons (left) nor the assistant (right)');
   assert.match(pill.style.bottom, /calc\(16px/);
   assert.deepEqual(t.fetches[0], { url: '/__origens/produto/' + A, credentials: 'omit', cache: 'no-store' });
   const css = t.q('#o-wait style').textContent;
