@@ -27,7 +27,7 @@ const modalHtml = (imgs, mobile) => {
   const sold = imgs.slice(0, 6).map((src) => '<li class="flex shrink-0 h-[135px]"><a class="flex shrink-0 h-[135px]" href="#"><img class="w-[130px] h-[135px] object-cover" style="width:130px;height:135px;object-fit:cover;background:#e5e5e5" src="' + src + '"></a></li>').join('');
   return '<div aria-hidden="true" style="position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.45)"></div>' +
     '<div id="modal-wrapper" class="add-product-modal overflow-y-auto overflow-x-hidden" role="dialog" aria-modal="true" style="' + wrap + '"><div class="relative w-full md:h-[100dvh]"><div class="w-full p-4 md:min-h-screen" style="padding:16px">' +
-    '<div class="flex items-center justify-between" style="display:flex;align-items:center;justify-content:space-between"><div class="flex items-center" style="display:flex;align-items:center;gap:10px">' +
+    '<div class="flex items-center justify-between rounded-t w-full pb-6" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding-bottom:24px"><div class="flex items-center" style="display:flex;align-items:center;gap:10px">' +
     '<svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#22a06b"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.4" fill="none"/></svg>' +
     '<h3 class="text-center font-medium text-black-500" style="margin:0;font-size:' + (mobile ? 16 : 16) + 'px">Produto adicionado ao carrinho</h3></div>' +
     '<button id="modal-close-button" class="focus:ring-4 font-medium text-center" style="border:0;background:none;font-size:22px" aria-label="Fechar">✕</button></div>' +

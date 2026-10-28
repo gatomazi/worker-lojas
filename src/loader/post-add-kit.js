@@ -229,11 +229,15 @@ export const POST_ADD_KIT = String.raw`
     // Enquanto há kit, o modal é TOPO fixo + MEIO que rola + PÉ fixo (pedido do dono em 28/10/2026): o topo ("Produto adicionado ao carrinho" e o ×)
     // preso no alto, "Finalizar compra" preso embaixo, e o kit, a busca e "As mais vendidas" rolando entre os dois. Vale no celular e no desktop.
     '#modal-wrapper[data-origens-kit-open]{overflow-y:auto!important;overscroll-behavior:contain}',
-    '#modal-wrapper [data-origens-kit-head]{position:sticky;top:0;z-index:3;margin:-16px -16px 0!important;padding:16px 16px 12px!important;background:var(--o-surface,#fff);box-shadow:0 1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
+    // Topo e pé de ponta a ponta da folha: o recuo que eles "desfazem" é o MEDIDO no corpo da INK (kitBleed: --k-bl/--k-br/--k-bt/--k-bb, em px), não um
+    // número fixo (com 16 px fixos a faixa do topo não chegava à borda direita no modal real, no celular e no desktop).
+    // width:auto: o topo da INK vem com w-full (100% do conteúdo), que travava a largura 32 px abaixo da folha mesmo com as margens negativas (medido no
+    // modal real: 346 de 378 no celular, 406 de 438 no desktop). Os cantos de cima seguem os da folha (arredondada no celular).
+    '#modal-wrapper [data-origens-kit-head]{position:sticky;top:0;z-index:3;width:auto!important;max-width:none!important;align-self:stretch;border-radius:0!important;border-top-left-radius:inherit!important;border-top-right-radius:inherit!important;margin:calc(-1 * var(--k-bt,16px)) calc(-1 * var(--k-br,16px)) 0 calc(-1 * var(--k-bl,16px))!important;padding:max(12px,var(--k-bt,16px)) var(--k-br,16px) 12px var(--k-bl,16px)!important;background:var(--o-surface,#fff);box-shadow:0 1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
     // O pé vai para o FIM do conteúdo só na exibição (order, num corpo em coluna): preso embaixo do começo ao fim da rolagem, também sobre a busca e
     // "As mais vendidas" (no HTML da INK ele vem antes delas; nada é movido no DOM).
     '#modal-wrapper [data-origens-kit-body]{display:flex!important;flex-direction:column!important}',
-    '#modal-wrapper [data-origens-kit-body] > [data-origens-kit-footer]{order:99;position:sticky;bottom:0;z-index:2;margin:auto -16px -16px!important;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
+    '#modal-wrapper [data-origens-kit-body] > [data-origens-kit-footer]{order:99;position:sticky;bottom:0;z-index:2;width:auto!important;max-width:none!important;align-self:stretch;border-radius:0!important;border-bottom-left-radius:inherit!important;border-bottom-right-radius:inherit!important;margin:auto calc(-1 * var(--k-br,16px)) calc(-1 * var(--k-bb,16px)) calc(-1 * var(--k-bl,16px))!important;padding:10px var(--k-br,16px) calc(10px + env(safe-area-inset-bottom,0px)) var(--k-bl,16px)!important;background:var(--o-surface,#fff);box-shadow:0 -1px 0 var(--o-line-soft,rgba(17,24,39,.12))}',
     // Celular: a folha da INK CRESCE com o conteúdo (sem altura máxima, presa ao pé da tela). Com o kit ela passava da tela e o topo, com o ×, sumia para
     // cima sem volta (visto ao vivo em 28/10/2026). Aqui ela vai no máximo até a altura da tela e rola por dentro (no desktop a gaveta já tem a altura da tela).
     '@media (max-width:767px){#modal-wrapper[data-origens-kit-open]{max-height:calc(100vh - 12px)!important;max-height:calc(100dvh - 12px)!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
@@ -255,8 +259,33 @@ export const POST_ADD_KIT = String.raw`
     label.setAttribute('data-origens-kit-label', label.textContent);
     label.textContent = text;
   }
+  // Quanto o topo e o pé precisam avançar para encostar nas bordas do PAINEL visível (o primeiro, do corpo para cima, com fundo; no desktop o
+  // #modal-wrapper ocupa a tela toda e a gaveta branca é um filho dele), sem passar da área visível da folha (a barra de rolagem fica de fora).
+  // Medido, não suposto: o padding da INK não é o mesmo em todo lugar. Sem layout (aba oculta, teste), fica o padrão do CSS.
+  const KIT_BLEED = ['--k-bl', '--k-br', '--k-bt', '--k-bb'];
+  const kitOpaque = (el) => { const bg = getComputedStyle(el).backgroundColor || ''; return bg !== '' && bg !== 'transparent' && !/^rgba\([^)]*,\s*0\)$/.test(bg); };
+  function kitBleed(sheet, body, els) {
+    try {
+      const px = (v) => parseFloat(v) || 0;
+      let panel = body;
+      for (let n = body; n && n !== sheet.parentElement; n = n.parentElement) { if (kitOpaque(n)) { panel = n; break; } }
+      const s = sheet.getBoundingClientRect(); const p = panel.getBoundingClientRect(); const b = body.getBoundingClientRect();
+      if (!(s.width > 0) || !(b.width > 0)) return;
+      const ps = getComputedStyle(panel); const bs = getComputedStyle(body);
+      const vLeft = s.left + sheet.clientLeft; const vRight = vLeft + sheet.clientWidth;
+      const pLeft = Math.max(p.left + px(ps.borderLeftWidth), vLeft); const pRight = Math.min(p.right - px(ps.borderRightWidth), vRight);
+      const left = b.left + px(bs.borderLeftWidth) + px(bs.paddingLeft) - pLeft;
+      const right = pRight - (b.right - px(bs.borderRightWidth) - px(bs.paddingRight));
+      const top = b.top + px(bs.borderTopWidth) + px(bs.paddingTop) - (p.top + px(ps.borderTopWidth));
+      const bottom = px(bs.paddingBottom) + px(bs.borderBottomWidth);
+      const values = [left, right, top, bottom].map((n) => Math.round(Math.max(0, Math.min(n, 64))) + 'px');
+      for (const el of els) if (el) KIT_BLEED.forEach((name, i) => el.style.setProperty(name, values[i]));
+    } catch (_) { /* sem medida: o padrão do CSS */ }
+  }
+
   function kitRestore(scope) {
     const root = scope || document;
+    for (const el of root.querySelectorAll('[data-origens-kit-head], [data-origens-kit-footer]')) for (const name of KIT_BLEED) el.style.removeProperty(name);
     for (const block of root.querySelectorAll('[data-origens-kit]')) block.remove();
     for (const label of root.querySelectorAll('[data-origens-kit-label]')) { label.textContent = label.getAttribute('data-origens-kit-label'); label.removeAttribute('data-origens-kit-label'); }
     for (const footer of root.querySelectorAll('[data-origens-kit-footer]')) footer.removeAttribute('data-origens-kit-footer');
@@ -395,7 +424,15 @@ export const POST_ADD_KIT = String.raw`
         current.setAttribute('data-origens-kit-open', '');
         if (footer.parentElement && footer.parentElement !== current) footer.parentElement.setAttribute('data-origens-kit-body', '');
         const close = current.querySelector('#modal-close-button');
-        if (close && close.parentElement && close.parentElement !== current && !close.parentElement.contains(footer)) close.parentElement.setAttribute('data-origens-kit-head', '');
+        const head = close && close.parentElement && close.parentElement !== current && !close.parentElement.contains(footer) ? close.parentElement : null;
+        if (head) head.setAttribute('data-origens-kit-head', '');
+        // Mede depois de o CSS (folha limitada, corpo em coluna) valer, e de novo quando a tela muda de tamanho (girar o celular, redimensionar).
+        const body = footer.parentElement && footer.parentElement !== current ? footer.parentElement : null;
+        if (body) {
+          const bleed = () => kitBleed(current, body, [head, footer]);
+          requestAnimationFrame(bleed); setTimeout(bleed, 300);
+          window.addEventListener('resize', bleed, { signal: this.clicks.signal });
+        }
         const checkout = footer.querySelector('.checkout-btn');
         kitRelabel(checkout, KIT_LABEL_CHECKOUT);
         // Só medimos: o clique segue para a INK (abrir o carrinho) exatamente como antes.
