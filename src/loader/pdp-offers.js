@@ -320,8 +320,9 @@ export const PDP_COUPONS = String.raw`
     '--o-cpn-paper:var(--o-paper,#f4f4f2);--o-cpn-surface:var(--o-surface,#fff);--o-cpn-radius:var(--o-radius,8px);',
     // A cor principal da loja (--o-selected do tema) clareada: a MESMA cor (matiz e intensidade em oklch), só mais clara. Misturar com branco não
     // serve: a cor da Sul (#4d543d) é pouco saturada e a mistura vira cinza. Sem cor relativa no navegador, a mistura; sem color-mix, o cinza.
+    // A intensidade tem teto (.045): uma paleta viva (vermelho, mostarda) daria um fundo berrante em vez de suave.
     '--o-cpn-paper:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));--o-cpn-line:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));',
-    '--o-cpn-paper:oklch(from var(--o-selected,#1f2328) .94 calc(c * 1.25) h);--o-cpn-line:oklch(from var(--o-selected,#1f2328) .8 calc(c * 1.25) h);',
+    '--o-cpn-paper:oklch(from var(--o-selected,#1f2328) .94 min(calc(c * 1.25), .045) h);--o-cpn-line:oklch(from var(--o-selected,#1f2328) .8 min(calc(c * 1.25), .045) h);',
     'display:block;box-sizing:border-box;width:100%;margin:0;color:var(--o-cpn-ink);font-family:var(--o-font,inherit);text-align:left;container-type:inline-size}',
     '.o-cpn *{box-sizing:border-box}',
     '.o-cpn [hidden],.o-cpn[hidden]{display:none!important}',
@@ -358,8 +359,8 @@ export const PDP_COUPONS = String.raw`
     '.o-cpn-near{display:block;box-sizing:border-box;width:100%;margin:0;font-family:var(--o-font,inherit);text-align:left}',
     '.o-cpn-toggle{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 14px;border:1px solid var(--o-line-soft,rgba(31,35,40,.16));',
     'border-color:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));border-radius:var(--o-radius,8px);background:var(--o-paper,#f4f4f2);',
-    'background:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));border-color:oklch(from var(--o-selected,#1f2328) .8 calc(c * 1.25) h);',
-    'background:oklch(from var(--o-selected,#1f2328) .94 calc(c * 1.25) h);color:var(--o-ink,#1f2328);font:inherit;font-size:14px;font-weight:600;line-height:1.2;',
+    'background:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));border-color:oklch(from var(--o-selected,#1f2328) .8 min(calc(c * 1.25), .045) h);',
+    'background:oklch(from var(--o-selected,#1f2328) .94 min(calc(c * 1.25), .045) h);color:var(--o-ink,#1f2328);font:inherit;font-size:14px;font-weight:600;line-height:1.2;',
     'cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.o-cpn-toggle > span{display:inline-flex;align-items:center}',
     '.o-cpn-toggle > span:first-child,.o-cpn-tab > span:first-child{color:var(--o-selected,currentColor)}',

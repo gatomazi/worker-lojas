@@ -9,7 +9,7 @@ apareciam como "Cupom · Ver cupons disponíveis" e abriam outro modal. Agora as
   economiza nesta peça, as faixas do progressivo e as condições, com o botão "Copiar". Desde 30/10/2026 as abas ficam **logo abaixo do preço**,
   fechadas atrás de um botão "Cupons disponíveis" (com o número de cupons) ou "Cupom disponível", para ficar perto do preço sem ocupar espaço. O quadro
   de cupons lá de baixo some. Sem o preço na página (marcação diferente da INK), as abas ficam à vista dentro do frame, como antes.
-  O botão e a caixa usam a cor principal da loja (`--o-selected` do tema) clareada: a mesma cor em oklch (matiz e intensidade ×1,25), com
+  O botão e a caixa usam a cor principal da loja (`--o-selected` do tema) clareada: a mesma cor em oklch (matiz e intensidade ×1,25, com teto de 0,045 para uma paleta viva não dar um fundo berrante), com
   luminosidade 0,94 no fundo e 0,80 na borda. Misturar com branco não serve: a cor da Sul (#4d543d) é pouco saturada e a mistura vira cinza. Sem cor
   relativa no navegador, a mistura com branco; sem tema, um tom neutro. O ícone e o contador vão na cor cheia. Sem cupom na INK, nem o botão aparece.
 
