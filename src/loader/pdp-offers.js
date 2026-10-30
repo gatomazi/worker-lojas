@@ -302,20 +302,30 @@ export const PDP_CEP = String.raw`
   });
 `;
 
-// pdp-coupons: o quadro "Cupom · Ver cupons disponíveis" (que abre um modal) vira abas à vista, uma por código (o desenho do oria-worker, com o
-// tema da Use Origens): o que o cupom dá, quanto economiza nesta peça, as faixas do progressivo e "Copiar". Os dados são os do frame de cupons da
-// própria INK (#product_promotions_frame, preguiçoso: carrega quando chega perto da tela) — o modal oficial continua no DOM, só não é mais o caminho.
+// pdp-coupons: o quadro "Cupom · Ver cupons disponíveis" (que abre um modal) vira abas, uma por código (o desenho do oria-worker, com o tema da
+// Use Origens): o que o cupom dá, quanto economiza nesta peça, as faixas do progressivo e "Copiar". Os dados são os do frame de cupons da própria
+// INK (#product_promotions_frame) — o modal oficial continua no DOM, só não é mais o caminho. Com o preço na página, as abas sobem para logo
+// abaixo dele, fechadas atrás de "Cupons disponíveis" (perto do preço, sem ocupar espaço): o frame, preguiçoso e lá embaixo, é pedido já, e o
+// quadro nativo some. Sem o preço, as abas ficam à vista dentro do frame, como antes.
 // Só copia: quem valida e aplica o cupom é a INK, no carrinho. Nunca diz que o desconto foi aplicado.
 export const PDP_COUPONS = String.raw`
   const CPN_STYLE_ID = 'o-cpn-style';
   const CPN_FRAME = 'turbo-frame#product_promotions_frame';
+  const CPN_PRICE = '[data-ink-labs-anchor="product_price"]';
+  const CPN_MOVED = 'data-o-cpn-moved';
+  const CPN_CHEV = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="m4 6 4 4 4-4"/></svg>';
   const CPN_TAG = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M1 2.5A1.5 1.5 0 0 1 2.5 1h4.09a1.5 1.5 0 0 1 1.06.44l7 7a1.5 1.5 0 0 1 0 2.12l-4.09 4.09a1.5 1.5 0 0 1-2.12 0l-7-7A1.5 1.5 0 0 1 1 6.59V2.5Zm3.5 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg>';
   const CPN_CSS = [
     '.o-cpn{--o-cpn-ink:var(--o-ink,#1f2328);--o-cpn-soft:var(--o-ink-soft,#3f3f3a);--o-cpn-mute:var(--o-ink-mute,#5f5f58);--o-cpn-line:var(--o-line-soft,rgba(31,35,40,.16));',
     '--o-cpn-paper:var(--o-paper,#f4f4f2);--o-cpn-surface:var(--o-surface,#fff);--o-cpn-radius:var(--o-radius,8px);',
+    // A cor principal da loja (--o-selected do tema) clareada: a MESMA cor (matiz e intensidade em oklch), só mais clara. Misturar com branco não
+    // serve: a cor da Sul (#4d543d) é pouco saturada e a mistura vira cinza. Sem cor relativa no navegador, a mistura; sem color-mix, o cinza.
+    // A intensidade tem teto (.045): uma paleta viva (vermelho, mostarda) daria um fundo berrante em vez de suave.
+    '--o-cpn-paper:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));--o-cpn-line:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));',
+    '--o-cpn-paper:oklch(from var(--o-selected,#1f2328) .94 min(calc(c * 1.25), .045) h);--o-cpn-line:oklch(from var(--o-selected,#1f2328) .8 min(calc(c * 1.25), .045) h);',
     'display:block;box-sizing:border-box;width:100%;margin:0;color:var(--o-cpn-ink);font-family:var(--o-font,inherit);text-align:left;container-type:inline-size}',
     '.o-cpn *{box-sizing:border-box}',
-    '.o-cpn [hidden]{display:none!important}',
+    '.o-cpn [hidden],.o-cpn[hidden]{display:none!important}',
     '.o-cpn-ttl{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:15px;font-weight:600;line-height:1.3}',
     '.o-cpn-tabs{position:relative;z-index:1;display:flex;gap:6px;margin:0 0 -1px;padding:0;overflow-x:auto;scrollbar-width:none}',
     '.o-cpn-tabs::-webkit-scrollbar{display:none}',
@@ -345,8 +355,26 @@ export const PDP_COUPONS = String.raw`
     '.o-cpn-status:empty{display:none}',
     '.o-cpn-note{margin:8px 0 0;color:var(--o-cpn-mute);font-size:13px;line-height:1.4}',
     '@container (max-width:420px){.o-cpn-panel{flex-direction:column;align-items:stretch;gap:12px}.o-cpn-copy{width:100%}.o-cpn-tab{padding:0 10px}}',
-    // O quadro nativo só some com o NOSSO bloco dentro do frame (:has); o modal oficial continua no DOM.
-    CPN_FRAME + ':has(> .o-cpn) > div.border{display:none!important}',
+    // Perto do preço: o botão que abre e fecha as abas (fora de .o-cpn, por isso as variáveis do tema direto).
+    '.o-cpn-near{display:block;box-sizing:border-box;width:100%;margin:0;font-family:var(--o-font,inherit);text-align:left}',
+    '.o-cpn-toggle{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 14px;border:1px solid var(--o-line-soft,rgba(31,35,40,.16));',
+    'border-color:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));border-radius:var(--o-radius,8px);background:var(--o-paper,#f4f4f2);',
+    'background:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));border-color:oklch(from var(--o-selected,#1f2328) .8 min(calc(c * 1.25), .045) h);',
+    'background:oklch(from var(--o-selected,#1f2328) .94 min(calc(c * 1.25), .045) h);color:var(--o-ink,#1f2328);font:inherit;font-size:14px;font-weight:600;line-height:1.2;',
+    'cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.o-cpn-toggle > span{display:inline-flex;align-items:center}',
+    '.o-cpn-toggle > span:first-child,.o-cpn-tab > span:first-child{color:var(--o-selected,currentColor)}',
+    // O contador na cor cheia, com o texto que o tema garante legível sobre ela (contraste conferido em theme.js).
+    '.o-cpn-count{justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o-selected,#1f2328);color:var(--o-on-selected,#fff);',
+    'font-size:12px;font-weight:700}',
+    '.o-cpn-chev{transition:transform .2s ease}',
+    '.o-cpn-toggle[aria-expanded="true"] .o-cpn-chev{transform:rotate(180deg)}',
+    '.o-cpn-toggle:focus-visible{outline:2px solid var(--o-ink,#1f2328);outline-offset:2px}',
+    '@media (hover:hover){.o-cpn-toggle:hover{border-color:var(--o-selected,#1f2328)}}',
+    '@media (prefers-reduced-motion:reduce){.o-cpn-chev{transition:none}}',
+    '.o-cpn-near > .o-cpn{margin-top:10px}',
+    // O quadro nativo só some com o NOSSO bloco no lugar (dentro do frame, :has, ou perto do preço, a marca no frame); o modal oficial continua no DOM.
+    CPN_FRAME + ':has(> .o-cpn) > div.border,' + CPN_FRAME + '[' + CPN_MOVED + '] > div.border{display:none!important}',
     CPN_FRAME + ':has(> .o-cpn){display:block}'
   ].join('');
 
@@ -412,15 +440,17 @@ export const PDP_COUPONS = String.raw`
     document.head.appendChild(style);
   }
 
-  function cpnBuild(widget, coupons) {
+  // labelId: quem dá nome ao bloco — o título dele ('o-cpn-ttl', dentro do frame) ou o botão "Cupons disponíveis" (perto do preço, sem título).
+  function cpnBuild(widget, coupons, labelId) {
     const signal = widget.ac.signal;
     const multi = coupons.length > 1;
     const block = cpnEl('section', 'o-cpn');
-    block.setAttribute('aria-labelledby', 'o-cpn-ttl');
-    const title = cpnEl('p', 'o-cpn-ttl', multi ? 'Cupons para esta peça' : 'Cupom para esta peça'); title.id = 'o-cpn-ttl';
+    block.setAttribute('aria-labelledby', labelId);
+    const title = labelId === 'o-cpn-ttl' ? cpnEl('p', 'o-cpn-ttl', multi ? 'Cupons para esta peça' : 'Cupom para esta peça') : null;
+    if (title) title.id = 'o-cpn-ttl';
     const status = cpnEl('p', 'o-cpn-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     const strip = cpnEl('div', 'o-cpn-tabs');
-    if (multi) { strip.setAttribute('role', 'tablist'); strip.setAttribute('aria-labelledby', 'o-cpn-ttl'); }
+    if (multi) { strip.setAttribute('role', 'tablist'); strip.setAttribute('aria-labelledby', labelId); }
     const tabs = [];
     const panels = [];
     coupons.forEach((c, i) => {
@@ -487,11 +517,35 @@ export const PDP_COUPONS = String.raw`
       const more = () => strip.toggleAttribute('data-more', strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2);
       strip.addEventListener('scroll', more, { signal, passive: true });
       window.addEventListener('resize', more, { signal, passive: true });
+      block.addEventListener('o-cpn-open', more, { signal }); // fechado, as abas não têm largura: mede de novo ao abrir
       widget.timers.push(setTimeout(more, 0));
     }
     strip.append(...tabs);
-    block.append(title, strip, ...panels, status, cpnEl('p', 'o-cpn-note', 'Um cupom por compra. A loja confere as condições no carrinho.'));
+    if (title) block.appendChild(title);
+    block.append(strip, ...panels, status, cpnEl('p', 'o-cpn-note', 'Um cupom por compra. A loja confere as condições no carrinho.'));
     return block;
+  }
+
+  // Abaixo do preço: "Cupons disponíveis" abre e fecha as mesmas abas (começa fechado; volta aberto se a INK refizer o frame com ele aberto).
+  function cpnNear(widget, coupons, open) {
+    const near = cpnEl('div', 'o-cpn-near');
+    const toggle = cpnEl('button', 'o-cpn-toggle'); toggle.type = 'button'; toggle.id = 'o-cpn-toggle';
+    toggle.setAttribute('aria-controls', 'o-cpn-box');
+    const icon = cpnEl('span', ''); icon.setAttribute('aria-hidden', 'true'); icon.innerHTML = CPN_TAG;
+    toggle.append(icon, cpnEl('span', 'o-cpn-label', coupons.length > 1 ? 'Cupons disponíveis' : 'Cupom disponível'));
+    if (coupons.length > 1) toggle.appendChild(cpnEl('span', 'o-cpn-count', String(coupons.length)));
+    const chev = cpnEl('span', 'o-cpn-chev'); chev.setAttribute('aria-hidden', 'true'); chev.innerHTML = CPN_CHEV;
+    toggle.appendChild(chev);
+    const box = cpnBuild(widget, coupons, 'o-cpn-toggle'); box.id = 'o-cpn-box';
+    const show = (on) => { box.hidden = !on; toggle.setAttribute('aria-expanded', String(on)); if (on) box.dispatchEvent(new CustomEvent('o-cpn-open')); };
+    show(!!open);
+    toggle.addEventListener('click', () => {
+      const opening = box.hidden;
+      show(opening);
+      if (opening) pdpTrack('origens_coupon_open', { coupons: coupons.length });
+    }, { signal: widget.ac.signal });
+    near.append(toggle, box);
+    return near;
   }
 
   register({
@@ -502,26 +556,45 @@ export const PDP_COUPONS = String.raw`
     mount() {
       if (!this.ac) {
         this.ac = new AbortController();
-        // O frame é preguiçoso: quando a INK o carrega, monta no mesmo instante (sem piscar o quadro nativo).
-        document.addEventListener('turbo:frame-render', (event) => { if (event.target && event.target.id === 'product_promotions_frame' && allowedNow()) this.place(); }, { signal: this.ac.signal });
+        // Quando a INK carrega (ou refaz) o frame, monta no mesmo instante (sem piscar o quadro nativo) e com os cupons novos.
+        document.addEventListener('turbo:frame-render', (event) => {
+          if (!event.target || event.target.id !== 'product_promotions_frame' || !allowedNow()) return;
+          const open = !!document.querySelector('.o-cpn-toggle[aria-expanded="true"]');
+          this.clearNear();
+          this.place(open);
+        }, { signal: this.ac.signal });
       }
-      this.place();
+      this.place(false);
     },
 
-    place() {
+    place(open) {
       const frame = document.querySelector(CPN_FRAME);
-      if (!frame || !frame.closest('form[id^="form-product-"]') || frame.hasAttribute('busy') || frame.getAttribute('aria-busy') === 'true') return;
-      if (frame.querySelector(':scope > .o-cpn') || !frame.querySelector(':scope > div.border')) return;
+      const form = frame && frame.closest('form[id^="form-product-"]');
+      if (!form) return;
+      const price = form.querySelector(CPN_PRICE);
+      // Perto do preço o frame tem de vir já: a INK só o carrega quando ele chega perto da tela, e ele fica lá embaixo. "eager" faz a própria
+      // INK (Turbo) pedir o mesmo endereço que pediria ao rolar.
+      if (price && frame.getAttribute('loading') === 'lazy' && frame.getAttribute('src')) frame.setAttribute('loading', 'eager');
+      if (frame.hasAttribute('busy') || frame.getAttribute('aria-busy') === 'true' || !frame.querySelector(':scope > div.border')) return;
+      if (price ? form.querySelector('.o-cpn-near') : frame.querySelector(':scope > .o-cpn')) return;
       const coupons = cpnParse(frame);
       if (!coupons.length) return; // sem cupom legível: o quadro nativo fica
       cpnEnsureStyle();
-      frame.appendChild(cpnBuild(this, coupons));
+      if (!price) { frame.appendChild(cpnBuild(this, coupons, 'o-cpn-ttl')); return; }
+      price.after(cpnNear(this, coupons, open));
+      frame.setAttribute(CPN_MOVED, '');
+    },
+
+    clearNear() {
+      for (const near of document.querySelectorAll('.o-cpn-near')) near.remove();
+      for (const frame of document.querySelectorAll('[' + CPN_MOVED + ']')) frame.removeAttribute(CPN_MOVED);
     },
 
     unmount() {
       for (const t of this.timers) clearTimeout(t);
       this.timers = [];
       if (this.ac) { this.ac.abort(); this.ac = null; }
+      this.clearNear();
       for (const block of document.querySelectorAll('.o-cpn')) block.remove();
       const style = document.getElementById(CPN_STYLE_ID);
       if (style) style.remove();

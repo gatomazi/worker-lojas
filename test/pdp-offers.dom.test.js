@@ -215,7 +215,7 @@ test('pdp-coupons: one tab per INK coupon, with what it gives, the savings, the 
   assert.equal(panels[1].querySelector('.o-cpn-rules').textContent, 'Mínimo do carrinho: 3 itens');
   assert.ok(t.doc.getElementById('product-promotions-modal'), 'official modal kept in the DOM');
   assert.ok(t.doc.querySelector('#product_promotions_frame > div.border'), 'native box kept in the DOM');
-  assert.match(t.doc.getElementById('o-cpn-style').textContent, /turbo-frame#product_promotions_frame:has\(> \.o-cpn\) > div\.border\{display:none!important\}/);
+  assert.match(t.doc.getElementById('o-cpn-style').textContent, /turbo-frame#product_promotions_frame:has\(> \.o-cpn\) > div\.border,[^{]*\{display:none!important\}/);
 });
 
 test('pdp-coupons: tabs switch by click and arrows; "Copiar" copies the code, says where to use it and measures only the code', async () => {
@@ -273,6 +273,92 @@ test('pdp-coupons: the lazy frame mounts as soon as the INK renders it; empty/un
   t.doc.dispatchEvent(new t.w.Event('turbo:before-cache'));
   assert.equal(t.doc.querySelector('.o-cpn'), null);
   assert.equal(t.doc.getElementById('o-cpn-style'), null);
+});
+
+// O preço como a INK o serve (PDP real de 30/10/2026), logo antes do frame do prazo, dentro do formulário do produto.
+const PRICE = '<div class="flex flex-col items-start gap-1 font-medium mt-5 lg:mt-0" data-ink-labs-anchor="product_price"><span class="flex flex-col justify-center flex-wrap gap-1 font-semibold"><div class="flex items-center gap-2"><p class="text-4xl font-medium">R$ 119,90</p></div></span><p class="font-medium text-base">ou <span class="text-green-500 lg:text-green-600">5x de R$ 23,98 sem juros</span></p></div>';
+const withPrice = (html) => html.replace(/(<turbo-frame id="delivery_estimates_frame")/, PRICE + '$1');
+
+test('pdp-coupons perto do preço: "Cupons disponíveis" logo abaixo do preço, fechado; abre as mesmas abas; o quadro lá de baixo some', async () => {
+  const t = setup({ features: ['pdp-coupons'], html: withPrice(FIXTURE) });
+  await tick();
+  const price = t.doc.querySelector('[data-ink-labs-anchor="product_price"]');
+  const near = price.nextElementSibling;
+  assert.ok(near && near.classList.contains('o-cpn-near'), 'right below the price');
+  assert.equal(t.doc.querySelectorAll('.o-cpn').length, 1, 'only one block: none left inside the frame');
+  const toggle = near.querySelector('.o-cpn-toggle');
+  assert.equal(toggle.textContent.trim(), 'Cupons disponíveis2');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  const box = t.doc.getElementById(toggle.getAttribute('aria-controls'));
+  assert.ok(box && near.contains(box) && box.hidden, 'closed by default');
+  assert.equal(box.getAttribute('aria-labelledby'), 'o-cpn-toggle');
+  assert.equal(box.querySelector('.o-cpn-ttl'), null, 'the button is the title');
+  assert.equal(box.querySelector('[role="tablist"]').getAttribute('aria-labelledby'), 'o-cpn-toggle');
+  const frame = t.doc.getElementById('product_promotions_frame');
+  assert.ok(frame.hasAttribute('data-o-cpn-moved'));
+  assert.ok(frame.querySelector(':scope > div.border'), 'native box kept in the DOM (hidden by CSS)');
+  assert.match(t.doc.getElementById('o-cpn-style').textContent, /,turbo-frame#product_promotions_frame\[data-o-cpn-moved\] > div\.border\{display:none!important\}/);
+  toggle.click();
+  assert.equal(box.hidden, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.deepEqual([...box.querySelectorAll('.o-cpn-tab')].map((b) => b.textContent.trim()), ['PRIMEIRACOMPRA', 'LEVEMAIS']);
+  assert.deepEqual(named(t, 'origens_coupon_open').map((p) => p.coupons), [2]);
+  box.querySelector('.o-cpn-copy').click();
+  await tick(20);
+  assert.deepEqual(t.copied, ['PRIMEIRACOMPRA']);
+  toggle.click();
+  assert.equal(box.hidden, true);
+  assert.equal(named(t, 'origens_coupon_open').length, 1, 'closing is not measured');
+  t.doc.dispatchEvent(new t.w.Event('turbo:before-cache'));
+  assert.equal(t.doc.querySelector('.o-cpn-near, .o-cpn'), null);
+  assert.equal(frame.hasAttribute('data-o-cpn-moved'), false, 'teardown gives the native box back');
+});
+
+test('pdp-coupons perto do preço: um cupom só diz "Cupom disponível", sem contador', async () => {
+  const one = FIXTURE.replace(/<div class="items-center border border-gray-300 p-4 rounded-lg">\s*<div class="flex justify-between">\s*<span[^>]*>\s*LEVEMAIS[\s\S]*?Mínimo do carrinho: 3 itens\s*<\/li>\s*<\/ul>\s*<\/div>/, '');
+  const t = setup({ features: ['pdp-coupons'], html: withPrice(one) });
+  await tick();
+  const toggle = t.doc.querySelector('.o-cpn-toggle');
+  assert.equal(toggle.textContent.trim(), 'Cupom disponível');
+  assert.equal(toggle.querySelector('.o-cpn-count'), null);
+});
+
+test('pdp-coupons perto do preço: o frame preguiçoso é pedido já; monta quando a INK o entrega e refaz sem duplicar (aberto continua aberto)', async () => {
+  const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
+  const inner = FIXTURE.match(/<turbo-frame id="product_promotions_frame"[^>]*>([\s\S]*?)<\/turbo-frame>\s*<turbo-frame loading="lazy"/)[1];
+  const t = setup({ features: ['pdp-coupons'], html: withPrice(lazy) });
+  await tick();
+  const frame = t.doc.getElementById('product_promotions_frame');
+  assert.equal(frame.getAttribute('loading'), 'eager', 'asks INK (Turbo) to load it now');
+  assert.equal(t.doc.querySelector('.o-cpn-near'), null, 'nothing before the coupons arrive');
+  frame.innerHTML = inner;
+  frame.dispatchEvent(new t.w.CustomEvent('turbo:frame-render', { bubbles: true }));
+  assert.ok(t.doc.querySelector('[data-ink-labs-anchor="product_price"] + .o-cpn-near'), 'mounted in the same instant');
+  t.doc.querySelector('.o-cpn-toggle').click();
+  frame.innerHTML = inner;
+  frame.dispatchEvent(new t.w.CustomEvent('turbo:frame-render', { bubbles: true }));
+  await tick();
+  assert.equal(t.doc.querySelectorAll('.o-cpn-near').length, 1);
+  assert.equal(t.doc.querySelector('.o-cpn-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal(t.doc.getElementById('o-cpn-box').hidden, false);
+});
+
+test('pdp-coupons perto do preço: sem cupom na INK, nenhum botão (frame vazio ou sem código legível) e o quadro nativo fica', async () => {
+  const empty = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*>)[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1$2');
+  const a = setup({ features: ['pdp-coupons'], html: withPrice(empty) });
+  await tick();
+  assert.equal(a.doc.querySelector('.o-cpn-near, .o-cpn'), null, 'frame without coupons');
+  const b = setup({ features: ['pdp-coupons'], html: withPrice(FIXTURE.replace(/data-controller="ink-store--clipboard"/g, 'data-controller="x"')) });
+  await tick();
+  assert.equal(b.doc.querySelector('.o-cpn-near, .o-cpn'), null, 'no readable code');
+  assert.equal(b.doc.getElementById('product_promotions_frame').hasAttribute('data-o-cpn-moved'), false, 'native box not hidden');
+});
+
+test('pdp-coupons sem o preço na página: o frame não é forçado (fica preguiçoso)', async () => {
+  const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
+  const t = setup({ features: ['pdp-coupons'], html: lazy });
+  await tick();
+  assert.equal(t.doc.getElementById('product_promotions_frame').getAttribute('loading'), 'lazy');
 });
 
 test('flags: neither module (nor its CSS) without its flag; each one alone works', async () => {
