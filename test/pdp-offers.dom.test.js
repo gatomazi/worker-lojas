@@ -343,6 +343,17 @@ test('pdp-coupons perto do preço: o frame preguiçoso é pedido já; monta quan
   assert.equal(t.doc.getElementById('o-cpn-box').hidden, false);
 });
 
+test('pdp-coupons perto do preço: sem cupom na INK, nenhum botão (frame vazio ou sem código legível) e o quadro nativo fica', async () => {
+  const empty = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*>)[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1$2');
+  const a = setup({ features: ['pdp-coupons'], html: withPrice(empty) });
+  await tick();
+  assert.equal(a.doc.querySelector('.o-cpn-near, .o-cpn'), null, 'frame without coupons');
+  const b = setup({ features: ['pdp-coupons'], html: withPrice(FIXTURE.replace(/data-controller="ink-store--clipboard"/g, 'data-controller="x"')) });
+  await tick();
+  assert.equal(b.doc.querySelector('.o-cpn-near, .o-cpn'), null, 'no readable code');
+  assert.equal(b.doc.getElementById('product_promotions_frame').hasAttribute('data-o-cpn-moved'), false, 'native box not hidden');
+});
+
 test('pdp-coupons sem o preço na página: o frame não é forçado (fica preguiçoso)', async () => {
   const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
   const t = setup({ features: ['pdp-coupons'], html: lazy });

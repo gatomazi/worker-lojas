@@ -318,6 +318,8 @@ export const PDP_COUPONS = String.raw`
   const CPN_CSS = [
     '.o-cpn{--o-cpn-ink:var(--o-ink,#1f2328);--o-cpn-soft:var(--o-ink-soft,#3f3f3a);--o-cpn-mute:var(--o-ink-mute,#5f5f58);--o-cpn-line:var(--o-line-soft,rgba(31,35,40,.16));',
     '--o-cpn-paper:var(--o-paper,#f4f4f2);--o-cpn-surface:var(--o-surface,#fff);--o-cpn-radius:var(--o-radius,8px);',
+    // A cor principal da loja (--o-selected do tema) num tom suave, como o fundo do escolhido no tema; sem tema, um neutro. Sem color-mix, o cinza acima.
+    '--o-cpn-paper:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));--o-cpn-line:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));',
     'display:block;box-sizing:border-box;width:100%;margin:0;color:var(--o-cpn-ink);font-family:var(--o-font,inherit);text-align:left;container-type:inline-size}',
     '.o-cpn *{box-sizing:border-box}',
     '.o-cpn [hidden],.o-cpn[hidden]{display:none!important}',
@@ -353,15 +355,18 @@ export const PDP_COUPONS = String.raw`
     // Perto do preço: o botão que abre e fecha as abas (fora de .o-cpn, por isso as variáveis do tema direto).
     '.o-cpn-near{display:block;box-sizing:border-box;width:100%;margin:0;font-family:var(--o-font,inherit);text-align:left}',
     '.o-cpn-toggle{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 14px;border:1px solid var(--o-line-soft,rgba(31,35,40,.16));',
-    'border-radius:var(--o-radius,8px);background:var(--o-paper,#f4f4f2);color:var(--o-ink,#1f2328);font:inherit;font-size:14px;font-weight:600;line-height:1.2;',
+    'border-color:color-mix(in srgb,var(--o-selected,#1f2328) 40%,var(--o-surface,#fff));border-radius:var(--o-radius,8px);background:var(--o-paper,#f4f4f2);',
+    'background:color-mix(in srgb,var(--o-selected,#1f2328) 20%,var(--o-surface,#fff));color:var(--o-ink,#1f2328);font:inherit;font-size:14px;font-weight:600;line-height:1.2;',
     'cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.o-cpn-toggle > span{display:inline-flex;align-items:center}',
-    '.o-cpn-count{justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o-ink,#1f2328);color:var(--o-surface,#fff);',
+    '.o-cpn-toggle > span:first-child,.o-cpn-tab > span:first-child{color:var(--o-selected,currentColor)}',
+    // O contador na cor cheia, com o texto que o tema garante legível sobre ela (contraste conferido em theme.js).
+    '.o-cpn-count{justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o-selected,#1f2328);color:var(--o-on-selected,#fff);',
     'font-size:12px;font-weight:700}',
     '.o-cpn-chev{transition:transform .2s ease}',
     '.o-cpn-toggle[aria-expanded="true"] .o-cpn-chev{transform:rotate(180deg)}',
     '.o-cpn-toggle:focus-visible{outline:2px solid var(--o-ink,#1f2328);outline-offset:2px}',
-    '@media (hover:hover){.o-cpn-toggle:hover{border-color:var(--o-ink,#1f2328)}}',
+    '@media (hover:hover){.o-cpn-toggle:hover{border-color:var(--o-selected,#1f2328)}}',
     '@media (prefers-reduced-motion:reduce){.o-cpn-chev{transition:none}}',
     '.o-cpn-near > .o-cpn{margin-top:10px}',
     // O quadro nativo só some com o NOSSO bloco no lugar (dentro do frame, :has, ou perto do preço, a marca no frame); o modal oficial continua no DOM.
