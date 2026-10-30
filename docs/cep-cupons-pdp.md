@@ -6,12 +6,15 @@ apareciam como "Cupom · Ver cupons disponíveis" e abriam outro modal. Agora as
 - **Prazo de entrega** (`pdp-cep`): um campo de CEP com "Calcular", e o prazo aparece logo abaixo. Também tem o link "Não sei meu CEP", que abre a
   busca dos Correios em outra aba, e "Alterar CEP" depois do cálculo.
 - **Cupons** (`pdp-coupons`): uma aba por código, com o desenho do oria-worker no tema da Use Origens. Cada aba mostra o que o cupom dá, quanto se
-  economiza nesta peça, as faixas do progressivo e as condições, com o botão "Copiar".
+  economiza nesta peça, as faixas do progressivo e as condições, com o botão "Copiar". Desde 30/10/2026 as abas ficam **logo abaixo do preço**,
+  fechadas atrás de um botão "Cupons disponíveis" (com o número de cupons) ou "Cupom disponível", para ficar perto do preço sem ocupar espaço. O quadro
+  de cupons lá de baixo some. Sem o preço na página (marcação diferente da INK), as abas ficam à vista dentro do frame, como antes.
 
 Cada um tem a sua chave em `WIDGET_FEATURES` (opt-in). Desligada, nem o módulo entra no loader, e o link e o quadro da INK ficam como sempre foram.
 
 Capturas (sessão anônima, CEPs públicos) em [`docs/evidence/cep-cupons-pdp/`](evidence/cep-cupons-pdp/): `antes-*` é a INK de hoje, `cep-*` e
-`cupons-*` mostram com o tema da PDP, e `sem-tema/` mostra sem ele.
+`cupons-*` mostram com o tema da PDP, e `sem-tema/` mostra sem ele. Os cupons abaixo do preço (30/10) estão em
+[`docs/evidence/cupons-perto-do-preco/`](evidence/cupons-perto-do-preco/), com `cupons-fechado-*` (fechado) e `cupons-*` (aberto).
 
 ## De onde vem cada dado
 
@@ -39,7 +42,10 @@ da INK o assume igual faz com o modal. A resposta é um turbo-stream. Comportame
 ### Cupons
 
 Os cupons vêm do frame `#product_promotions_frame`, o mesmo que alimenta o modal oficial. Ele é preguiçoso: carrega quando chega perto da tela, e o
-nosso bloco entra no mesmo instante (`turbo:frame-render`).
+nosso bloco entra no mesmo instante (`turbo:frame-render`). Como o botão fica perto do preço (`[data-ink-labs-anchor="product_price"]`) e o frame
+fica lá embaixo, o módulo troca o `loading` do frame para `eager`: a própria INK (Turbo) pede já o mesmo endereço que pediria ao rolar. Se a INK
+refizer o frame, o bloco é refeito com os cupons novos (aberto continua aberto). O frame recebe `data-o-cpn-moved`, que esconde o quadro nativo só
+enquanto o nosso bloco está no lugar.
 
 O módulo lê de cada cartão o código (o campo escondido do controlador de cópia), o "Você economiza…" e as regras. O título sai dessas regras:
 
@@ -70,7 +76,8 @@ A medição usa as mesmas regras do `PDP_EVENTS`: o gtag da INK, só depois do a
 
 - `origens_cep_calc` com `result` = `ok` | `not_found` | `error`;
 - `origens_cep_finder`;
-- `origens_coupon_copy` com `coupon` = o código.
+- `origens_coupon_copy` com `coupon` = o código;
+- `origens_coupon_open` com `coupons` = quantos cupons há (só ao abrir, não ao fechar).
 
 **Nunca vão o CEP, o bairro ou a cidade.**
 

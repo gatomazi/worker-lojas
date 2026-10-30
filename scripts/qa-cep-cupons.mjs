@@ -80,19 +80,25 @@ async function run({ label, themeFeatures, viewports, shots }) {
       await page.waitForFunction(() => /01001-000/.test(document.querySelector('.o-cep-where')?.textContent || ''), null, { timeout: 20000 }).catch(() => {});
       check(tag + ': segundo cálculo atualiza o prazo', /CEP 01001-000 · Sé, São Paulo/.test(await page.locator('.o-cep-out').innerText().catch(() => '')));
 
-      // Cupons: o frame é preguiçoso (carrega ao chegar perto).
-      await page.locator('#product_promotions_frame').scrollIntoViewIfNeeded();
-      await page.waitForSelector('.o-cpn', { timeout: 30000 }).catch(() => {});
+      // Cupons perto do preço: o frame (preguiçoso, lá embaixo) é pedido já; o botão aparece SEM rolar até ele.
+      await page.evaluate(() => document.querySelector('[data-ink-labs-anchor="product_price"]').scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await page.waitForSelector('.o-cpn-near', { timeout: 30000 }).catch(() => {});
       const cpn = await page.evaluate(() => {
         const box = document.querySelector('#product_promotions_frame > div.border');
-        return { has: !!document.querySelector('.o-cpn'), nativeHidden: !!box && getComputedStyle(box).display === 'none', tabs: [...document.querySelectorAll('.o-cpn-tab')].map((t) => t.textContent.trim()) };
+        const near = document.querySelector('.o-cpn-near');
+        return { has: !!near, belowPrice: !!document.querySelector('[data-ink-labs-anchor="product_price"] + .o-cpn-near'), closed: !!near && near.querySelector('.o-cpn').hidden,
+          nativeHidden: !!box && getComputedStyle(box).display === 'none', label: near ? near.querySelector('.o-cpn-toggle').textContent.trim() : '', tabs: [...document.querySelectorAll('.o-cpn-tab')].map((t) => t.textContent.trim()) };
       });
       const nativeCoupons = await page.evaluate(() => document.querySelectorAll('#product_promotions_frame [data-controller~="ink-store--clipboard"] input[type="hidden"]').length);
       if (!nativeCoupons) {
         // Produto sem cupom na INK: nada nosso, o frame fica como a INK o deixa.
         check(tag + ': sem cupom na INK, nenhum bloco nosso', !cpn.has, JSON.stringify(cpn));
-      } else check(tag + ': cupons em abas no lugar do quadro nativo', cpn.has && cpn.nativeHidden && cpn.tabs.length === nativeCoupons, JSON.stringify(cpn));
+      } else check(tag + ': "Cupons disponíveis" logo abaixo do preço, fechado, sem rolar; o quadro nativo some', cpn.has && cpn.belowPrice && cpn.closed && cpn.nativeHidden && cpn.tabs.length === nativeCoupons, JSON.stringify(cpn));
       if (cpn.has) {
+        await page.waitForTimeout(300);
+        if (shots) await page.screenshot({ path: shots + '/cupons-fechado-' + vp.name + '.png' });
+        await page.locator('.o-cpn-toggle').click();
+        check(tag + ': o botão abre as abas', await page.evaluate(() => !document.getElementById('o-cpn-box').hidden && document.querySelector('.o-cpn-toggle').getAttribute('aria-expanded') === 'true'));
         if (cpn.tabs.length > 1) {
           await page.locator('.o-cpn-tab').nth(1).click();
           const shown = await page.evaluate(() => [...document.querySelectorAll('.o-cpn-panel')].map((p) => !p.hidden));
@@ -103,7 +109,8 @@ async function run({ label, themeFeatures, viewports, shots }) {
         await page.waitForTimeout(300);
         const copied = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
         check(tag + ': "Copiar" copia o código', copied === cpn.tabs[0], copied);
-        await page.evaluate(() => document.querySelector('.o-cpn').scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.evaluate(() => document.querySelector('[data-ink-labs-anchor="product_price"]').scrollIntoView({ block: 'start', behavior: 'instant' }));
+        await page.evaluate(() => window.scrollBy(0, -120));
         await page.waitForTimeout(300);
         if (shots) await page.screenshot({ path: shots + '/cupons-' + vp.name + '.png' });
         if (shots && cpn.tabs.length > 1) {
@@ -113,7 +120,7 @@ async function run({ label, themeFeatures, viewports, shots }) {
         }
       }
       // A PDP nativa SEM tema já rola ~27 px no celular (gaveta fora da tela, conferido em 05/10): aqui vale que os NOSSOS blocos cabem na tela.
-      const fit = await page.evaluate(() => { const w = document.documentElement.clientWidth; return [...document.querySelectorAll('.o-cep, .o-cpn')].map((el) => { const r = el.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), w }; }); });
+      const fit = await page.evaluate(() => { const w = document.documentElement.clientWidth; return [...document.querySelectorAll('.o-cep, .o-cpn-near')].map((el) => { const r = el.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), w }; }); });
       check(tag + ': o prazo e os cupons cabem na largura da tela', fit.length === (cpn.has ? 2 : 1) && fit.every((b) => b.left >= 0 && b.right <= b.w), JSON.stringify(fit));
       check(tag + ': sem erro de script nosso', !errors.some((m) => !/buttons' has already been declared|Identifier 'buttons'/.test(m)), errors.join(' | '));
       await s.ctx.close();
