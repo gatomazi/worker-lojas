@@ -5,6 +5,8 @@ import { FEATURE_NAMES } from '../../src/features.js';
 
 /** O que este release liga. `theme-checkout` fica de fora: o Worker não tem rota no checkout (a exclusão da zona deixa compra e login com a INK). */
 export const THEME_FEATURES = ['theme-pdp', 'theme-cart'];
+/** O que `--remove` pode desligar: chaves só de navegador ou com gateway próprio. As do tema ficam de fora (as rotas do checkout e da conta vêm com elas). */
+export const REMOVABLE_FEATURES = ['promo-fab', 'auto-recommendations', 'pdp-share', 'size-guide', 'pdp-guide', 'size-fit', 'top-bar', 'cart-incentive', 'assistant', 'pdp-cep', 'pdp-coupons', 'post-add-kit', 'product-wait'];
 /** As variáveis que o deploy passa por --var (o TOML é fail-closed nelas); as demais do TOML vão como estão e TÊM de ser iguais às da produção. */
 export const DEPLOY_VARS = ['ENABLE_WIDGET', 'WIDGET_ALLOWLIST', 'WIDGET_FEATURES', 'WIDGET_SCOPE_MODE'];
 const MAX_FEATURES_LENGTH = 320; // o mesmo teto de src/features.js parseFeatures
@@ -36,9 +38,9 @@ export const parseLiveRoutes = (output, worker = 'use-sul-widget') =>
 /**
  * O que o release pode publicar, a partir do health público ATUAL, das variáveis/bindings da versão ativa (`parseVersionBindings`) e do TOML.
  * Saída: { ok, problems, deploy } — `deploy` traz as quatro variáveis do --var: as capturadas, com as features do tema acrescentadas na ordem do
- * registro (src/features.js), e o que conferir depois (`before`, `after`, `allowlistSize`, `scope`).
+ * registro (src/features.js) e as de `remove` tiradas, e o que conferir depois (`before`, `after`, `allowlistSize`, `scope`).
  */
-export function planThemeRelease({ health, captured, tomlBindings, tomlVars, add = THEME_FEATURES }) {
+export function planThemeRelease({ health, captured, tomlBindings, tomlVars, add = THEME_FEATURES, remove = [] }) {
   const problems = [];
   if (!health || typeof health !== 'object') return { ok: false, problems: ['health ilegível'], deploy: null };
   if (!captured || !captured.vars) return { ok: false, problems: ['variáveis da versão ativa ilegíveis (wrangler versions view)'], deploy: null };
@@ -52,7 +54,12 @@ export function planThemeRelease({ health, captured, tomlBindings, tomlVars, add
   if (new Set(before).size !== before.length) problems.push('features capturadas repetidas');
   const already = add.filter((f) => before.includes(f));
   if (already.length) problems.push(`já ligado em produção: ${already.join(',')} (nada a publicar)`);
-  const after = FEATURE_NAMES.filter((f) => before.includes(f) || add.includes(f));
+  const notRemovable = remove.filter((f) => !REMOVABLE_FEATURES.includes(f));
+  if (notRemovable.length) problems.push(`não desligável por este release: ${notRemovable.join(',')}`);
+  const notLive = remove.filter((f) => !before.includes(f));
+  if (notLive.length) problems.push(`já desligado em produção: ${notLive.join(',')} (nada a publicar)`);
+  if (remove.some((f) => add.includes(f))) problems.push('a mesma chave para ligar e desligar');
+  const after = FEATURE_NAMES.filter((f) => (before.includes(f) || add.includes(f)) && !remove.includes(f));
   if (after.join(',').length > MAX_FEATURES_LENGTH) problems.push(`WIDGET_FEATURES passaria de ${MAX_FEATURES_LENGTH} caracteres`);
   const allow = list(vars.WIDGET_ALLOWLIST);
   if (allow.length === 0 || allow.some((p) => !PRODUCT_PATH.test(p)) || new Set(allow).size !== allow.length) problems.push('WIDGET_ALLOWLIST capturada vazia, duplicada ou malformada');
@@ -72,13 +79,13 @@ export function planThemeRelease({ health, captured, tomlBindings, tomlVars, add
   if (health.scope_mode !== scope) problems.push(`health: escopo ${health.scope_mode} != capturado ${scope}`);
   if (health.allowlist_size !== allow.length) problems.push(`health: allowlist ${health.allowlist_size} != capturada ${allow.length}`);
   if (problems.length) return { ok: false, problems, deploy: null };
-  return { ok: true, problems: [], deploy: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: allow.join(','), WIDGET_FEATURES: after.join(','), WIDGET_SCOPE_MODE: scope, before, after, added: add, allowlistSize: allow.length } };
+  return { ok: true, problems: [], deploy: { ENABLE_WIDGET: 'true', WIDGET_ALLOWLIST: allow.join(','), WIDGET_FEATURES: after.join(','), WIDGET_SCOPE_MODE: scope, before, after, added: add, removed: remove, allowlistSize: allow.length } };
 }
 
-/** Depois do deploy: as features são as de antes MAIS as do tema, e nada mais mudou (modo, escopo, allowlist, domínio, regiões). */
-export function sameThemeConfig(before, after, added = THEME_FEATURES) {
+/** Depois do deploy: as features são as de antes MAIS as do tema e MENOS as desligadas, e nada mais mudou (modo, escopo, allowlist, domínio, regiões). */
+export function sameThemeConfig(before, after, added = THEME_FEATURES, removed = []) {
   if (!before || !after) return false;
-  const want = [...(before.widget_features || []), ...added];
+  const want = [...(before.widget_features || []), ...added].filter((f) => !removed.includes(f));
   return after.widget_mode === before.widget_mode && after.scope_mode === before.scope_mode && after.allowlist_size === before.allowlist_size &&
     after.ink_host === before.ink_host && JSON.stringify(after.served_regions) === JSON.stringify(before.served_regions) &&
     sameSet(Array.isArray(after.widget_features) ? after.widget_features : [], want);

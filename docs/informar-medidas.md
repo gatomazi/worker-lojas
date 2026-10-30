@@ -5,6 +5,10 @@ mesma linha e com a mesma altura. A pessoa mede uma peça que já veste bem (lar
 **desta** peça com as medidas mais próximas, com a diferença em centímetros. Porte do módulo da Altura Trek
 (`storefronts/altura-trek/prototipo/src/modulos/medidas`), que lá ficava junto do rótulo "Tamanho".
 
+> **Desligado em 30/10/2026.** A INK passou a ter o próprio quadro de medidas com provador ("Ficou com dúvidas sobre o seu tamanho? Guia de
+> Medidas"), e o nosso botão ficou solto embaixo dele. A chave sai da produção com `release-tema.sh --deploy --remove=size-fit` (ver
+> "Desligamento" abaixo); o código continua no repositório.
+
 Código: `src/loader/size-fit.js` (tabelas, cálculo puro e o módulo do loader). Flag `size-fit` em `WIDGET_FEATURES`, **opt-in** (fica fora de
 `STORE_FEATURES`: um release de rotina não a liga). Independe de `size-guide`: sem ela, o botão fica ao lado do link nativo "Confira suas medidas".
 
@@ -38,7 +42,21 @@ Código: `src/loader/size-fit.js` (tabelas, cálculo puro e o módulo do loader)
   1440×900 e 390×844: botão ao lado do guia, painel livre e dentro da tela, resultado esperado, tamanho marcado na INK, nenhum POST.
   Capturas em `docs/evidence/informar-medidas/`.
 
-## Rollout (NÃO executado; exige autorização do proprietário)
+## Rollout
+
+Ligado na Sul em 15/10/2026; desligado em 30/10/2026 (abaixo).
 
 Igual ao de `size-guide` (`docs/pdp-share-size-guide.md`): uma loja por vez, mesmas variáveis no ar acrescentando só `,size-fit` ao
 `WIDGET_FEATURES`. Rollback: `npx wrangler rollback <versão anotada> --name <worker>`.
+
+## Desligamento
+
+Na pasta de release (checkout em `origin/main`), com o `wrangler login` do proprietário:
+
+```bash
+bash scripts/release-tema.sh --check --remove=size-fit                                   # só leitura: plano sem size-fit e dry-run
+RELEASE_CONFIRM=PUBLICAR-TEMA-INK bash scripts/release-tema.sh --deploy --remove=size-fit
+```
+
+O plano preserva todas as outras chaves; a conferência exige o health de antes **menos** `size-fit` e repete as checagens do `--update`.
+Para religar: `--add` não aceita `size-fit`; use `npx wrangler rollback <versão anotada>` ou acrescente a chave ao `--add` do script.

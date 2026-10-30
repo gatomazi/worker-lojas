@@ -140,6 +140,22 @@ test('--update (only new code): the same features go out, nothing turned on or o
   assert.equal(sameThemeConfig(health, { ...health, widget_features: health.widget_features.slice(0, -1) }, []), false);
 });
 
+test('--remove=size-fit: tira só a chave pedida, preserva o resto e a conferência espera as de antes menos ela', () => {
+  const p = plan({ add: [], remove: ['size-fit'] });
+  assert.equal(p.ok, true, p.problems.join('; '));
+  assert.equal(p.deploy.WIDGET_FEATURES, FEATURES.replace(',size-fit', ''));
+  assert.equal(p.deploy.WIDGET_ALLOWLIST, ALLOW);
+  assert.deepEqual(p.deploy.removed, ['size-fit']);
+  const after = { ...HEALTH, widget_features: HEALTH.widget_features.filter((f) => f !== 'size-fit') };
+  assert.equal(sameThemeConfig(HEALTH, after, [], ['size-fit']), true);
+  assert.equal(sameThemeConfig(HEALTH, HEALTH, [], ['size-fit']), false);
+  assert.equal(sameThemeConfig(HEALTH, { ...after, widget_features: after.widget_features.slice(1) }, [], ['size-fit']), false);
+  const problems = (over) => plan({ add: [], ...over }).problems.join(' | ');
+  assert.match(problems({ remove: ['theme-pdp'] }), /não desligável/);
+  assert.match(problems({ remove: ['top-bar'] }), /já desligado/);
+  assert.match(problems({ add: ['top-bar'], remove: ['top-bar'] }), /ligar e desligar/);
+});
+
 test('top-bar: o release soma a faixa às 18 features de produção sem tirar nenhuma', () => {
   const live = FEATURES.split(',').concat(['theme-pdp', 'theme-cart', 'theme-checkout', 'theme-account']);
   const before = { widget_mode: 'true', scope_mode: 'product-catalog', allowlist_size: 5, ink_host: 'loja.useorigens.com.br', served_regions: ['sul', 'norte', 'centro-oeste'], widget_features: live };
