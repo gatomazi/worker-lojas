@@ -158,7 +158,7 @@ deploy_theme() {
   if [ "$mode" = "--dry-run" ]; then
     (cd "$ROOT" && npx wrangler deploy -c "$CFG" --dry-run --outdir "${TMPDIR:-/tmp}/release-tema-dry" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   else
-    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: ${REMOVE:+remove $REMOVE}${REMOVE:-${ADD:-update}} (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
+    (cd "$ROOT" && npx wrangler deploy -c "$CFG" --message "release-tema: $([ -n "$REMOVE" ] && echo "remove $REMOVE" || echo "${ADD:-update}") (git $(git rev-parse --short HEAD))" --var ENABLE_WIDGET:true --var "WIDGET_ALLOWLIST:$allow" --var "WIDGET_FEATURES:$feats" --var "WIDGET_SCOPE_MODE:$scope")
   fi
 }
 
@@ -328,6 +328,19 @@ smoke_theme() {
   [ "$n" = 1 ] && ok "casca ($SHELL_PAGE): UM loader" || { bad "casca: $n loader(s) (esperado 1)"; return 1; }
 }
 
+# A sonda lê o `wrangler tail`, que logo depois de um deploy pode perder eventos (30/10/2026: trocas e rastreio "sem invocação" logo após o deploy,
+# com o smoke do rastreio provando que o Worker rodava lá; as duas sondas seguintes passaram). Uma reprovação é repetida UMA vez, 20 s depois: uma rota
+# que de fato não executa (ou executa sem dever) reprova nas duas.
+probe_routes() {
+  local i
+  for i in 1 2; do
+    node scripts/checkout-routes.mjs probe "$@" 2>&1 | grep -v '^npm warn' | sed 's/^/   /'
+    [ "${PIPESTATUS[0]}" = 0 ] && return 0
+    [ "$i" = 1 ] && { log "   (sonda reprovada; o tail pode perder eventos logo após o deploy: repetindo em 20 s)"; sleep 20; }
+  done
+  return 1
+}
+
 log "== pré-condições =="
 storefront_theme
 [ "$WITH_TOPBAR" = 1 ] && storefront_top_bar
@@ -413,10 +426,10 @@ if [ -n "$OFFERS" ]; then smoke_pdp_offers || fail "smoke do prazo e dos cupons 
 if [ "$WITH_KIT" = 1 ]; then smoke_kit || fail "smoke do kit reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_WAIT" = 1 ]; then smoke_product_wait || fail "smoke da camiseta em criação reprovado: $(IFS='; '; echo "${FAILS[*]}")"; fi
 if [ "$WITH_CHECKOUT" = 1 ]; then
-  node scripts/checkout-routes.mjs probe 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
+  probe_routes && ok "sonda: só as duas telas do checkout executam o Worker; envios, carrinho e login não" || fail "a sonda das rotas do checkout reprovou"
 fi
 if [ "$WITH_ACCOUNT" = 1 ]; then
-  node scripts/checkout-routes.mjs probe --conta 2>&1 | grep -v '^npm warn' | sed 's/^/   /'; [ "${PIPESTATUS[0]}" = 0 ] && ok "sonda: a tela do login e trocas executam o Worker; o POST do login, outros caminhos de sessão, carrinho e checkout não" || fail "a sonda das rotas da conta reprovou"
+  probe_routes --conta && ok "sonda: a tela do login e trocas executam o Worker; o POST do login, outros caminhos de sessão, carrinho e checkout não" || fail "a sonda das rotas da conta reprovou"
 fi
 
 log ""
