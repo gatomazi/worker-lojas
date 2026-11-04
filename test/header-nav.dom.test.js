@@ -808,6 +808,7 @@ test('phone: the search is a FIELD open in the top bar, like the storefront — 
   assert.equal(t.q('#o-nav-search').hidden, false); assert.equal(t.doc.activeElement, t.q('#o-nav-q')); assert.equal(field.getAttribute('aria-expanded'), 'true');
   const css = t.q('style[data-origens-nav]').textContent;
   assert.match(css, /@media \(max-width:359px\)\{\.navbar__top \.o-nav-tag\{display:none!important\}/, 'below 360 px the tag steps out for the field');
+  assert.ok(css.includes('.navbar__top .o-nav-tag .o-nav-word{display:none!important}'), 'only the tag next to the field: the theme\'s wordmark stays out');
 });
 
 test('phone: the field "types" what the search finds, with the storefront\'s words and rhythm (typed, held, erased, next word); it stops when the page goes', async () => {
