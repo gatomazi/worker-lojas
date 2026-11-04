@@ -264,6 +264,8 @@ export const HEADER_NAV = String.raw`
     '.navbar__top .o-nav-logo.o-nav-tag{position:static;transform:none;flex:0 0 auto;min-height:44px;margin:0}',
     '.navbar__top .o-nav-tag img{height:36px}}',
     '@media (max-width:359px){.navbar__top .o-nav-tag{display:none!important}.o-nav-hint{font-size:14px}}',
+    // Ao lado do campo vai só a etiqueta: o tema da INK (theme.js) mostra o nome "USE ORIGENS" junto do logo no celular, o que apertava o campo.
+    '.navbar__top .o-nav-tag .o-nav-word{display:none!important}',
     '@keyframes o-nav-caret{50%{opacity:0}}',
     '@media (prefers-reduced-motion:reduce){.o-nav-caret{display:none}}',
     // Busca: uma tela só dela, como a da vitrine (SearchDialog): no celular ocupa a tela inteira; no computador, um painel no alto sobre o fundo escurecido.
