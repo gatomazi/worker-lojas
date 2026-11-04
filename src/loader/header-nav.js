@@ -2,6 +2,8 @@
 //   Com `site` no payload (o topo da vitrine como o storefront o desenha): o MESMO topo, sem lista mantida aqui.
 //     Desktop: [logo] [Sua cidade] [Estados ▾] [Categorias ▾ com descrições] [links da barra, os destacados com as cores do CMS] [lupa] + conta e carrinho.
 //     Mobile:  o menu lateral nativo ganha no topo "Encontre aqui a sua cidade" e os blocos do menu do site, na ordem e com os títulos publicados.
+//   Celular (com ou sem "site"): a busca é um CAMPO aberto no topo, como na vitrine — [☰] [campo que "digita" Busque por lugar/tema…] [etiqueta] [carrinho];
+//              tocar abre o mesmo painel de busca com o campo de verdade em foco. Abaixo de 360 px a etiqueta sai (o campo precisa do espaço).
 //     Busca:   enquanto a pessoa digita, as MESMAS sugestões da vitrine (lugares, estampas, páginas; /__origens/busca -> /api/busca) e "Ver todos os
 //              produtos"; Enter sem escolher uma sugestão -> /sul/busca?q=... Sem resposta da busca, só o campo, como antes.
 //   Sem `site` (storefront antigo): o desenho abaixo, de `top`/`more`.
@@ -27,6 +29,14 @@ export const HEADER_NAV = String.raw`
   const NAV_DEBOUNCE_MS = 140; // o mesmo ritmo da busca da vitrine (GlobalSearch)
   const NAV_REGION_NAME = { sul: 'Sul', norte: 'Norte', 'centro-oeste': 'Centro-Oeste' };
   const NAV_HEX = /^#[0-9a-fA-F]{6}$/;
+  // O campo do topo no celular "digita" o que a busca acha: o mesmo texto e o mesmo ritmo da vitrine (src/lib/search/typing-hint.ts no storefront).
+  const NAV_TYPING_PREFIX = 'Busque por ';
+  const NAV_TYPING_WORDS = ['lugar', 'tema', 'coleção', 'cidade', 'estado'];
+  const NAV_TYPING_STILL = 'Busque por lugar, tema ou coleção';
+  const NAV_TYPE_MS = 85;
+  const NAV_ERASE_MS = 45;
+  const NAV_HOLD_MS = 1800;
+  const NAV_GAP_MS = 300;
   const NAV_SITE_URL = new RegExp('^' + NAV.origin.replace(/[.]/g, '\\.') + '/[^\\s]*$');
   const NAV_CACHE_MS = 5 * 60 * 1000;
   const NAV_FETCH_MS = 4000;
@@ -244,6 +254,17 @@ export const HEADER_NAV = String.raw`
     '[data-origens-nav="menu"] .o-acc-btn svg{transition:transform .15s}[data-origens-nav="menu"] .o-acc-btn[aria-expanded="true"] svg{transform:rotate(180deg)}',
     '[data-origens-nav="menu"] .o-acc-list{margin:0;padding:0 0 4px 14px;border-left:2px solid rgba(255,255,255,.3)}',
     '[data-origens-nav="menu"] .o-acc-list[hidden]{display:none}',
+    // Celular: o campo de busca aberto no topo (como o da vitrine) e a etiqueta da marca pequena à direita dele, antes do carrinho.
+    '.o-nav-field{display:none}',
+    '@media (max-width:1023px){.navbar__top .o-nav-field{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;height:40px;margin:0 8px;padding:0 12px;border:0;border-radius:0;background:#fff;color:#111827;font:inherit;text-align:left;cursor:text}',
+    '.navbar__top .o-nav-field svg{flex:0 0 auto}',
+    '.o-nav-hint{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#6b7280;font-size:15px;line-height:1.2}',
+    '.o-nav-caret{display:inline-block;width:1.5px;height:1.05em;margin-left:1px;vertical-align:-.15em;background:currentColor;animation:o-nav-caret 1s steps(1) infinite}',
+    '.navbar__top .o-nav-logo.o-nav-tag{position:static;transform:none;flex:0 0 auto;min-height:44px;margin:0}',
+    '.navbar__top .o-nav-tag img{height:36px}}',
+    '@media (max-width:359px){.navbar__top .o-nav-tag{display:none!important}.o-nav-hint{font-size:14px}}',
+    '@keyframes o-nav-caret{50%{opacity:0}}',
+    '@media (prefers-reduced-motion:reduce){.o-nav-caret{display:none}}',
     // Busca: painel compacto ANCORADO logo abaixo do cabeçalho (não empurra a página nem cria uma faixa vazia).
     '[data-origens-nav="search"]{position:absolute;top:100%;left:8px;right:8px;z-index:70;display:flex;align-items:center;gap:8px;padding:10px;background:#fff;color:#111827;border:2px solid #111827;box-shadow:0 8px 24px rgba(0,0,0,.18)}',
     '[data-origens-nav="search"][hidden]{display:none}',
@@ -327,6 +348,7 @@ export const HEADER_NAV = String.raw`
       const nativeLogo = header.querySelector('a.brand img');
       const logoSrc = nativeLogo ? nativeLogo.getAttribute('src') : '';
       const lupas = [];
+      const fields = [];
       const dropdowns = [];
 
       const style = navEl('style', { 'data-origens-nav': 'style' });
@@ -346,6 +368,45 @@ export const HEADER_NAV = String.raw`
         const button = navEl('button', { type: 'button', class: 'o-nav-lupa', 'aria-label': 'Buscar produtos', 'aria-expanded': 'false', 'aria-controls': 'o-nav-search', 'data-origens-nav': 'lupa' });
         const icon = navEl('span', { 'aria-hidden': 'true' }); icon.innerHTML = NAV_SVG.search; button.appendChild(icon);
         lupas.push(button);
+        return button;
+      };
+      // O campo do topo no celular: um botão com cara de campo (abre o painel, cujo campo de verdade recebe o foco). As palavras que ele "digita" são
+      // decoração (aria-hidden); o nome acessível é o texto parado. Movimento reduzido: o texto inteiro, sem cursor. Aba escondida: pausa na mesma letra.
+      const makeField = () => {
+        const button = navEl('button', { type: 'button', class: 'o-nav-field', 'aria-label': NAV_TYPING_STILL, 'aria-expanded': 'false', 'aria-controls': 'o-nav-search', 'data-origens-nav': 'lupa' });
+        const icon = navEl('span', { 'aria-hidden': 'true' }); icon.innerHTML = NAV_SVG.search; button.appendChild(icon);
+        const hint = navEl('span', { class: 'o-nav-hint', 'aria-hidden': 'true' });
+        button.appendChild(hint);
+        lupas.push(button);
+        fields.push(button);
+        // Sem matchMedia (ambiente sem tela) conta como movimento reduzido: nada de relógio rodando.
+        const reduced = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced) { hint.textContent = NAV_TYPING_STILL; return button; }
+        const words = NAV_TYPING_WORDS.map((w) => Array.from(w));
+        let index = 0; let length = words[0].length; let erasing = false;
+        const caret = navEl('span', { class: 'o-nav-caret' });
+        const paint = () => { hint.textContent = NAV_TYPING_PREFIX + words[index].slice(0, length).join(''); hint.appendChild(caret); };
+        // O mesmo ritmo da vitrine (nextTyping): digita, segura, apaga, intervalo, próxima palavra.
+        const step = () => {
+          const size = words[index].length;
+          if (!erasing && length < size) { length += 1; return length === size ? NAV_HOLD_MS : NAV_TYPE_MS; }
+          if (!erasing) { erasing = true; length = Math.max(0, size - 1); return size <= 1 ? NAV_GAP_MS : NAV_ERASE_MS; }
+          if (length > 1) { length -= 1; return NAV_ERASE_MS; }
+          if (length === 1) { length = 0; return NAV_GAP_MS; }
+          index = (index + 1) % words.length; length = 1; erasing = false;
+          return words[index].length <= 1 ? NAV_HOLD_MS : NAV_TYPE_MS;
+        };
+        let timer = null;
+        const tick = () => {
+          timer = null;
+          if (document.hidden || !button.isConnected) return; // aba escondida: para; volta da mesma letra
+          const delay = step(); paint();
+          timer = setTimeout(tick, delay);
+        };
+        paint();
+        timer = setTimeout(tick, NAV_HOLD_MS);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && !timer && button.isConnected) timer = setTimeout(tick, NAV_HOLD_MS / 2); }, { signal: signal });
+        signal.addEventListener('abort', () => { if (timer) clearTimeout(timer); timer = null; });
         return button;
       };
 
@@ -625,12 +686,14 @@ export const HEADER_NAV = String.raw`
 
       // ── Mobile ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
       if (parts.top) {
-        const nativeBrand = parts.top.querySelector('a.brand');
-        const mobileLogo = logo('o-nav-logo');
-        if (nativeBrand) nativeBrand.insertAdjacentElement('beforebegin', mobileLogo); else parts.top.appendChild(mobileLogo);
+        // [☰] [campo] [etiqueta] [carrinho]: o campo ocupa o lugar do logo nativo (escondido), no meio, e cresce; a etiqueta entra no grupo da direita,
+        // onde estava a lupa nativa (escondida), antes do carrinho.
+        const nativeBrand = parts.top.querySelector(':scope > a.brand');
         const nativeSearch = parts.top.querySelector('button[aria-label="Pesquisar"]');
-        const lupa = makeLupa();
-        if (nativeSearch) nativeSearch.insertAdjacentElement('beforebegin', lupa); else parts.top.appendChild(lupa);
+        const field = makeField();
+        const mobileLogo = logo('o-nav-logo o-nav-tag');
+        if (nativeBrand) nativeBrand.insertAdjacentElement('beforebegin', field); else parts.top.appendChild(field);
+        if (nativeSearch) nativeSearch.insertAdjacentElement('beforebegin', mobileLogo); else field.insertAdjacentElement('afterend', mobileLogo);
         if (parts.menu) {
           const section = navEl('section', { 'data-origens-nav': 'menu', 'aria-label': 'Navegação principal' });
           section.appendChild(site ? navOut(site.journey.url, 'o-cta', site.journey.menuLabel) : navOut(NAV.cities, 'o-cta', 'Encontrar minha cidade'));
@@ -675,7 +738,7 @@ export const HEADER_NAV = String.raw`
         }
       }
 
-      for (const button of lupas) button.addEventListener('click', onLupa, { signal: signal });
+      for (const button of lupas) button.addEventListener('click', () => (fields.indexOf(button) >= 0 ? setSearch(true, true) : onLupa()), { signal: signal });
       // Cliques fora fecham os dropdowns; abrir o menu lateral nativo fecha a busca e os dropdowns (sem sobreposição).
       document.addEventListener('click', (event) => {
         const target = event.target;

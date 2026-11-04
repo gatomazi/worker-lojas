@@ -77,7 +77,7 @@ const key = (t, el, k) => el.dispatchEvent(new t.w.KeyboardEvent('keydown', { ke
 const type = (t, text) => { const input = t.q('#o-nav-q'); input.value = text; input.dispatchEvent(new t.w.Event('input', { bubbles: true })); };
 const enter = (t) => t.q('#o-nav-search').dispatchEvent(new t.w.Event('submit', { bubbles: true, cancelable: true }));
 const desktopLupa = (t) => t.q('[data-origens-nav="desktop"] .o-nav-lupa');
-const mobileLupa = (t) => t.q('.navbar__top .o-nav-lupa');
+const mobileLupa = (t) => t.q('.navbar__top [data-origens-nav="lupa"]');
 const dd = (t, id) => t.q('[data-origens-nav="desktop"] .o-nav-full [data-dd="' + id + '"]');
 const ddOpen = (t, id) => !dd(t, id).querySelector('.o-dd-panel').hidden;
 const texts = (nodes) => [...nodes].map((n) => n.textContent.trim());
@@ -779,4 +779,35 @@ test('search suggestions: nothing found says so; a failing or malformed answer l
   click(slow, desktopLupa(slow)); type(slow, 'Pe'); await tick(250); type(slow, 'Pel'); await tick(400);
   release(); await tick(100);
   assert.equal(slow.all('#o-nav-list [role="option"]').length, 0);
+});
+
+test('phone: the search is a FIELD open in the top bar, like the storefront — [menu] [field] [brand tag] [cart]; a tap opens the search panel with the real field focused (it never closes it)', async () => {
+  const t = setup({ config: WITH_SITE }); await tick(300);
+  const top = t.q('.navbar__top');
+  const field = top.querySelector('.o-nav-field');
+  assert.ok(field); assert.equal(top.querySelectorAll('.o-nav-lupa').length, 0, 'no lupa on the phone any more');
+  assert.equal(field.getAttribute('aria-label'), 'Busque por lugar, tema ou coleção');
+  assert.equal(field.parentElement, top, 'the field sits in the bar itself, where the native logo was (it can grow)');
+  assert.equal(top.querySelector('.o-nav-tag').nextElementSibling, top.querySelector('button[aria-label="Pesquisar"]'), 'the tag in the right group, before the cart');
+  assert.equal(top.querySelector('.o-nav-tag').getAttribute('href'), 'https://useorigens.com.br/sul');
+  const order = [...top.querySelectorAll('.o-nav-field, .o-nav-tag, [href*="cart"], button[aria-label="Pesquisar"], #menu-hamburger')].map((n) => n.className.includes('o-nav-field') ? 'field' : n.className.includes('o-nav-tag') ? 'tag' : n.id === 'menu-hamburger' ? 'menu' : n.getAttribute('aria-label') === 'Pesquisar' ? 'native-search' : 'cart');
+  assert.ok(order.indexOf('menu') < order.indexOf('field') && order.indexOf('field') < order.indexOf('tag'), order.join(','));
+  // No matchMedia (no screen): the still text, no clock.
+  assert.equal(field.querySelector('.o-nav-hint').textContent, 'Busque por lugar, tema ou coleção');
+  click(t, field); click(t, field);
+  assert.equal(t.q('#o-nav-search').hidden, false); assert.equal(t.doc.activeElement, t.q('#o-nav-q')); assert.equal(field.getAttribute('aria-expanded'), 'true');
+  const css = t.q('style[data-origens-nav]').textContent;
+  assert.match(css, /@media \(max-width:359px\)\{\.navbar__top \.o-nav-tag\{display:none!important\}/, 'below 360 px the tag steps out for the field');
+});
+
+test('phone: the field "types" what the search finds, with the storefront\'s words and rhythm (typed, held, erased, next word); it stops when the page goes', async () => {
+  const t = setup({ config: WITH_SITE });
+  t.w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+  await tick(300);
+  const hint = () => t.q('.navbar__top .o-nav-hint').textContent;
+  assert.equal(hint(), 'Busque por lugar', 'starts with the first word whole');
+  assert.ok(t.q('.navbar__top .o-nav-caret'));
+  await tick(1800 + 45 * 5 + 300 + 85 * 2 + 150); // held, "lugar" erased, gap, "te" typed
+  assert.match(hint(), /^Busque por te/);
+  t.w.close();
 });
