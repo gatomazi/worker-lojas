@@ -734,18 +734,32 @@ test('search suggestions: the storefront\'s own groups while typing (one request
   assert.equal(all.textContent, 'Ver todos os produtos para “Pel” →'); assert.equal(all.getAttribute('href'), SF + '/sul/busca?q=Pel');
 });
 
-test('search suggestions: the arrows walk the rows and Enter opens the chosen one; without a choice Enter goes to the results page, as before', async () => {
+test('search suggestions: like the storefront, the first row is marked and Enter opens it; the arrows walk the rows; with no suggestion Enter goes to the results page', async () => {
   const t = setup({ config: WITH_SITE, fetchImpl: withBusca(BUSCA) }); await tick(300);
   click(t, desktopLupa(t)); type(t, 'Pel'); await tick(400);
   const input = t.q('#o-nav-q');
-  key(t, input, 'ArrowDown'); key(t, input, 'ArrowDown');
-  const rows = t.all('#o-nav-list [role="option"]');
-  assert.equal(rows[1].getAttribute('aria-selected'), 'true'); assert.equal(input.getAttribute('aria-activedescendant'), rows[1].id);
+  let rows = t.all('#o-nav-list [role="option"]');
+  assert.equal(rows[0].getAttribute('aria-selected'), 'true'); assert.equal(input.getAttribute('aria-activedescendant'), rows[0].id);
   enter(t); await tick(80);
-  assert.deepEqual(t.navigations, ['https://www.usesul.com.br/usesul/product/pelotas-territorio']);
+  assert.deepEqual(t.navigations, [SF + '/sul/rs/pelotas']);
   type(t, 'Pelo'); await tick(400);
+  key(t, input, 'ArrowDown');
+  rows = t.all('#o-nav-list [role="option"]');
+  assert.equal(rows[1].getAttribute('aria-selected'), 'true');
   enter(t); await tick(80);
-  assert.equal(t.navigations[1], SF + '/sul/busca?q=Pelo');
+  assert.equal(t.navigations[1], 'https://www.usesul.com.br/usesul/product/pelotas-territorio');
+  const none = setup({ config: WITH_SITE, fetchImpl: withBusca({ v: 1, groups: [], others: [] }) }); await tick(300);
+  click(none, desktopLupa(none)); type(none, 'Pelo'); await tick(400);
+  enter(none); await tick(80);
+  assert.deepEqual(none.navigations, [SF + '/sul/busca?q=Pelo']);
+});
+
+test('site header: "Sua cidade" with a cart in the INK goes to the storefront with the cart token AND the #sua-cidade mark (the journey still opens there)', async () => {
+  const t = setup({ features: WITH_MIRROR, cart: cartHtml, config: WITH_SITE }); await tick(300);
+  click(t, t.q('[data-origens-nav="desktop"] .o-nav-full > a')); await tick(400);
+  assert.equal(t.posts().length, 1);
+  const out = new URL(t.navs.at(-1));
+  assert.equal(out.origin + out.pathname, SF + '/sul'); assert.equal(out.searchParams.get('cart_ref'), REF); assert.equal(out.hash, '#sua-cidade');
 });
 
 test('search suggestions: nothing found says so; a failing or malformed answer leaves only the field and "Ver todos"; a stale answer never replaces the current one', async () => {

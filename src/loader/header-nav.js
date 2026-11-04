@@ -518,6 +518,8 @@ export const HEADER_NAV = String.raw`
         }
         if (text.length >= 2) footNodes.push(allLink(text));
         showSugg(rows, footNodes, text.length === 0 ? '' : count > 0 ? count + ' resultados. Use as setas para navegar.' : text.length >= 2 ? 'Nenhum resultado.' : '');
+        // Como na vitrine: a primeira sugestão já vem marcada e Enter a abre ("pelotas" + Enter = Pelotas); as setas trocam.
+        if (count > 0) setActive(0);
       };
       const suggest = () => {
         clearTimeout(suggestTimer);
@@ -544,7 +546,7 @@ export const HEADER_NAV = String.raw`
         }, NAV_DEBOUNCE_MS);
       };
       const submit = () => {
-        // Uma sugestão escolhida pelas setas: Enter a abre, como na vitrine.
+        // A sugestão marcada (a primeira, ou a escolhida pelas setas): Enter a abre, como na vitrine. Sem sugestões, a página de resultados.
         const chosen = active >= 0 ? options()[active] : null;
         if (chosen) { chosen.click(); return; }
         sync();
