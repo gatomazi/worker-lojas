@@ -78,13 +78,14 @@ for (const id of ['norte', 'centro']) {
     const brand = t.q('.o-nav-logo'); assert.ok(brand.getAttribute('aria-label').includes(store.name));
   });
 
-  test(`[${id}] search: typing makes no request; Enter goes to ${store.storefrontBase}/busca?q=…, waiting for one cart snapshot when the cart has items`, async () => {
+  test(`[${id}] search: typing asks only the suggestions of this region (one request after the pause); Enter goes to ${store.storefrontBase}/busca?q=…, waiting for one cart snapshot when the cart has items`, async () => {
     const t = setup(store, { cart: CART }); await tick(300);
     t.q('.o-nav-lupa').dispatchEvent(new t.w.MouseEvent('click', { bubbles: true, cancelable: true }));
     const input = t.q('#o-nav-q'); const before = t.fetches.length;
     for (const text of ['b', 'be', 'bel', 'belem']) { input.value = text; input.dispatchEvent(new t.w.Event('input', { bubbles: true })); }
     await tick(300);
-    assert.equal(t.fetches.length, before, 'no request while typing');
+    const typed = t.fetches.slice(before);
+    assert.deepEqual(typed.map((f) => f.url), ['/__origens/busca?origens_r=' + store.region + '&q=belem'], 'only the suggestions, for this region, after the typing pauses');
     assert.equal(t.posts().length, 0, 'no KV write while typing');
     t.q('#o-nav-search').dispatchEvent(new t.w.Event('submit', { bubbles: true, cancelable: true })); await tick(400);
     assert.equal(t.posts().length, 1, 'exactly one snapshot on exit');
