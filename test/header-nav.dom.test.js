@@ -197,7 +197,7 @@ test('without width for everything only the PRESENTATION changes: one compact Me
   assert.equal(desk.hasAttribute('data-compact'), false, 'back to the full layout when it fits again');
 });
 
-test('the search is closed by default; the lupa opens ONE text field (compact anchored panel) and focuses it; Escape closes it and gives the focus back', async () => {
+test('the search is closed by default; the lupa opens ONE text field in a screen of its own (like the storefront) and focuses it; Escape closes it and gives the focus back', async () => {
   const t = setup(); await tick(300);
   const form = t.q('#o-nav-search'); const input = t.q('#o-nav-q');
   assert.equal(form.hidden, true); assert.equal(desktopLupa(t).getAttribute('aria-expanded'), 'false');
@@ -207,9 +207,19 @@ test('the search is closed by default; the lupa opens ONE text field (compact an
   assert.equal(input.getAttribute('enterkeyhint'), 'search'); assert.equal(input.getAttribute('autocomplete'), 'off'); assert.equal(input.getAttribute('placeholder'), 'Busque uma cidade, estampa ou coleção…');
   assert.equal(t.q('label[for="o-nav-q"]').textContent, 'Buscar produtos'); assert.equal(t.q('.o-nav-go').textContent, 'Buscar');
   const css = t.q('style[data-origens-nav]').textContent;
-  assert.match(css, /\[data-origens-nav="search"\]\{position:absolute;top:100%/, 'anchored below the header: it does not push the page nor add an empty strip');
+  assert.match(css, /\[data-origens-nav="search"\]\{position:fixed;inset:0;/, 'a screen of its own over the page, like the storefront search');
+  const box = t.q('#o-nav-search .o-nav-box');
+  assert.equal(box.getAttribute('role'), 'dialog'); assert.equal(box.getAttribute('aria-modal'), 'true');
+  assert.equal(box.querySelector('.o-nav-head p').textContent, 'O seu lugar, do seu jeito.');
+  assert.equal(t.doc.documentElement.style.overflow, 'hidden', 'the page behind does not scroll');
   key(t, input, 'Escape');
   assert.equal(form.hidden, true); assert.equal(desktopLupa(t).getAttribute('aria-expanded'), 'false'); assert.equal(t.doc.activeElement, desktopLupa(t));
+  assert.equal(t.doc.documentElement.style.overflow, '', 'scrolling comes back');
+  // "Fechar ×" and a tap on the dimmed background close it too; a tap inside the box does not.
+  click(t, desktopLupa(t)); click(t, t.q('.o-nav-close'));
+  assert.equal(form.hidden, true);
+  click(t, desktopLupa(t)); click(t, box); assert.equal(form.hidden, false);
+  click(t, form); assert.equal(form.hidden, true);
 });
 
 test('typing, opening and closing without submitting: only the suggestions are asked (once, after the typing pauses), no cart snapshot, no navigation', async () => {

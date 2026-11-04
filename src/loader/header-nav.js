@@ -199,6 +199,7 @@ export const HEADER_NAV = String.raw`
   }
   const NAV_SVG = {
     search: '<svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.75 14.75L10.25 10.25M11.75 6.5C11.75 8.1 11.1 9.6 10.2 10.2 9.6 11.1 8.1 11.75 6.5 11.75 3.6 11.75 1.25 9.4 1.25 6.5 1.25 3.6 3.6 1.25 6.5 1.25 9.4 1.25 11.75 3.6 11.75 6.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     chevron: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m6 9 6 6 6-6"/></svg>',
     whatsapp: '<svg width="28" height="28" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M16.02 3C9.4 3 4.03 8.37 4.03 14.99c0 2.11.55 4.17 1.6 5.99L4 29l8.2-1.6a11.95 11.95 0 0 0 3.82.62h.01c6.62 0 12-5.37 12-11.99C28.03 8.37 22.64 3 16.02 3Zm0 21.9h-.01c-1.2 0-2.37-.32-3.4-.93l-.24-.15-4.87.95.99-4.75-.16-.25a9.93 9.93 0 0 1-1.52-5.28c0-5.5 4.48-9.98 9.99-9.98 5.5 0 9.97 4.48 9.97 9.98 0 5.5-4.47 9.41-9.75 10.41Zm5.47-7.48c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.49-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.61.14-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35Z"/></svg>'
   };
@@ -265,23 +266,27 @@ export const HEADER_NAV = String.raw`
     '@media (max-width:359px){.navbar__top .o-nav-tag{display:none!important}.o-nav-hint{font-size:14px}}',
     '@keyframes o-nav-caret{50%{opacity:0}}',
     '@media (prefers-reduced-motion:reduce){.o-nav-caret{display:none}}',
-    // Busca: painel compacto ANCORADO logo abaixo do cabeçalho (não empurra a página nem cria uma faixa vazia).
-    '[data-origens-nav="search"]{position:absolute;top:100%;left:8px;right:8px;z-index:70;display:flex;align-items:center;gap:8px;padding:10px;background:#fff;color:#111827;border:2px solid #111827;box-shadow:0 8px 24px rgba(0,0,0,.18)}',
+    // Busca: uma tela só dela, como a da vitrine (SearchDialog): no celular ocupa a tela inteira; no computador, um painel no alto sobre o fundo escurecido.
+    // "O seu lugar, do seu jeito." e "Fechar ×" no alto, o campo grande, as sugestões e "Ver todos os produtos". O "Buscar" fica só para o Enter.
+    '[data-origens-nav="search"]{position:fixed;inset:0;z-index:2147483000;display:block;margin:0;padding:0;background:rgba(0,0,0,.6);overscroll-behavior:contain}',
     '[data-origens-nav="search"][hidden]{display:none}',
-    '[data-origens-nav="search"] .o-nav-input{flex:1 1 auto;min-width:0;height:46px;margin:0;padding:0 14px;border:1px solid #6b7280!important;border-radius:0;background:#fff;color:#111827!important;font-size:16px;line-height:1.2;-webkit-appearance:none;appearance:none;box-shadow:none!important}',
-    '[data-origens-nav="search"] .o-nav-input:focus,[data-origens-nav="search"] .o-nav-input:focus-visible{border-color:#111827!important;box-shadow:none!important;outline:2px solid #111827!important;outline-offset:1px}',
-    '[data-origens-nav="search"] .o-nav-input::placeholder{color:#6b7280}',
-    '[data-origens-nav="search"] .o-nav-go{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:44px;height:46px;padding:0 20px;background:#111827!important;color:#fff!important;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer}',
-    '[data-origens-nav="search"] .o-nav-go:not([href]){opacity:.6;cursor:default}',
-    '[data-origens-nav="search"] .o-nav-go:focus-visible{outline:2px solid #111827;outline-offset:2px}',
-    '@media (min-width:1024px){[data-origens-nav="search"]{left:auto;right:16px;width:min(560px,calc(100vw - 32px))}}',
-    // Sugestões (as mesmas da vitrine) embaixo do campo, dentro do painel; o painel rola sozinho quando a lista é longa.
-    '[data-origens-nav="search"]{flex-wrap:wrap;max-height:min(80vh,640px);overflow-y:auto;overscroll-behavior:contain}',
-    '.o-nav-sugg{flex:1 0 100%;min-width:0}',
+    '.o-nav-box{box-sizing:border-box;display:flex;flex-direction:column;width:100%;height:100%;margin:0 auto;padding:12px 16px 24px;overflow-y:auto;overscroll-behavior:contain;background:#f4f0e8;color:#111827;font-family:inherit}',
+    '@media (min-width:1024px){.o-nav-box{width:min(900px,calc(100vw - 32px));height:auto;max-height:min(85vh,760px);min-height:min(560px,85vh);padding:16px 32px 32px}}',
+    '.o-nav-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}',
+    '.o-nav-head p{margin:0;font-size:14px;font-weight:600;color:#111827}',
+    '.o-nav-close{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:#111827;font:inherit;font-size:15px;font-weight:600;cursor:pointer}',
+    '.o-nav-close:focus-visible{outline:2px solid #111827;outline-offset:2px}',
+    '[data-origens-nav="search"] .o-nav-input{display:block;box-sizing:border-box;width:100%;height:auto;margin:8px 0 0;padding:8px 2px 10px;border:0!important;border-bottom:3px solid #111827!important;border-radius:0;background:transparent!important;color:#111827!important;font-size:clamp(24px,6vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.01em;-webkit-appearance:none;appearance:none;box-shadow:none!important}',
+    '[data-origens-nav="search"] .o-nav-input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}',
+    '[data-origens-nav="search"] .o-nav-input:focus,[data-origens-nav="search"] .o-nav-input:focus-visible{outline:2px solid #111827!important;outline-offset:4px;box-shadow:none!important}',
+    '[data-origens-nav="search"] .o-nav-input::placeholder{color:#6b7280;font-weight:600;font-size:clamp(18px,4.6vw,30px)}',
+    '[data-origens-nav="search"] .o-nav-go{display:none}',
+    // Sugestões (as mesmas da vitrine) embaixo do campo; a caixa rola sozinha quando a lista é longa.
+    '.o-nav-sugg{margin-top:8px;min-width:0}',
     '.o-nav-sugg[hidden]{display:none}',
     '.o-sr-h{margin:12px 4px 2px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}',
     '.o-sr-row{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px;border-bottom:1px solid #e5e7eb;color:#111827!important;text-decoration:none!important;cursor:pointer}',
-    '.o-sr-row[aria-selected="true"],.o-sr-row:hover{background:#111827;color:#fff!important}',
+    '.o-sr-row[aria-selected="true"],.o-sr-row:hover{background:var(--o-nav-primary,#111827);color:#fff!important}',
     '.o-sr-img{flex:0 0 auto;width:48px;height:48px;object-fit:cover;background:#f3f4f6}',
     '.o-sr-x{display:flex;flex-direction:column;gap:2px;min-width:0}',
     '.o-sr-t{font-size:16px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}',
@@ -341,6 +346,8 @@ export const HEADER_NAV = String.raw`
 
     build(parts, config) {
       if (this.ac) this.ac.abort();
+      // A tela da busca mora no <body>: um cabeçalho novo (a INK trocou só o <header>) não pode deixar a anterior sobrando.
+      for (const old of document.querySelectorAll('form[data-origens-nav="search"]')) { if (!old.hidden) document.documentElement.style.overflow = ''; old.remove(); }
       this.ac = new AbortController();
       const signal = this.ac.signal;
       const self = this;
@@ -421,8 +428,18 @@ export const HEADER_NAV = String.raw`
       const foot = navEl('div', { class: 'o-sr-foot' });
       const status = navEl('p', { class: 'o-nav-sr', 'aria-live': 'polite' });
       sugg.append(list, foot);
-      form.append(label, input, go, sugg, status);
-      header.appendChild(form);
+      // A tela da busca: o fundo (o próprio formulário) e a caixa (o diálogo) com o alto "O seu lugar, do seu jeito." + "Fechar ×".
+      const box = navEl('div', { class: 'o-nav-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Buscar na Use Origens' });
+      const head = navEl('div', { class: 'o-nav-head' });
+      head.appendChild(navEl('p', {}, 'O seu lugar, do seu jeito.'));
+      const closer = navEl('button', { type: 'button', class: 'o-nav-close' }, 'Fechar');
+      const x = navEl('span', { 'aria-hidden': 'true' }); x.innerHTML = NAV_SVG.close; closer.appendChild(x);
+      head.appendChild(closer);
+      box.append(head, label, input, go, sugg, status);
+      form.appendChild(box);
+      if (NAV.theme && NAV_HEX.test(NAV.theme.primary || '')) form.style.setProperty('--o-nav-primary', NAV.theme.primary);
+      // No <body>, não no <header>: o cabeçalho da INK cria o próprio empilhamento, e a tela ficaria por baixo dos botões flutuantes (WhatsApp, cupons).
+      document.body.appendChild(form);
 
       // ── Dropdowns (Regiões, Demais categorias, Menu compacto): clique/teclado, um aberto por vez ────────────────────────────────────────────
       const closeDropdowns = (except) => {
@@ -498,10 +515,15 @@ export const HEADER_NAV = String.raw`
         const burger = document.getElementById('menu-hamburger');
         if (burger && burger.getAttribute('aria-expanded') === 'true') burger.click();
       };
+      // A página atrás não rola enquanto a tela da busca está aberta (como o diálogo da vitrine); fechar devolve o que estava.
+      let pageOverflow = null;
       function setSearch(open, focus) {
         if (open === isOpen()) { if (open && focus) input.focus(); return; }
         if (open) { closeNativeMenu(); closeDropdowns(null); } // busca, menu lateral e dropdowns nunca abertos juntos
         form.hidden = !open;
+        const root = document.documentElement;
+        if (open) { pageOverflow = root.style.overflow; root.style.overflow = 'hidden'; }
+        else if (pageOverflow !== null) { root.style.overflow = pageOverflow; pageOverflow = null; }
         for (const button of lupas) button.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) input.focus();
         else if (focus) { const visible = lupas.find((b) => b.getClientRects().length > 0) || lupas[0]; if (visible) visible.focus(); }
@@ -616,11 +638,22 @@ export const HEADER_NAV = String.raw`
       };
       input.addEventListener('input', () => { sync(); suggest(); }, { signal: signal });
       input.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') { event.preventDefault(); setSearch(false, true); }
-        else if (event.key === 'ArrowDown' && options().length > 0) { event.preventDefault(); setActive(active + 1); }
+        if (event.key === 'ArrowDown' && options().length > 0) { event.preventDefault(); setActive(active + 1); }
         else if (event.key === 'ArrowUp' && options().length > 0) { event.preventDefault(); setActive(active < 0 ? -1 : active - 1); }
       }, { signal: signal });
       form.addEventListener('submit', (event) => { event.preventDefault(); submit(); }, { signal: signal });
+      closer.addEventListener('click', () => setSearch(false, true), { signal: signal });
+      // Tocar no fundo escurecido (fora da caixa) fecha.
+      form.addEventListener('click', (event) => { if (event.target === form) setSearch(false, true); }, { signal: signal });
+      // O foco fica dentro da tela da busca (Tab e Shift+Tab dão a volta) e Escape fecha de qualquer lugar dela.
+      box.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); setSearch(false, true); return; }
+        if (event.key !== 'Tab') return;
+        const stops = [closer, input, ...Array.from(foot.querySelectorAll('a'))].filter((el) => el.getClientRects().length > 0);
+        const at = stops.indexOf(document.activeElement);
+        if (event.shiftKey && at <= 0) { event.preventDefault(); stops[stops.length - 1].focus(); }
+        else if (!event.shiftKey && at === stops.length - 1) { event.preventDefault(); stops[0].focus(); }
+      }, { signal: signal });
       go.addEventListener('click', (event) => { if (!go.hasAttribute('href')) { event.preventDefault(); input.focus(); } }, { signal: signal });
       const onLupa = () => { if (isOpen() && query()) submit(); else setSearch(!isOpen(), true); };
 
@@ -754,6 +787,8 @@ export const HEADER_NAV = String.raw`
       clearTimeout(this.fitTimer);
       if (this.ac) { this.ac.abort(); this.ac = null; }
       if (this.headerFix) { this.headerFix.style.position = ''; this.headerFix = null; }
+      // A tela da busca aberta quando a página sai (Turbo): a rolagem da página volta.
+      if (document.querySelector('form[data-origens-nav="search"]:not([hidden])')) document.documentElement.style.overflow = '';
       for (const node of document.querySelectorAll('[data-origens-nav]')) node.remove();
       for (const node of document.querySelectorAll('[data-origens-hide]')) node.removeAttribute('data-origens-hide');
     }
