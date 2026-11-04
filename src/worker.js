@@ -4,6 +4,7 @@ import { parseFeatures } from './features.js';
 import { createSearchGateway } from './search-gateway.js';
 import { createCartRefs } from './cart-ref.js';
 import { createNavbarGateway, NAVBAR_PATH } from './navbar-gateway.js';
+import { BUSCA_PATH, createBuscaGateway } from './busca-gateway.js';
 import { createListSession, LIST_SESSION_PATH } from './list-session.js';
 import { createPromotionsGateway, PROMOTIONS_PATH } from './promotions-gateway.js';
 import { createTopBarGateway, TOP_BAR_PATH } from './top-bar-gateway.js';
@@ -293,12 +294,12 @@ function withRegionCookie(response, region) {
 // Fábrica: permite trocar só a origem (fixtures no preview e nos testes). O Worker de produção
 // (src/worker.js como `main`) usa sempre o fetch global; nada de preview é importado aqui.
 // Os gateways (busca, navbar, sessão de compra) são POR LOJA: nascem sob demanda para a loja do STORE_ID (um Worker só atende uma). Os testes podem injetar os seus.
-export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, assistant = null, kit = null, productWait = null, themeSource = null } = {}) {
+export function createWorker(upstream, { gateway = null, cartRefs = createCartRefs(), navbar = null, listSession = null, promotions = null, topBar = null, recommendations = null, guide = null, assistant = null, kit = null, productWait = null, themeSource = null, busca = null } = {}) {
   const services = new Map();
   // Por loja E região (loja única: a loja vista de cada região tem a própria navbar, busca, guia…).
   const servicesOf = (store) => {
     const key = (store.viewKey ?? store.id) + '|' + store.inkHost;
-    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), assistant: assistant ?? createAssistantGateway({ store }), kit: kit ?? createKitGateway({ store }), productWait: productWait ?? createProductWaitGateway({ store }), theme: themeSource ?? createThemeSource({ store }) });
+    if (!services.has(key)) services.set(key, { gateway: gateway ?? createSearchGateway({ store }), navbar: navbar ?? createNavbarGateway({ store }), listSession: listSession ?? createListSession({ store }), promotions: promotions ?? createPromotionsGateway({ store }), topBar: topBar ?? createTopBarGateway({ store }), recommendations: recommendations ?? createRecommendationsGateway({ store }), guide: guide ?? createGuideGateway({ store }), assistant: assistant ?? createAssistantGateway({ store }), kit: kit ?? createKitGateway({ store }), productWait: productWait ?? createProductWaitGateway({ store }), theme: themeSource ?? createThemeSource({ store }), busca: busca ?? createBuscaGateway({ store }) });
     return services.get(key);
   };
   return {
@@ -388,6 +389,10 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       // Configuração pública da navbar (coleções do CMS): só com true + header-nav; caso contrário a INK responde (404 dela).
       if (url.pathname === NAVBAR_PATH) {
         return mode === 'true' && features.features.includes('header-nav') ? servicesOf(view).navbar.handle(request) : passThrough(request, upstream);
+      }
+      // Sugestões da busca do cabeçalho (a mesma do storefront): parte do header-nav, só com true + header-nav; caso contrário a INK responde.
+      if (url.pathname === BUSCA_PATH) {
+        return mode === 'true' && features.features.includes('header-nav') ? servicesOf(view).busca.handle(request) : passThrough(request, upstream);
       }
       // Cupons e promoções do CMS: só com true + promo-fab; caso contrário a INK responde (404 dela).
       if (url.pathname === PROMOTIONS_PATH) {

@@ -128,3 +128,32 @@ test('contract: a collection url that is the storefront page of this region beco
   assert.equal(normalizeNavbar({ ...GOOD, top: [{ ...entry(1, 'X', 'x', 1), url: 'https://useorigens.com.br/sul/colecoes/x?a=1' }] }), null, 'query: refused');
   assert.deepEqual(normalizeNavbar(GOOD), CLEAN, 'INK urls: unchanged contract');
 });
+
+test('contract "site": the storefront header passes through with every address on the storefront (www or not -> the store origin); a bad item drops alone; a broken block drops "site" whole, never the navbar', () => {
+  const SF = 'https://www.useorigens.com.br';
+  const site = {
+    journey: { label: 'Sua cidade', menuLabel: 'Encontre aqui a sua cidade', url: SF + '/sul#sua-cidade' },
+    states: [{ label: 'Paraná', url: SF + '/sul/pr', badge: 'PR', detail: '399 cidades' }],
+    statesMore: SF + '/sul#estados',
+    categoriesLabel: 'Categorias',
+    categories: [{ label: 'Seu Lugar', url: SF + '/sul/colecoes/seu-lugar', detail: 'Todas as cidades do sul' }, { label: 'Fora', url: 'https://evil.example/x' }],
+    bar: [{ label: 'Canecas', url: SF + '/sul#colecao-canecas' }, { label: 'Natal', url: SF + '/sul/colecoes/natal', highlight: { background: '#df4343', text: '#ffffff', underline: 'red' } }],
+    blocks: [{ kind: 'primary', label: 'Comprar', items: [{ label: 'Canecas', url: SF + '/sul#colecao-canecas' }] }, { kind: 'regions', label: 'Explorar', items: [] }]
+  };
+  const out = normalizeNavbar({ ...GOOD, site });
+  assert.deepEqual({ ...out, site: undefined }, { ...CLEAN, site: undefined }, 'top/more untouched');
+  assert.deepEqual(out.site, {
+    journey: { label: 'Sua cidade', menuLabel: 'Encontre aqui a sua cidade', url: 'https://useorigens.com.br/sul#sua-cidade' },
+    states: [{ label: 'Paraná', url: 'https://useorigens.com.br/sul/pr', badge: 'PR', detail: '399 cidades' }],
+    statesMore: 'https://useorigens.com.br/sul#estados',
+    categoriesLabel: 'Categorias',
+    categories: [{ label: 'Seu Lugar', url: 'https://useorigens.com.br/sul/colecoes/seu-lugar', detail: 'Todas as cidades do sul' }],
+    bar: [{ label: 'Canecas', url: 'https://useorigens.com.br/sul#colecao-canecas' }, { label: 'Natal', url: 'https://useorigens.com.br/sul/colecoes/natal', highlight: { background: '#df4343', text: '#ffffff' } }],
+    blocks: [{ kind: 'primary', label: 'Comprar', items: [{ label: 'Canecas', url: 'https://useorigens.com.br/sul#colecao-canecas' }] }]
+  });
+  for (const broken of [{ ...site, journey: { ...site.journey, url: 'https://evil.example/sul' } }, { ...site, blocks: [{ kind: 'evil', label: 'x', items: [] }] }, { ...site, categories: 'x' }, { ...site, categoriesLabel: '' }, 'x']) {
+    const r = normalizeNavbar({ ...GOOD, site: broken });
+    assert.deepEqual(r, CLEAN, 'the navbar stays, without "site"');
+  }
+  assert.deepEqual(normalizeNavbar({ ...GOOD, site: { ...site, journey: { ...site.journey, url: 'http://www.useorigens.com.br/sul' } } }), CLEAN, 'http: refused');
+});

@@ -4,7 +4,7 @@
 // Garantias (mesmo desenho de search-gateway.js): origem FIXA vinda de stores.js (nenhuma URL vem do visitante), sem repassar Cookie/Authorization,
 // timeout, limite de tamanho, validação estrita de esquema, só campos públicos. Resposta cacheável por 60 s; falha => 503 e o cliente simplesmente NÃO
 // monta a navbar (a da INK segue intacta).
-// Contrato v2: { v:2, region, states:[{uf,name,path}], top:[{id,title,slug,url,order}], more:[...] }. `top` e `more` são grupos LIVRES (qualquer quantidade),
+// Contrato v2: { v:2, region, states:[{uf,name,path}], top:[{id,title,slug,url,order}], more:[...], moreLabel?, site? } (`site`: normalizeSite). `top` e `more` são grupos LIVRES (qualquer quantidade),
 // na ordem do proprietário; nenhuma coleção tem papel especial. v1 (lista única `collections`) ainda é aceito e tratado como `top`.
 import { ACTIVE_STORE } from './stores.js';
 
@@ -63,6 +63,59 @@ function normalizeStates(list, store) {
   return out;
 }
 
+// ── `site`: o topo da vitrine como o storefront o desenha (SiteChrome), para o cabeçalho da INK ser o MESMO, não uma segunda lista mantida à mão ────────
+// Sua cidade (`journey`), Estados (`states` + `statesMore`), Categorias (`categoriesLabel` + `categories`, com descrições), os links da barra (`bar`, os
+// destacados com as cores) e os blocos do menu do celular (`blocks`). Todo endereço TEM de ser do storefront (com ou sem www, https) e sai na origem
+// da loja; um item fora disso sai sozinho. Um `site` inválido some inteiro e o cabeçalho volta ao desenho de `top`/`more` (nada quebra).
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const BLOCK_KINDS = ['primary', 'categories', 'states', 'regions'];
+const MAX_BAR = 20;
+const MAX_BLOCKS = 6;
+function siteUrl(value, store) {
+  if (typeof value !== 'string' || value.length > 300) return null;
+  let url;
+  try { url = new URL(value); } catch (_) { return null; }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || !storefrontHosts(store).includes(url.hostname)) return null;
+  return store.storefront + url.pathname + url.search + url.hash;
+}
+function siteLink(item, store) {
+  if (!item || typeof item !== 'object') return null;
+  const label = cleanText(item.label, 60);
+  const url = siteUrl(item.url, store);
+  if (!label || !url) return null;
+  const out = { label, url };
+  if (typeof item.badge === 'string' && UF.test(item.badge)) out.badge = item.badge;
+  const detail = cleanText(item.detail, 80); if (detail) out.detail = detail;
+  const h = item.highlight;
+  if (h && typeof h === 'object') {
+    const highlight = {};
+    for (const key of ['background', 'text', 'underline']) if (typeof h[key] === 'string' && HEX.test(h[key])) highlight[key] = h[key];
+    if (Object.keys(highlight).length > 0) out.highlight = highlight;
+  }
+  return out;
+}
+const siteLinks = (list, store, max) => (Array.isArray(list) ? list.slice(0, max).map((i) => siteLink(i, store)).filter(Boolean) : null);
+
+export function normalizeSite(site, store = ACTIVE_STORE) {
+  if (!site || typeof site !== 'object' || !site.journey || typeof site.journey !== 'object') return null;
+  const journey = { label: cleanText(site.journey.label, 40), menuLabel: cleanText(site.journey.menuLabel, 60), url: siteUrl(site.journey.url, store) };
+  const states = siteLinks(site.states, store, 8);
+  const categories = siteLinks(site.categories, store, MAX_GROUP);
+  const bar = siteLinks(site.bar, store, MAX_BAR);
+  const categoriesLabel = cleanText(site.categoriesLabel, 30);
+  if (!journey.label || !journey.menuLabel || !journey.url || !states || !categories || !bar || !categoriesLabel || !Array.isArray(site.blocks)) return null;
+  const blocks = [];
+  for (const block of site.blocks.slice(0, MAX_BLOCKS)) {
+    if (!block || !BLOCK_KINDS.includes(block.kind) || blocks.some((b) => b.kind === block.kind)) return null;
+    const label = cleanText(block.label, 40);
+    const items = siteLinks(block.items, store, MAX_GROUP);
+    if (!label || !items) return null;
+    if (items.length > 0) blocks.push({ kind: block.kind, label, items });
+  }
+  const statesMore = site.statesMore === undefined ? null : siteUrl(site.statesMore, store);
+  return { journey, states, ...(statesMore ? { statesMore } : {}), categoriesLabel, categories, bar, blocks };
+}
+
 // Aceita só o formato conhecido; qualquer coisa fora dele => null (a navbar não monta). Nomes são texto puro (o cliente usa textContent).
 // Um slug repetido dentro de um grupo é descartado; o mesmo slug nos DOIS grupos invalida o payload (uma coleção, um lugar).
 export function normalizeNavbar(data, store = ACTIVE_STORE) {
@@ -81,7 +134,8 @@ export function normalizeNavbar(data, store = ACTIVE_STORE) {
   if (more.some((e) => top.some((t) => t.slug === e.slug))) return null;
   // Rótulo do grupo "Categorias" (o nome que o dono deu ao bloco no CMS); ausente = o loader usa o padrão do site.
   const moreLabel = data.v === 2 ? cleanText(data.moreLabel, 30) : null;
-  return { v: 2, states, top, more, ...(moreLabel ? { moreLabel } : {}) };
+  const site = data.v === 2 ? normalizeSite(data.site, store) : null;
+  return { v: 2, states, top, more, ...(moreLabel ? { moreLabel } : {}), ...(site ? { site } : {}) };
 }
 
 export function createNavbarGateway({ upstream = (request, init) => fetch(request, init), store = ACTIVE_STORE } = {}) {

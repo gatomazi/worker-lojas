@@ -204,7 +204,7 @@ test('the search is closed by default; the lupa opens ONE text field (compact an
   assert.equal(t.all('input[type="search"][name="q"]').length, 1, 'a single field of ours');
   click(t, desktopLupa(t));
   assert.equal(form.hidden, false); assert.equal(t.doc.activeElement, input); assert.equal(desktopLupa(t).getAttribute('aria-expanded'), 'true');
-  assert.equal(input.getAttribute('enterkeyhint'), 'search'); assert.equal(input.getAttribute('autocomplete'), 'off'); assert.equal(input.getAttribute('placeholder'), 'Buscar cidade, estampa ou coleção');
+  assert.equal(input.getAttribute('enterkeyhint'), 'search'); assert.equal(input.getAttribute('autocomplete'), 'off'); assert.equal(input.getAttribute('placeholder'), 'Busque uma cidade, estampa ou coleção…');
   assert.equal(t.q('label[for="o-nav-q"]').textContent, 'Buscar produtos'); assert.equal(t.q('.o-nav-go').textContent, 'Buscar');
   const css = t.q('style[data-origens-nav]').textContent;
   assert.match(css, /\[data-origens-nav="search"\]\{position:absolute;top:100%/, 'anchored below the header: it does not push the page nor add an empty strip');
@@ -212,7 +212,7 @@ test('the search is closed by default; the lupa opens ONE text field (compact an
   assert.equal(form.hidden, true); assert.equal(desktopLupa(t).getAttribute('aria-expanded'), 'false'); assert.equal(t.doc.activeElement, desktopLupa(t));
 });
 
-test('typing, opening and closing without submitting: no request, no cart snapshot, no navigation', async () => {
+test('typing, opening and closing without submitting: only the suggestions are asked (once, after the typing pauses), no cart snapshot, no navigation', async () => {
   const t = setup({ features: WITH_MIRROR, cart: cartHtml }); await tick(300);
   const before = t.fetches.length;
   click(t, mobileLupa(t)); await tick(50);
@@ -224,7 +224,10 @@ test('typing, opening and closing without submitting: no request, no cart snapsh
   click(t, dd(t, 'regioes').querySelector('button')); click(t, dd(t, 'regioes').querySelector('button'));
   click(t, t.q('.o-acc-btn')); click(t, t.q('.o-acc-btn'));
   await tick(300);
-  assert.equal(t.fetches.length, before, 'zero requests after mount (menus, accordions and search are all local)');
+  // The typing pauses once ("chimarrão"): ONE suggestions request for that text; menus and accordions are local.
+  const after = t.fetches.slice(before);
+  assert.equal(after.length, 1, 'one request after mount: the suggestions for the last text');
+  assert.match(after[0].url, /^\/__origens\/busca\?origens_r=sul&q=chimarr%C3%A3o$/); assert.equal(after[0].credentials, 'omit');
   assert.equal(t.posts().length, 0); assert.equal(t.navs.length + t.navigations.length, 0);
 });
 
@@ -396,16 +399,16 @@ test('idempotent and Turbo-safe: repeated syncs keep exactly one header; a fresh
   assert.equal(t.all('[data-origens-nav="desktop"]').length, 1, 'back on the product page it mounts again');
 });
 
-test('the config is cached for the session (v2 key): a second page load inside the window does not fetch it again; an expired entry is refetched', async () => {
+test('the config is cached for the session (v3 key): a second page load inside the window does not fetch it again; an expired entry is refetched', async () => {
   const first = setup(); await tick(300);
-  const stored = { 'origens:nav:v2': first.w.sessionStorage.getItem('origens:nav:v2') };
-  assert.ok(stored['origens:nav:v2']);
+  const stored = { 'origens:nav:v3': first.w.sessionStorage.getItem('origens:nav:v3') };
+  assert.ok(stored['origens:nav:v3']);
   const second = setup({ carry: stored }); await tick(300);
   assert.equal(second.navFetches().length, 0); assert.ok(second.q('[data-origens-nav="desktop"]'));
-  const stale = JSON.parse(stored['origens:nav:v2']); stale.at = Date.now() - 10 * 60 * 1000;
-  const third = setup({ carry: { 'origens:nav:v2': JSON.stringify(stale) } }); await tick(300);
+  const stale = JSON.parse(stored['origens:nav:v3']); stale.at = Date.now() - 10 * 60 * 1000;
+  const third = setup({ carry: { 'origens:nav:v3': JSON.stringify(stale) } }); await tick(300);
   assert.equal(third.navFetches().length, 1);
-  const old = setup({ carry: { 'origens:nav:v1': stored['origens:nav:v2'] } }); await tick(300);
+  const old = setup({ carry: { 'origens:nav:v2': stored['origens:nav:v3'] } }); await tick(300);
   assert.equal(old.navFetches().length, 1, 'an entry from the old contract is never read');
 });
 
@@ -636,4 +639,130 @@ test('collection pages of the site: an entry with `page` links to the storefront
   const menu = t.q('[data-origens-nav="menu"]');
   assert.equal([...menu.children][5].querySelector('button').textContent.trim(), 'Coleções da loja');
   assert.equal(menu.querySelector('a[href="' + page + 'novidades"]').getAttribute('data-origens-nav'), 'link');
+});
+
+// ── O topo da vitrine ("site" no payload) e as sugestões da busca ────────────────────────────────────────────────────────────────────────────
+const SF = 'https://useorigens.com.br';
+const SITE = {
+  journey: { label: 'Sua cidade', menuLabel: 'Encontre aqui a sua cidade', url: SF + '/sul#sua-cidade' },
+  states: [{ label: 'Paraná', url: SF + '/sul/pr', badge: 'PR', detail: '399 cidades' }, { label: 'Santa Catarina', url: SF + '/sul/sc', badge: 'SC', detail: '295 cidades' }],
+  statesMore: SF + '/sul#estados',
+  categoriesLabel: 'Categorias',
+  categories: ['Natal', 'Seu Lugar', 'Do Nosso Jeito', 'Da Nossa Terra', 'Fala Daqui'].map((label, i) => ({ label, url: SF + '/sul/colecoes/c' + i, ...(i === 1 ? { detail: 'Todas as cidades do sul' } : {}) })),
+  bar: [{ label: 'Canecas', url: SF + '/sul#colecao-canecas' }, { label: 'Natal', url: SF + '/sul/colecoes/natal', highlight: { background: '#df4343', text: '#ffffff' } }],
+  blocks: [
+    { kind: 'primary', label: 'Comprar', items: [{ label: 'Canecas', url: SF + '/sul#colecao-canecas' }] },
+    { kind: 'categories', label: 'Categorias', items: [{ label: 'Natal', url: SF + '/sul/colecoes/natal' }] },
+    { kind: 'states', label: 'Estados do Sul', items: [{ label: 'Paraná', url: SF + '/sul/pr', badge: 'PR' }] }
+  ]
+};
+const WITH_SITE = { ...CONFIG, site: SITE };
+const BUSCA = {
+  v: 1,
+  groups: [
+    { group: 'places', total: 1, items: [{ kind: 'locality', region: 'sul', title: 'Pelotas', subtitle: 'Rio Grande do Sul · Sudeste Rio-grandense', tag: 'Cidade', href: SF + '/sul/rs/pelotas', dest: 'site' }] },
+    { group: 'designs', total: 2, items: [
+      { kind: 'design', region: 'sul', title: 'Pelotas · Território', subtitle: 'R$ 109,90', href: 'https://www.usesul.com.br/usesul/product/pelotas-territorio', dest: 'ink', image: IMG },
+      { kind: 'design', region: 'sul', title: 'Pelotas · Caneca', subtitle: 'R$ 72,90', tag: 'Caneca', href: 'https://artigos.useorigens.com.br/caneca/la-de-pelotas-rs-446524.html', dest: 'external', image: 'https://umapenca.imgix.net/446524/x.jpg' }
+    ] }
+  ],
+  others: [{ kind: 'locality', region: 'norte', title: 'Pelotas do Norte', subtitle: 'Pará', href: SF + '/norte/pa/x', dest: 'site' }]
+};
+const withBusca = (body, status = 200) => (url) => {
+  if (url.includes('/__origens/navbar')) return json(WITH_SITE);
+  if (url.includes('/__origens/busca')) return typeof body === 'function' ? body(url) : json(body, status);
+  return new Response('nope', { status: 404 });
+};
+
+test('site header: the storefront\'s own bar — Sua cidade, Estados ▾ (UF, name, places, Ver estados), Categorias ▾ (with descriptions, two columns), the bar\'s links with the highlight colours; no "Cidades"', async () => {
+  const t = setup({ config: WITH_SITE }); await tick(300);
+  const full = t.q('[data-origens-nav="desktop"] .o-nav-full');
+  assert.deepEqual([...full.children].map((n) => (n.matches('a') ? 'a:' + n.textContent : 'dd:' + n.querySelector('button').textContent.trim())), ['a:Sua cidade', 'dd:Estados', 'dd:Categorias', 'a:Canecas', 'a:Natal']);
+  assert.equal(full.querySelector(':scope > a').getAttribute('href'), SF + '/sul#sua-cidade');
+  assert.equal(full.querySelector(':scope > a').getAttribute('data-origens-nav'), 'link', 'our link: the cart travels with it');
+  const states = dd(t, 'regioes').querySelectorAll('.o-dd-panel a');
+  assert.deepEqual([...states].map((a) => [a.querySelector('.o-dd-badge') && a.querySelector('.o-dd-badge').textContent, a.textContent]), [['PR', 'PRParaná399 cidades'], ['SC', 'SCSanta Catarina295 cidades'], [null, 'Ver estados']]);
+  const cats = dd(t, 'demais').querySelector('.o-dd-panel');
+  assert.ok(cats.classList.contains('o-dd-wide') && cats.classList.contains('o-dd-center'));
+  assert.equal(cats.querySelector('.o-dd-sub').textContent, 'Todas as cidades do sul');
+  const natal = [...full.querySelectorAll(':scope > a')].find((a) => a.textContent === 'Natal');
+  assert.ok(natal.classList.contains('o-hl')); assert.equal(natal.style.getPropertyValue('--hl-bg'), '#df4343'); assert.equal(natal.style.getPropertyValue('--hl-text'), '#ffffff'); assert.ok(natal.hasAttribute('data-hl-bg'));
+  assert.equal(t.all('[data-origens-nav="desktop"] a').some((a) => a.textContent === 'Cidades'), false);
+  // Compact: one Menu ▾ with everything, same addresses.
+  const compact = t.q('[data-origens-nav="desktop"] .o-nav-compact [data-dd="menu"] .o-dd-panel');
+  assert.deepEqual(texts(compact.querySelectorAll('.o-dd-h')), ['Estados', 'Categorias']);
+  assert.ok(compact.querySelector('a[href="' + SF + '/sul#colecao-canecas"]'));
+});
+
+test('site header on the phone: "Encontre aqui a sua cidade" first, then the site menu\'s blocks in its order (Comprar links in view, the others as closed accordions)', async () => {
+  const t = setup({ config: WITH_SITE }); await tick(300);
+  const menu = t.q('[data-origens-nav="menu"]');
+  const cta = menu.querySelector('a.o-cta');
+  assert.equal(cta.textContent, 'Encontre aqui a sua cidade'); assert.equal(cta.getAttribute('href'), SF + '/sul#sua-cidade');
+  assert.deepEqual([...menu.children].map((n) => n.matches('.o-acc') ? 'acc:' + n.querySelector('button').textContent.trim() : n.tagName.toLowerCase() + ':' + n.textContent), ['a:Encontre aqui a sua cidade', 'p:Comprar', 'a:Canecas', 'acc:Categorias', 'acc:Estados do Sul']);
+  const states = [...menu.querySelectorAll('.o-acc')][1];
+  assert.equal(states.querySelector('.o-acc-list').hidden, true);
+  assert.deepEqual([...states.querySelectorAll('a')].map((a) => a.textContent), ['Paraná', 'Ver estados']);
+});
+
+test('site header: an invalid "site" (a link off the storefront) is ignored and the top/more layout stays; the rest of the payload still mounts', async () => {
+  const bad = { ...CONFIG, site: { ...SITE, bar: [{ label: 'Fora', url: 'https://evil.example/x' }] } };
+  const t = setup({ config: bad }); await tick(300);
+  assert.ok(t.q('[data-origens-nav="desktop"]'));
+  assert.ok(t.all('[data-origens-nav="desktop"] a').some((a) => a.textContent === 'Cidades'), 'the old layout');
+  assert.equal(t.all('a').some((a) => a.textContent === 'Fora'), false);
+});
+
+test('search suggestions: the storefront\'s own groups while typing (one request after the pause), site rows through the cart bridge, INK and Uma Penca rows as plain links, "Ver todos os produtos"', async () => {
+  const t = setup({ config: WITH_SITE, fetchImpl: withBusca(BUSCA) }); await tick(300);
+  click(t, desktopLupa(t)); type(t, 'Pel'); await tick(400);
+  const busca = t.fetches.filter((f) => f.url.includes('/__origens/busca'));
+  assert.equal(busca.length, 1); assert.equal(busca[0].url, '/__origens/busca?origens_r=sul&q=Pel');
+  const input = t.q('#o-nav-q');
+  assert.equal(input.getAttribute('role'), 'combobox'); assert.equal(input.getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(texts(t.all('#o-nav-list .o-sr-h')), ['Cidades e localidades', 'Estampas', 'Em outras regiões']);
+  const rows = t.all('#o-nav-list [role="option"]');
+  assert.deepEqual(rows.map((a) => [a.querySelector('.o-sr-t').textContent, a.getAttribute('href'), a.getAttribute('data-origens-nav')]), [
+    ['Pelotas', SF + '/sul/rs/pelotas', 'link'],
+    ['Pelotas · Território', 'https://www.usesul.com.br/usesul/product/pelotas-territorio', null],
+    ['Pelotas · Caneca', 'https://artigos.useorigens.com.br/caneca/la-de-pelotas-rs-446524.html', null],
+    ['Pelotas do Norte', SF + '/norte/pa/x', 'link']
+  ]);
+  assert.equal(rows[1].querySelector('img').getAttribute('src'), IMG);
+  assert.equal(rows[3].querySelector('.o-sr-s').textContent, 'Pará · Norte', 'another region says which');
+  const all = t.q('.o-sr-foot a');
+  assert.equal(all.textContent, 'Ver todos os produtos para “Pel” →'); assert.equal(all.getAttribute('href'), SF + '/sul/busca?q=Pel');
+});
+
+test('search suggestions: the arrows walk the rows and Enter opens the chosen one; without a choice Enter goes to the results page, as before', async () => {
+  const t = setup({ config: WITH_SITE, fetchImpl: withBusca(BUSCA) }); await tick(300);
+  click(t, desktopLupa(t)); type(t, 'Pel'); await tick(400);
+  const input = t.q('#o-nav-q');
+  key(t, input, 'ArrowDown'); key(t, input, 'ArrowDown');
+  const rows = t.all('#o-nav-list [role="option"]');
+  assert.equal(rows[1].getAttribute('aria-selected'), 'true'); assert.equal(input.getAttribute('aria-activedescendant'), rows[1].id);
+  enter(t); await tick(80);
+  assert.deepEqual(t.navigations, ['https://www.usesul.com.br/usesul/product/pelotas-territorio']);
+  type(t, 'Pelo'); await tick(400);
+  enter(t); await tick(80);
+  assert.equal(t.navigations[1], SF + '/sul/busca?q=Pelo');
+});
+
+test('search suggestions: nothing found says so; a failing or malformed answer leaves only the field and "Ver todos"; a stale answer never replaces the current one', async () => {
+  const empty = setup({ config: WITH_SITE, fetchImpl: withBusca({ v: 1, groups: [], others: [] }) }); await tick(300);
+  click(empty, desktopLupa(empty)); type(empty, 'zzz'); await tick(400);
+  assert.equal(empty.all('#o-nav-list [role="option"]').length, 0);
+  assert.match(empty.q('.o-sr-foot').textContent, /Não encontramos nada com esse nome\./);
+  for (const fetchImpl of [withBusca({ error: 'unavailable' }, 503), withBusca({ v: 1, groups: [{ group: 'places', items: [{ title: 'x', href: 'javascript:alert(1)', dest: 'site' }] }] })]) {
+    const t = setup({ config: WITH_SITE, fetchImpl }); await tick(300);
+    click(t, desktopLupa(t)); type(t, 'Pel'); await tick(400);
+    assert.equal(t.all('#o-nav-list [role="option"]').length, 0);
+    assert.equal(t.q('.o-sr-foot a').getAttribute('href'), SF + '/sul/busca?q=Pel');
+  }
+  // The answer for "Pe" arrives after "Pel" was typed: it is dropped.
+  let release;
+  const slow = setup({ config: WITH_SITE, fetchImpl: withBusca((url) => (url.endsWith('q=Pe') ? new Promise((r) => { release = () => r(json(BUSCA)); }) : json({ v: 1, groups: [], others: [] }))) }); await tick(300);
+  click(slow, desktopLupa(slow)); type(slow, 'Pe'); await tick(250); type(slow, 'Pel'); await tick(400);
+  release(); await tick(100);
+  assert.equal(slow.all('#o-nav-list [role="option"]').length, 0);
 });

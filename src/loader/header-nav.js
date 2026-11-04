@@ -1,4 +1,10 @@
 // header-nav: aproxima o cabeçalho da INK do storefront Use Origens nas páginas de produto cobertas pelo Worker, e acrescenta o FAB de WhatsApp.
+//   Com `site` no payload (o topo da vitrine como o storefront o desenha): o MESMO topo, sem lista mantida aqui.
+//     Desktop: [logo] [Sua cidade] [Estados ▾] [Categorias ▾ com descrições] [links da barra, os destacados com as cores do CMS] [lupa] + conta e carrinho.
+//     Mobile:  o menu lateral nativo ganha no topo "Encontre aqui a sua cidade" e os blocos do menu do site, na ordem e com os títulos publicados.
+//     Busca:   enquanto a pessoa digita, as MESMAS sugestões da vitrine (lugares, estampas, páginas; /__origens/busca -> /api/busca) e "Ver todos os
+//              produtos"; Enter sem escolher uma sugestão -> /sul/busca?q=... Sem resposta da busca, só o campo, como antes.
+//   Sem `site` (storefront antigo): o desenho abaixo, de `top`/`more`.
 //   Desktop:  [logo] [Regiões ▾] [coleções do Topo] [Demais categorias ▾] [Cidades] [lupa] + conta e carrinho nativos da INK.
 //   Mobile:   hambúrguer, logo central, lupa e carrinho; o menu lateral nativo ganha no topo Cidades, Regiões (accordion), as coleções do Topo e
 //             "Demais categorias" (accordion fechado); a conta e o atendimento nativos continuam acessíveis (rolagem do menu inteiro).
@@ -16,7 +22,12 @@
 export const HEADER_NAV = String.raw`
   const NAV = __NAV_STORE__;
   const NAV_ENDPOINT = '/__origens/navbar';
-  const NAV_CACHE_KEY = 'origens:nav:v2';
+  const NAV_CACHE_KEY = 'origens:nav:v3'; // v3: o payload ganhou "site" (um cache v2 desenharia o topo antigo por até 5 min)
+  const NAV_BUSCA = '/__origens/busca';
+  const NAV_DEBOUNCE_MS = 140; // o mesmo ritmo da busca da vitrine (GlobalSearch)
+  const NAV_REGION_NAME = { sul: 'Sul', norte: 'Norte', 'centro-oeste': 'Centro-Oeste' };
+  const NAV_HEX = /^#[0-9a-fA-F]{6}$/;
+  const NAV_SITE_URL = new RegExp('^' + NAV.origin.replace(/[.]/g, '\\.') + '/[^\\s]*$');
   const NAV_CACHE_MS = 5 * 60 * 1000;
   const NAV_FETCH_MS = 4000;
   const NAV_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
@@ -48,6 +59,73 @@ export const HEADER_NAV = String.raw`
     }
     return out;
   }
+  // "site": o topo da vitrine (já validado no gateway; aqui de novo). Endereços só do storefront. Inválido => null e o desenho de top/more.
+  function navSiteLinks(list, max) {
+    if (!Array.isArray(list) || list.length > max) return null;
+    const out = [];
+    for (const item of list) {
+      const label = item && navText(item.label, 60);
+      if (!label || typeof item.url !== 'string' || !NAV_SITE_URL.test(item.url)) return null;
+      const link = { label: label, url: item.url };
+      if (typeof item.badge === 'string' && /^[A-Z]{2}$/.test(item.badge)) link.badge = item.badge;
+      const detail = navText(item.detail, 80);
+      if (detail) link.detail = detail;
+      const h = item.highlight;
+      if (h && typeof h === 'object') {
+        const hl = {};
+        for (const k of ['background', 'text', 'underline']) if (typeof h[k] === 'string' && NAV_HEX.test(h[k])) hl[k] = h[k];
+        if (Object.keys(hl).length > 0) link.highlight = hl;
+      }
+      out.push(link);
+    }
+    return out;
+  }
+  function navSite(site) {
+    if (!site || typeof site !== 'object' || !site.journey || typeof site.journey !== 'object') return null;
+    const j = site.journey;
+    const journey = { label: navText(j.label, 40), menuLabel: navText(j.menuLabel, 60), url: typeof j.url === 'string' && NAV_SITE_URL.test(j.url) ? j.url : null };
+    const states = navSiteLinks(site.states, 8);
+    const categories = navSiteLinks(site.categories, NAV_MAX_GROUP);
+    const bar = navSiteLinks(site.bar, 20);
+    const categoriesLabel = navText(site.categoriesLabel, 30);
+    if (!journey.label || !journey.menuLabel || !journey.url || !states || !categories || !bar || !categoriesLabel || !Array.isArray(site.blocks) || site.blocks.length > 6) return null;
+    const blocks = [];
+    for (const b of site.blocks) {
+      const items = b && navSiteLinks(b.items, NAV_MAX_GROUP);
+      const label = b && navText(b.label, 40);
+      if (!items || !label || ['primary', 'categories', 'states', 'regions'].indexOf(b.kind) < 0) return null;
+      blocks.push({ kind: b.kind, label: label, items: items });
+    }
+    const statesMore = typeof site.statesMore === 'string' && NAV_SITE_URL.test(site.statesMore) ? site.statesMore : null;
+    return { journey: journey, states: states, statesMore: statesMore, categoriesLabel: categoriesLabel, categories: categories, bar: bar, blocks: blocks };
+  }
+  // Resposta de /__origens/busca (o gateway já conferiu cada destino; aqui só o formato). Inválida => null e só o campo, como antes.
+  const NAV_BUSCA_GROUPS = { places: 'Cidades e localidades', designs: 'Estampas', editorial: 'Coleções e temas' };
+  function navBuscaItems(list) {
+    if (!Array.isArray(list) || list.length > 24) return null;
+    const out = [];
+    for (const r of list) {
+      const title = r && navText(r.title, 100);
+      if (!title || typeof r.href !== 'string' || !/^https:\/\/[^\s]+$/.test(r.href) || ['site', 'ink', 'external'].indexOf(r.dest) < 0) return null;
+      out.push({
+        kind: r.kind, region: typeof r.region === 'string' ? r.region : '', title: title, href: r.href, dest: r.dest,
+        subtitle: navText(r.subtitle, 160), tag: navText(r.tag, 40), image: typeof r.image === 'string' && /^https:\/\/[^\s"'()]+$/.test(r.image) ? r.image : null
+      });
+    }
+    return out;
+  }
+  function navBusca(data) {
+    if (!data || data.v !== 1 || !Array.isArray(data.groups)) return null;
+    const groups = [];
+    for (const g of data.groups) {
+      const items = g && navBuscaItems(g.items);
+      if (!items || !Object.prototype.hasOwnProperty.call(NAV_BUSCA_GROUPS, g.group)) return null;
+      groups.push({ group: g.group, items: items });
+    }
+    const others = navBuscaItems(data.others || []);
+    return others ? { groups: groups, others: others } : null;
+  }
+
   // Contrato v2 do gateway (já validado no servidor; o cliente valida de novo: defesa em profundidade e cache do sessionStorage).
   function navValidate(data) {
     if (!data || data.v !== 2 || !Array.isArray(data.states) || data.states.length > 8) return null;
@@ -60,7 +138,8 @@ export const HEADER_NAV = String.raw`
       states.push({ uf: s.uf, name: name, path: s.path });
     }
     const moreLabel = navText(data.moreLabel, 30) || NAV_MORE_LABEL;
-    return { top: top, more: more, states: states, moreLabel: moreLabel };
+    const site = data.site === undefined ? null : navSite(data.site);
+    return { top: top, more: more, states: states, moreLabel: moreLabel, site: site };
   }
   function navReadCache() {
     try {
@@ -174,7 +253,34 @@ export const HEADER_NAV = String.raw`
     '[data-origens-nav="search"] .o-nav-go{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:44px;height:46px;padding:0 20px;background:#111827!important;color:#fff!important;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer}',
     '[data-origens-nav="search"] .o-nav-go:not([href]){opacity:.6;cursor:default}',
     '[data-origens-nav="search"] .o-nav-go:focus-visible{outline:2px solid #111827;outline-offset:2px}',
-    '@media (min-width:1024px){[data-origens-nav="search"]{left:auto;right:16px;width:min(440px,calc(100vw - 32px))}}',
+    '@media (min-width:1024px){[data-origens-nav="search"]{left:auto;right:16px;width:min(560px,calc(100vw - 32px))}}',
+    // Sugestões (as mesmas da vitrine) embaixo do campo, dentro do painel; o painel rola sozinho quando a lista é longa.
+    '[data-origens-nav="search"]{flex-wrap:wrap;max-height:min(80vh,640px);overflow-y:auto;overscroll-behavior:contain}',
+    '.o-nav-sugg{flex:1 0 100%;min-width:0}',
+    '.o-nav-sugg[hidden]{display:none}',
+    '.o-sr-h{margin:12px 4px 2px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}',
+    '.o-sr-row{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px;border-bottom:1px solid #e5e7eb;color:#111827!important;text-decoration:none!important;cursor:pointer}',
+    '.o-sr-row[aria-selected="true"],.o-sr-row:hover{background:#111827;color:#fff!important}',
+    '.o-sr-img{flex:0 0 auto;width:48px;height:48px;object-fit:cover;background:#f3f4f6}',
+    '.o-sr-x{display:flex;flex-direction:column;gap:2px;min-width:0}',
+    '.o-sr-t{font-size:16px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}',
+    '.o-sr-s{font-size:13px;line-height:1.3;color:#6b7280}',
+    '.o-sr-row[aria-selected="true"] .o-sr-s,.o-sr-row:hover .o-sr-s{color:rgba(255,255,255,.8)}',
+    '.o-sr-foot{margin:12px 4px 4px;font-size:15px;line-height:1.4;color:#111827}',
+    '.o-sr-foot a{display:inline-flex;align-items:center;min-height:44px;color:#111827!important;font-weight:600;text-decoration:underline;text-underline-offset:3px}',
+    '.o-sr-foot .o-sr-muted{display:block;margin-top:2px;color:#6b7280;font-size:14px}',
+    // Topo da vitrine: um link da barra em destaque (cores do CMS, como .menu-highlight do site) e as linhas com sigla e descrição nos menus.
+    '.o-nav-links a.o-hl{color:var(--hl-text,inherit)}',
+    '.o-nav-links a.o-hl[data-hl-bg]{align-self:center;min-height:32px;padding:0 12px;background:var(--hl-bg)}',
+    '.o-nav-links a.o-hl[data-hl-line]{text-decoration:underline;text-decoration-color:var(--hl-line);text-decoration-thickness:2px;text-underline-offset:6px}',
+    '.o-dd-panel a.o-dd-row{gap:12px;min-height:52px;padding:6px 16px}',
+    '.o-dd-badge{flex:0 0 2.5rem;font:800 24px/1 "Big Shoulders Display","Arial Narrow",Impact,sans-serif;text-transform:uppercase}',
+    '.o-dd-txt{display:flex;flex-direction:column;gap:2px;min-width:0}',
+    '.o-dd-sub{font-size:13px;font-weight:400;line-height:1.3;color:#6b7280}',
+    '.o-dd-panel a:hover .o-dd-sub,.o-dd-panel a:focus-visible .o-dd-sub{color:rgba(255,255,255,.8)}',
+    '.o-dd-panel.o-dd-center{left:50%;transform:translateX(-50%)}',
+    '.o-dd-panel.o-dd-states{min-width:288px}', // a largura do menu de estados do site (w-72): "Rio Grande do Sul" numa linha
+    '.o-dd-panel.o-dd-wide:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));width:min(640px,92vw);max-width:min(640px,92vw);max-height:min(75vh,560px)}',
     '.o-nav-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}'
   ].join('');
 
@@ -246,9 +352,15 @@ export const HEADER_NAV = String.raw`
       // ── Busca: um único campo (painel compacto ancorado) ──────────────────────────────────────────────────────────────────────────────
       const form = navEl('form', { id: 'o-nav-search', role: 'search', 'data-origens-nav': 'search', hidden: '', action: NAV.search, method: 'get' });
       const label = navEl('label', { for: 'o-nav-q', class: 'o-nav-sr' }, 'Buscar produtos');
-      const input = navEl('input', { id: 'o-nav-q', class: 'o-nav-input', type: 'search', name: 'q', maxlength: String(NAV_QUERY_MAX), enterkeyhint: 'search', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'Buscar cidade, estampa ou coleção' });
+      const input = navEl('input', { id: 'o-nav-q', class: 'o-nav-input', type: 'search', name: 'q', maxlength: String(NAV_QUERY_MAX), enterkeyhint: 'search', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'Busque uma cidade, estampa ou coleção…', role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': 'o-nav-list' });
       const go = navEl('a', { class: 'o-nav-go', 'data-origens-nav': 'link' }, 'Buscar');
-      form.append(label, input, go);
+      // Sugestões: a lista (listbox) e um rodapé ("Ver todos os produtos", nada encontrado, falha) que não é opção da lista.
+      const sugg = navEl('div', { class: 'o-nav-sugg', hidden: '' });
+      const list = navEl('div', { id: 'o-nav-list', role: 'listbox', 'aria-label': 'Resultados da busca' });
+      const foot = navEl('div', { class: 'o-sr-foot' });
+      const status = navEl('p', { class: 'o-nav-sr', 'aria-live': 'polite' });
+      sugg.append(list, foot);
+      form.append(label, input, go, sugg, status);
       header.appendChild(form);
 
       // ── Dropdowns (Regiões, Demais categorias, Menu compacto): clique/teclado, um aberto por vez ────────────────────────────────────────────
@@ -292,6 +404,32 @@ export const HEADER_NAV = String.raw`
         for (const state of config.states) panel.appendChild(navOut(navStateHref(state), '', state.name));
         panel.appendChild(navOut(NAV.cities, '', 'Ver estados'));
       };
+      // Topo da vitrine ("site"): linhas com a sigla do estado e a descrição embaixo do nome, como nos menus do site.
+      const site = config.site;
+      const siteRow = (item) => {
+        const a = navOut(item.url, item.badge || item.detail ? 'o-dd-row' : '', item.badge || item.detail ? '' : item.label);
+        if (item.badge) a.appendChild(navEl('span', { class: 'o-dd-badge', 'aria-hidden': 'true' }, item.badge));
+        if (item.badge || item.detail) {
+          const text = navEl('span', { class: 'o-dd-txt' });
+          text.appendChild(navEl('span', {}, item.label));
+          if (item.detail) text.appendChild(navEl('span', { class: 'o-dd-sub' }, item.detail));
+          a.appendChild(text);
+        }
+        return a;
+      };
+      const siteRows = (panel, items) => { for (const item of items) panel.appendChild(siteRow(item)); };
+      const siteStates = (panel) => { siteRows(panel, site.states); if (site.statesMore) panel.appendChild(navOut(site.statesMore, '', 'Ver estados')); };
+      // Um link da barra; o destacado leva as cores do CMS (variáveis como as do .menu-highlight do site).
+      const siteBarLink = (item) => {
+        const a = navOut(item.url, item.highlight ? 'o-hl' : '', item.label);
+        const h = item.highlight;
+        if (h) {
+          if (h.background) { a.style.setProperty('--hl-bg', h.background); a.setAttribute('data-hl-bg', ''); }
+          if (h.text) a.style.setProperty('--hl-text', h.text);
+          if (h.underline) { a.style.setProperty('--hl-line', h.underline); a.setAttribute('data-hl-line', ''); }
+        }
+        return a;
+      };
 
       // ── Busca: abrir/fechar/enviar ────────────────────────────────────────────────────────────────────────────────────────────────────────
       const isOpen = () => !form.hidden;
@@ -316,13 +454,109 @@ export const HEADER_NAV = String.raw`
         url.searchParams.set('q', text);
         go.setAttribute('href', url.href);
       };
+      // ── Sugestões enquanto digita (as mesmas da vitrine). Só a resposta ao texto ATUAL aparece; a anterior é cancelada a cada tecla. ─────────────
+      let suggestTimer = null;
+      let suggestAc = null;
+      let active = -1;
+      const options = () => Array.from(list.querySelectorAll('[role="option"]'));
+      const setActive = (index) => {
+        const all = options();
+        active = all.length === 0 ? -1 : (index + all.length) % all.length;
+        all.forEach((el, i) => el.setAttribute('aria-selected', i === active ? 'true' : 'false'));
+        if (active >= 0) { input.setAttribute('aria-activedescendant', all[active].id); if (all[active].scrollIntoView) all[active].scrollIntoView({ block: 'nearest' }); }
+        else input.removeAttribute('aria-activedescendant');
+      };
+      const showSugg = (rows, footNodes, announce) => {
+        list.replaceChildren(...rows);
+        foot.replaceChildren(...footNodes);
+        sugg.hidden = rows.length === 0 && footNodes.length === 0;
+        input.setAttribute('aria-expanded', rows.length > 0 ? 'true' : 'false');
+        active = -1; input.removeAttribute('aria-activedescendant');
+        status.textContent = announce || '';
+      };
+      const allLink = (text) => {
+        const url = new URL(NAV.search); url.searchParams.set('q', text);
+        const p = navEl('p', {}); p.appendChild(navOut(url.href, '', 'Ver todos os produtos para “' + text + '” →'));
+        return p;
+      };
+      let optionId = 0;
+      const row = (r, other) => {
+        // Um caminho da vitrine é saída NOSSA (leva o carrinho junto, como os outros links do topo); produto da INK e artigo da Uma Penca, links comuns.
+        const a = r.dest === 'site' ? navOut(r.href, 'o-sr-row', '') : navEl('a', { href: r.href, class: 'o-sr-row' });
+        a.setAttribute('role', 'option'); a.setAttribute('aria-selected', 'false'); a.setAttribute('tabindex', '-1'); a.id = 'o-sr-' + (++optionId);
+        if (r.image) {
+          const img = navEl('img', { src: r.image, alt: '', loading: 'lazy', decoding: 'async', class: 'o-sr-img' });
+          img.addEventListener('error', () => { img.style.visibility = 'hidden'; }, { once: true }); // imagem quebrada: quadro vazio, sem ícone nem salto
+          a.appendChild(img);
+        }
+        const text = navEl('span', { class: 'o-sr-x' });
+        text.appendChild(navEl('span', { class: 'o-sr-t' }, r.title));
+        const place = r.kind === 'locality' || r.kind === 'state';
+        const sub = [(!place && (other || r.kind === 'page') && r.tag) ? r.tag + ' · ' : '', r.subtitle || '', other && NAV_REGION_NAME[r.region] ? ' · ' + NAV_REGION_NAME[r.region] : ''].join('');
+        if (sub) text.appendChild(navEl('span', { class: 'o-sr-s' }, sub));
+        a.appendChild(text);
+        a.addEventListener('mousemove', () => { const i = options().indexOf(a); if (i !== active) setActive(i); }, { signal: signal });
+        return a;
+      };
+      const renderSugg = (text, data) => {
+        const rows = [];
+        const section = (id, title, items, other) => {
+          if (items.length === 0) return;
+          const group = navEl('div', { role: 'group', 'aria-labelledby': 'o-sr-g-' + id });
+          group.appendChild(navEl('p', { class: 'o-sr-h', id: 'o-sr-g-' + id, role: 'presentation' }, title));
+          for (const r of items) group.appendChild(row(r, other));
+          rows.push(group);
+        };
+        for (const g of data.groups) section(g.group, NAV_BUSCA_GROUPS[g.group], g.items, false);
+        section('others', 'Em outras regiões', data.others, true);
+        const count = data.groups.reduce((n, g) => n + g.items.length, data.others.length);
+        const footNodes = [];
+        if (count === 0 && text.length >= 2) {
+          const p = navEl('p', {}, 'Não encontramos nada com esse nome.');
+          p.appendChild(navEl('span', { class: 'o-sr-muted' }, 'Tente o nome de uma cidade, de uma estampa ou de uma coleção.'));
+          footNodes.push(p);
+        }
+        if (text.length >= 2) footNodes.push(allLink(text));
+        showSugg(rows, footNodes, text.length === 0 ? '' : count > 0 ? count + ' resultados. Use as setas para navegar.' : text.length >= 2 ? 'Nenhum resultado.' : '');
+      };
+      const suggest = () => {
+        clearTimeout(suggestTimer);
+        if (suggestAc) { suggestAc.abort(); suggestAc = null; }
+        const text = query();
+        if (!text) { showSugg([], [], ''); return; }
+        suggestTimer = setTimeout(async () => {
+          const ac = new AbortController();
+          suggestAc = ac;
+          const timer = setTimeout(() => ac.abort(), NAV_FETCH_MS);
+          try {
+            const response = await fetch(withRegion(NAV_BUSCA) + '&q=' + encodeURIComponent(text), { credentials: 'omit', headers: { accept: 'application/json' }, signal: ac.signal });
+            if (!response.ok) throw new Error('status');
+            const data = navBusca(await response.json());
+            if (!data) throw new Error('schema');
+            if (suggestAc === ac && query() === text) renderSugg(text, data);
+          } catch (_) {
+            // Sem sugestões: o campo continua levando à página de resultados da vitrine (Enter ou "Buscar").
+            if (suggestAc === ac && query() === text) showSugg([], text.length >= 2 ? [allLink(text)] : [], '');
+          } finally {
+            clearTimeout(timer);
+            if (suggestAc === ac) suggestAc = null;
+          }
+        }, NAV_DEBOUNCE_MS);
+      };
       const submit = () => {
+        // Uma sugestão escolhida pelas setas: Enter a abre, como na vitrine.
+        const chosen = active >= 0 ? options()[active] : null;
+        if (chosen) { chosen.click(); return; }
         sync();
         if (!go.hasAttribute('href')) { input.focus(); return; } // vazio ou só espaços: não navega, devolve o foco ao campo
         go.click();
       };
-      input.addEventListener('input', sync, { signal: signal });
-      input.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.preventDefault(); setSearch(false, true); } }, { signal: signal });
+      input.addEventListener('input', () => { sync(); suggest(); }, { signal: signal });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); setSearch(false, true); }
+        else if (event.key === 'ArrowDown' && options().length > 0) { event.preventDefault(); setActive(active + 1); }
+        else if (event.key === 'ArrowUp' && options().length > 0) { event.preventDefault(); setActive(active < 0 ? -1 : active - 1); }
+      }, { signal: signal });
       form.addEventListener('submit', (event) => { event.preventDefault(); submit(); }, { signal: signal });
       go.addEventListener('click', (event) => { if (!go.hasAttribute('href')) { event.preventDefault(); input.focus(); } }, { signal: signal });
       const onLupa = () => { if (isOpen() && query()) submit(); else setSearch(!isOpen(), true); };
@@ -332,21 +566,45 @@ export const HEADER_NAV = String.raw`
         const block = navEl('div', { 'data-origens-nav': 'desktop' });
         block.appendChild(logo('o-nav-logo'));
         const links = navEl('nav', { class: 'o-nav-links', 'aria-label': 'Principal' });
-        // Layout completo: Regiões ▾, coleções do Topo, Demais categorias ▾ (só se houver), Cidades.
         const full = navEl('div', { class: 'o-nav-full' });
-        full.appendChild(makeDropdown('regioes', NAV_STATES_LABEL, stateLinks));
-        for (const item of config.top) full.appendChild(navCollectionLink(item));
-        if (config.more.length > 0) full.appendChild(makeDropdown('demais', config.moreLabel, (panel) => linkList(panel, config.more)));
-        links.appendChild(full);
-        // Layout compacto (mesmos dados, uma só apresentação): Menu ▾ com Regiões, Coleções e Demais categorias.
         const compact = navEl('div', { class: 'o-nav-compact' });
-        compact.appendChild(makeDropdown('menu', 'Menu', (panel) => {
-          panel.appendChild(navEl('p', { class: 'o-dd-h' }, NAV_STATES_LABEL)); stateLinks(panel);
-          if (config.top.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Coleções')); linkList(panel, config.top); }
-          if (config.more.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, config.moreLabel)); linkList(panel, config.more); }
-        }));
-        links.appendChild(compact);
-        links.appendChild(navOut(NAV.cities, '', 'Cidades'));
+        if (site) {
+          // O topo da vitrine: Sua cidade, Estados ▾, Categorias ▾ (com as descrições) e os links da barra, na mesma ordem.
+          full.appendChild(navOut(site.journey.url, '', site.journey.label));
+          if (site.states.length > 0) full.appendChild(makeDropdown('regioes', NAV_STATES_LABEL, (panel) => { panel.classList.add('o-dd-states'); siteStates(panel); }));
+          if (site.categories.length > 0) {
+            full.appendChild(makeDropdown('demais', site.categoriesLabel, (panel) => {
+              panel.classList.add('o-dd-center');
+              // Com descrições, duas colunas a partir de cinco (como o site); sem, uma lista.
+              if (site.categories.some((c) => c.detail) && site.categories.length > 4) panel.classList.add('o-dd-wide');
+              siteRows(panel, site.categories);
+            }));
+          }
+          for (const item of site.bar) full.appendChild(siteBarLink(item));
+          links.appendChild(full);
+          // Compacto (mesmos dados, uma só apresentação): Menu ▾ com tudo.
+          compact.appendChild(makeDropdown('menu', 'Menu', (panel) => {
+            panel.appendChild(navOut(site.journey.url, '', site.journey.label));
+            if (site.states.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, NAV_STATES_LABEL)); siteStates(panel); }
+            if (site.categories.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, site.categoriesLabel)); siteRows(panel, site.categories); }
+            if (site.bar.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); for (const item of site.bar) panel.appendChild(navOut(item.url, '', item.label)); }
+          }));
+          links.appendChild(compact);
+        } else {
+          // Layout completo: Regiões ▾, coleções do Topo, Demais categorias ▾ (só se houver), Cidades.
+          full.appendChild(makeDropdown('regioes', NAV_STATES_LABEL, stateLinks));
+          for (const item of config.top) full.appendChild(navCollectionLink(item));
+          if (config.more.length > 0) full.appendChild(makeDropdown('demais', config.moreLabel, (panel) => linkList(panel, config.more)));
+          links.appendChild(full);
+          // Layout compacto (mesmos dados, uma só apresentação): Menu ▾ com Regiões, Coleções e Demais categorias.
+          compact.appendChild(makeDropdown('menu', 'Menu', (panel) => {
+            panel.appendChild(navEl('p', { class: 'o-dd-h' }, NAV_STATES_LABEL)); stateLinks(panel);
+            if (config.top.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, 'Coleções')); linkList(panel, config.top); }
+            if (config.more.length > 0) { panel.appendChild(navEl('hr', { class: 'o-dd-sep' })); panel.appendChild(navEl('p', { class: 'o-dd-h' }, config.moreLabel)); linkList(panel, config.more); }
+          }));
+          links.appendChild(compact);
+          links.appendChild(navOut(NAV.cities, '', 'Cidades'));
+        }
         block.appendChild(links);
         block.appendChild(makeLupa());
         parts.desktop.insertBefore(block, parts.desktop.firstElementChild);
@@ -373,7 +631,7 @@ export const HEADER_NAV = String.raw`
         if (nativeSearch) nativeSearch.insertAdjacentElement('beforebegin', lupa); else parts.top.appendChild(lupa);
         if (parts.menu) {
           const section = navEl('section', { 'data-origens-nav': 'menu', 'aria-label': 'Navegação principal' });
-          section.appendChild(navOut(NAV.cities, 'o-cta', 'Encontrar minha cidade'));
+          section.appendChild(site ? navOut(site.journey.url, 'o-cta', site.journey.menuLabel) : navOut(NAV.cities, 'o-cta', 'Encontrar minha cidade'));
           const accordion = (id, text, fill) => {
             const wrap = navEl('div', { class: 'o-acc' });
             const button = navEl('button', { type: 'button', class: 'o-acc-btn', 'aria-expanded': 'false', 'aria-controls': 'o-acc-' + id });
@@ -385,12 +643,27 @@ export const HEADER_NAV = String.raw`
             wrap.append(button, list);
             return wrap;
           };
-          section.appendChild(accordion('regioes', NAV_STATES_LABEL, (list) => { for (const state of config.states) list.appendChild(navOut(navStateHref(state), '', state.name)); list.appendChild(navOut(NAV.cities, '', 'Ver estados')); }));
-          if (config.top.length > 0) {
-            section.appendChild(navEl('p', { class: 'o-nav-title' }, 'Coleções'));
-            for (const item of config.top) section.appendChild(navCollectionLink(item));
+          if (site) {
+            // Os blocos do menu do site, na ordem e com os títulos publicados: os links do "Comprar" à vista; Categorias, Estados e Regiões em accordion.
+            for (const block of site.blocks) {
+              if (block.kind === 'primary') {
+                section.appendChild(navEl('p', { class: 'o-nav-title' }, block.label));
+                for (const item of block.items) section.appendChild(navOut(item.url, '', item.label));
+              } else {
+                section.appendChild(accordion(block.kind, block.label, (box) => {
+                  for (const item of block.items) box.appendChild(navOut(item.url, '', item.label));
+                  if (block.kind === 'states' && site.statesMore) box.appendChild(navOut(site.statesMore, '', 'Ver estados'));
+                }));
+              }
+            }
+          } else {
+            section.appendChild(accordion('regioes', NAV_STATES_LABEL, (list) => { for (const state of config.states) list.appendChild(navOut(navStateHref(state), '', state.name)); list.appendChild(navOut(NAV.cities, '', 'Ver estados')); }));
+            if (config.top.length > 0) {
+              section.appendChild(navEl('p', { class: 'o-nav-title' }, 'Coleções'));
+              for (const item of config.top) section.appendChild(navCollectionLink(item));
+            }
+            if (config.more.length > 0) section.appendChild(accordion('demais', config.moreLabel, (list) => linkList(list, config.more)));
           }
-          if (config.more.length > 0) section.appendChild(accordion('demais', config.moreLabel, (list) => linkList(list, config.more)));
           parts.menu.insertBefore(section, parts.menu.firstChild);
           // "Dashboard" sem destino válido (bugado): some da vista; Meus pedidos, Sair, Entrar, Rastreio, Trocar pedido e WhatsApp nativos ficam.
           for (const a of parts.menu.querySelectorAll('li a')) {
