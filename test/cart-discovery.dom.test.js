@@ -293,3 +293,22 @@ test('dense mode keeps search, toggle and CTA working with many items; native ro
   root.querySelector('.o-close').click(); assert.equal(root.querySelector('.o-panel').hidden, true);
   assert.match(t.doc.querySelector('style[data-origens-discovery-style]').textContent, /\.o-dense \.o-lead\{display:none\}/);
 });
+
+test('carrinho tematizado com a área rolável em COLUNA (marcação real de 08/11): o bloco vai para o fim dela, depois da oferta exclusiva; sem tema ou em linha, dentro da lista', async () => {
+  const t = setup(); await tick();
+  t.doc.body.setAttribute('data-origens-theme', 'pdp cart');
+  const main = t.doc.querySelector('.cart-drawer__main');
+  main.style.cssText = 'display:flex;flex-direction:column';
+  main.insertAdjacentHTML('beforeend', '<div data-ink-labs-anchor="cart_items_below"></div><turbo-frame id="order_bump_offer_frame"><div id="order-bump-offer">Oferta exclusiva</div></turbo-frame>');
+  openDrawer(t.doc); await tick(350);
+  const root = t.doc.querySelector('[data-origens-discovery="cart"]');
+  assert.ok(root && root.classList.contains('o-dense'));
+  assert.equal(root.parentElement.tagName, 'DIV');
+  assert.equal(root.parentElement.parentElement, main);
+  assert.equal(main.lastElementChild, root.parentElement, 'depois da oferta exclusiva');
+  assert.equal(t.doc.querySelectorAll('.cart-drawer__main ul > li[data-origens-slot]').length, 0);
+  const row = setup(); await tick();
+  row.doc.body.setAttribute('data-origens-theme', 'pdp cart');
+  openDrawer(row.doc); await tick(350);
+  assert.equal(row.doc.querySelector('[data-origens-discovery="cart"]').parentElement.tagName, 'LI', 'sem coluna: dentro da lista, como antes');
+});

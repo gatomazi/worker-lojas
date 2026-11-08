@@ -60,10 +60,25 @@ async function openModal(t) {
   await tick();
 }
 const kit = (t) => t.doc.querySelector('[data-origens-kit]');
-const rows = (t) => [...t.doc.querySelectorAll('.o-kit-tier')].map((li) => [...li.querySelectorAll('[aria-hidden="true"], .o-kit-qty, .o-kit-off')].filter((n) => n.parentElement === li).map((n) => n.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+const nbsp = (text) => text.replace(/\u00a0/g, ' ');
+const steps = (t) => [...t.doc.querySelectorAll('.o-kit-step')].map((li) => nbsp(li.getAttribute('data-state') + ' ' + li.querySelector('b').textContent + ' ' + li.querySelector('small').textContent));
+const say = (t) => nbsp(t.doc.querySelector('.o-kit-title').textContent + ' | ' + t.doc.querySelector('.o-kit-lead').textContent);
+// O carrinho da INK na página: a contagem do cabeçalho e, opcional, a barra da promoção progressiva (web component com shadow root aberto).
+function cart(t, { qty = null, bar = null } = {}) {
+  t.doc.querySelectorAll('.cart-drawer').forEach((n) => n.remove());
+  const drawer = t.doc.createElement('div');
+  drawer.className = 'cart-drawer';
+  drawer.innerHTML = (qty === null ? '' : '<span id="quantity-header" data-quantityheader="' + qty + '">(' + qty + ' produtos)</span>') +
+    '<div data-ink-labs-anchor="cart_shipping_bar"><div data-ink-labs-progressive-discount="cart"></div></div>';
+  t.doc.body.appendChild(drawer);
+  if (bar !== null) {
+    const root = drawer.querySelector('[data-ink-labs-progressive-discount]').attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>.ink-pd-bar{color:green}</style><div class="ink-pd-bars"><div class="ink-pd-bar"><p class="ink-pd-bar__text">' + bar + '</p></div></div>';
+  }
+}
 const labels = (t) => [...t.doc.querySelectorAll('.add-product-modal__modal-content__footer span')].map((s) => s.textContent);
 
-test('post-add-kit: the block goes BEFORE the native buttons, with the price of the piece just added; "Ver carrinho" only changes its label and "Continuar comprando" is hidden while the kit is there', async () => {
+test('post-add-kit: the block goes BEFORE the native buttons; "Ver carrinho" only changes its label and "Continuar comprando" is hidden while the kit is there', async () => {
   const t = setup();
   await tick();
   add(t);
@@ -74,18 +89,11 @@ test('post-add-kit: the block goes BEFORE the native buttons, with the price of 
   assert.equal(block.querySelector('.o-kit-eyebrow').textContent, KIT.eyebrow);
   assert.equal(block.querySelector('.o-kit-title').textContent, KIT.title);
   assert.equal(block.querySelector('[data-origens-kit-code]').textContent, 'KITTESTE');
-  assert.equal(block.getAttribute('data-priced'), 'true');
-  const nbsp = (s) => s.replace(/ /g, ' ');
-  assert.deepEqual(rows(t).map(nbsp), [
-    '3 peças | de R$ 329,70por R$ 304,70 | R$ 101,57 cadaeconomize R$ 25,00',
-    '4 peças | de R$ 439,60por R$ 399,60 | R$ 99,90 cadaeconomize R$ 40,00',
-    '5 peças | de R$ 549,50por R$ 489,50 | R$ 97,90 cadaeconomize R$ 60,00',
-    '6 peças | de R$ 659,40por R$ 574,40 | R$ 95,73 cadaeconomize R$ 85,00'
-  ]);
-  // A frase inteira para leitor de tela; o visual fica escondido dele.
-  assert.equal(nbsp(t.doc.querySelector('.o-kit-tier .o-kit-sr').textContent), '3 peças: de R$ 329,70 por R$ 304,70, R$ 101,57 cada, economia de R$ 25,00.');
-  assert.deepEqual([...t.doc.querySelectorAll('.o-kit-tier')].map((li) => li.hasAttribute('data-best')), [false, false, false, true]);
-  assert.equal(block.querySelector('.o-kit-note').textContent, 'Em peças com preços diferentes, o total do kit pode variar.');
+  // Sem carrinho legível: o título e o texto do CMS, e a trilha sem destaque (um passo por faixa: o desconto e as peças, sem preço por peça).
+  assert.equal(block.getAttribute('data-state'), 'unknown');
+  assert.equal(block.querySelector('.o-kit-lead').textContent, KIT.lead);
+  assert.deepEqual(steps(t), ['todo −R$ 25 3 peças', 'todo −R$ 40 4 peças', 'todo −R$ 60 5 peças', 'todo −R$ 85 6 peças']);
+  assert.equal(block.querySelector('.o-kit-tier, .o-kit-note'), null, 'nada da tabela de preços antiga');
   // O mesmo botão da INK, com o ícone; só o texto do rótulo. O "Continuar comprando" fica escondido (a busca abaixo faz esse papel), com o rótulo dele.
   assert.deepEqual(labels(t), ['Finalizar compra', 'Continuar comprando']);
   assert.equal(t.w.getComputedStyle(t.doc.getElementById('continue-shopping-button')).display, 'none');
@@ -128,45 +136,57 @@ test('post-add-kit: "Copiar cupom" only copies the code, says so, and measures w
   assert.ok(!JSON.stringify(t.events).includes('KITTESTE'));
 });
 
-test('post-add-kit: the price follows the form that was sent (a "compre junto" in promotion counts its charged price, never the struck one)', async () => {
-  const t = setup();
+test('post-add-kit: where the customer is comes from INK\'s own progressive bar in the cart (it knows which pieces count)', async () => {
+  const t = setup({ payload: { v: 1, kit: { ...KIT, auto: true, tiers: [{ items: 3, discount: 25 }, { items: 4, discount: 50 }, { items: 5, discount: 75 }, { items: 6, discount: 100 }] } } });
   await tick();
-  add(t, 'form-product-4400001');
-  await openModal(t);
-  assert.match(rows(t)[0].replace(/ /g, ' '), /^3 peças \| de R\$ 299,70por R\$ 274,70 \| R\$ 91,57 cada/);
-});
-
-test('post-add-kit: in INK\'s price anchor (real PDP markup of 27/10/2026) the charged price is the lowest whole price, even with the regular one not struck', async () => {
-  const REAL = '<div class="flex flex-col items-start gap-1 font-medium mt-5 lg:mt-0" data-ink-labs-anchor="product_price"><span class="flex flex-col justify-center flex-wrap gap-1 font-semibold">' +
-    '<div class="flex items-center gap-2"><p class="text-gray-500 text-base">R$ 129,90</p><p class="text-4xl font-medium">R$ 99,90</p></div></span><p class="font-medium text-base">ou <span class="text-green-500">5x de R$ 19,98 sem juros</span></p></div>';
-  const t = setup();
-  await tick();
-  const form = t.doc.getElementById('form-product-3789914');
-  form.querySelector('.text-4xl').parentElement.outerHTML = REAL;
+  // A contagem diz 5, mas a barra da INK (que aplica a elegibilidade) diz 3: vale a barra.
+  cart(t, { qty: 5, bar: '<strong class="ink-pd-bar__applied">R$ 25,00 OFF aplicado</strong> · adicione 1 peça e sobe para R$ 50,00 OFF' });
   add(t);
   await openModal(t);
-  assert.match(rows(t)[0].replace(/\u00a0/g, ' '), /^3 peças \| de R\$ 299,70por R\$ 274,70/);
+  assert.equal(kit(t).getAttribute('data-state'), 'known');
+  assert.equal(say(t), 'Você já ganhou R$ 25 OFF | Mais 1 peça e o desconto sobe para R$ 50 OFF.');
+  assert.deepEqual(steps(t), ['done −R$ 25 3 peças', 'next −R$ 50 4 peças', 'todo −R$ 75 5 peças', 'todo −R$ 100 6 peças']);
+  assert.equal(t.doc.querySelector('.o-kit-step[aria-current="step"] b').textContent.replace(/\u00a0/g, ' '), '−R$ 25');
+  // Antes da primeira faixa e na última.
+  cart(t, { qty: 1, bar: 'Adicione 2 peças e ganhe R$ 25,00 OFF' });
+  t.doc.dispatchEvent(new t.w.Event('turbo:before-stream-render'));
+  await tick();
+  assert.equal(say(t), 'Faltam 2 peças para R$ 25 OFF | O desconto entra sozinho no carrinho.');
+  assert.deepEqual(steps(t).map((x) => x.split(' ')[0]), ['next', 'todo', 'todo', 'todo']);
+  cart(t, { qty: 7, bar: '<strong>R$ 100,00 OFF aplicado</strong>' });
+  t.doc.dispatchEvent(new t.w.Event('turbo:before-stream-render'));
+  await tick();
+  assert.equal(say(t), 'Você já ganhou R$ 100 OFF | É o maior desconto do kit.');
+  assert.deepEqual(steps(t).map((x) => x.split(' ')[0]), ['done', 'done', 'done', 'done']);
 });
 
-test('post-add-kit: no price read (nothing sent just before) = the tiers show only INK\'s discounts, no made-up totals', async () => {
+test('post-add-kit: without INK\'s bar (or with numbers that do not match the tiers) the cart count decides; nothing readable = the CMS copy', async () => {
   const t = setup();
   await tick();
+  cart(t, { qty: 4, bar: 'R$ 30,00 OFF aplicado · adicione 1 peça e sobe para R$ 45,00 OFF' });
+  add(t);
   await openModal(t);
-  assert.equal(kit(t).getAttribute('data-priced'), 'false');
-  assert.deepEqual(rows(t), ['3 peças | R$ 25 OFF no total', '4 peças | R$ 40 OFF no total', '5 peças | R$ 60 OFF no total', '6 peças | R$ 85 OFF no total']);
+  assert.equal(say(t), 'Seu kit já vale R$ 40 OFF | Mais 1 peça e o desconto sobe para R$ 60 OFF.');
+  assert.deepEqual(steps(t).map((x) => x.split(' ')[0]), ['done', 'done', 'next', 'todo']);
+  cart(t, { qty: 2 });
+  t.doc.dispatchEvent(new t.w.Event('turbo:before-stream-render'));
+  await tick();
+  assert.equal(say(t), 'Falta 1 peça para R$ 25 OFF | Use o cupom no carrinho.');
+  // Promoção em %: a barra (em R$) não serve; vale a contagem.
   const pct = setup({ payload: { v: 1, kit: { ...KIT, kind: 'percentage', tiers: [{ items: 15, discount: 20 }, { items: 20, discount: 12.5 }] } } });
   await tick();
+  cart(pct, { qty: 16 });
   await openModal(pct);
-  assert.deepEqual(rows(pct), ['15 peças | 20% OFF no total', '20 peças | 12,5% OFF no total']);
+  assert.deepEqual(steps(pct), ['done −20% 15 peças', 'next −12,5% 20 peças']);
+  assert.equal(say(pct), 'Seu kit já vale 20% OFF | Mais 4 peças e o desconto sobe para 12,5% OFF.');
 });
-
 test('post-add-kit: a promotion INK applies by itself has no code to copy', async () => {
   const t = setup({ payload: { v: 1, kit: { ...KIT, auto: true } } });
   await tick();
   add(t);
   await openModal(t);
-  assert.equal(t.doc.querySelector('.o-kit-chip').textContent, 'Desconto aplicado no carrinho');
-  assert.equal(t.doc.querySelector('.o-kit-copy'), null);
+  assert.equal(t.doc.querySelector('.o-kit-auto').textContent, 'Desconto automático, sem cupom');
+  assert.equal(t.doc.querySelector('.o-kit-copy, .o-kit-chip'), null);
 });
 
 test('post-add-kit: closing the modal or leaving the page takes the block out and gives the native labels back', async () => {
@@ -184,12 +204,13 @@ test('post-add-kit: closing the modal or leaving the page takes the block out an
   await tick();
   assert.equal(t.doc.querySelector('[data-origens-kit-footer], [data-origens-kit-head], [data-origens-kit-open], [data-origens-kit-body]'), null);
   assert.ok(![t.doc.getElementById('modal-close-button').parentElement, t.doc.querySelector('.add-product-modal__modal-content__footer')].some((el) => /--k-b/.test(el.getAttribute('style') || '')), 'as medidas saem junto');
-  // Reaberto (nova adição, os mesmos nós): o bloco volta, com o preço desta adição.
+  // Reaberto (nova adição, os mesmos nós): o bloco volta, com o carrinho desta adição.
+  cart(t, { qty: 3 });
   add(t, 'form-product-4400001');
   t.doc.getElementById('modal-wrapper').style.display = '';
   await tick();
   assert.ok(kit(t));
-  assert.match(rows(t)[0], /274,70/);
+  assert.equal(say(t), 'Seu kit já vale R$ 25 OFF | Mais 1 peça e o desconto sobe para R$ 40 OFF.');
   t.w.history.pushState({}, '', '/usesul/cart');
   t.doc.dispatchEvent(new t.w.CustomEvent('turbo:visit', { detail: { url: HOST + '/usesul/cart' } }));
   await tick();

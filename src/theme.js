@@ -420,6 +420,7 @@ function pdpCss() {
 
 function cartCss() {
   const D = C + ' .cart-drawer';
+  const PAIR = D + '__footer[data-origens-pair]:not(:has(> #cep-form [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))';
   return [
     // Painel: compra em primeiro plano. Cabeçalho enxuto; itens separados por linha fina; rodapé com o resumo e UMA ação principal.
     D + '{font-family:var(--o-font);letter-spacing:normal;color:var(--o-ink);background:var(--o-surface)}',
@@ -446,11 +447,22 @@ function cartCss() {
     D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:44px!important;height:44px!important}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
+    // Lixeira em tinta, não vermelha: é um controle de uso comum, não um alerta.
+    D + '__main .main-list__item .item-wrapper .item-details__quantity svg[class*="text-red"]{color:var(--o-ink-soft)!important}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
     D + '__footer{background:var(--o-panel)!important;border-top:1px solid var(--o-line-soft);padding:10px 16px calc(12px + env(safe-area-inset-bottom))!important}',
-    D + '__footer .footer-details{margin:4px 0 10px!important;gap:4px}',
-    D + '__footer .footer-details ul > li{font-size:14px;font-weight:400;color:var(--o-ink-soft)}',
-    D + '__footer .footer-details ul > li:last-child{font-size:20px;font-weight:700;color:var(--o-ink);padding-top:6px}',
+    // Totais (marcação real da INK em 08/11/2026: <ul> com Subtotal e Desconto, e o Total num <div> irmão). Subtotal e desconto numa linha só, em
+    // segundo plano; o Total é o número que importa. O rodapé fixo tinha 333 de 701 px (quase metade da gaveta) e escondia a oferta exclusiva.
+    D + '__footer .footer-details{margin:6px 0 8px!important;gap:6px!important}',
+    D + '__footer .footer-details > ul{flex-direction:row!important;flex-wrap:wrap;justify-content:space-between;column-gap:16px;row-gap:2px}',
+    D + '__footer .footer-details > ul > li{justify-content:flex-start!important;align-items:baseline;gap:6px;font-size:13px;font-weight:400;color:var(--o-ink-soft)}',
+    D + '__footer .footer-details > ul > li > span{font-size:13px!important;color:var(--o-ink-soft)}',
+    D + '__footer .footer-details > div{align-items:baseline!important}',
+    D + '__footer .footer-details > div > p{font-size:16px!important;font-weight:600!important;color:var(--o-ink)!important}',
+    D + '__footer .footer-details > div > span > p{font-size:22px!important;line-height:1.15;font-weight:700!important;color:var(--o-ink)!important}',
+    D + '__footer .footer-details > div > span > span{font-size:12px!important;color:var(--o-ink-mute)!important}',
+    // A barra da promoção progressiva da INK (shadow root: só o espaço em volta é nosso).
+    D + '__footer [data-ink-labs-anchor="cart_shipping_bar"]:has([data-ink-labs-progressive-discount]){margin:0 0 4px}',
     D + '__footer :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
     D + '__footer__cep,' + D + '__footer__coupon{min-height:44px}',
     D + '__footer__cep input,' + D + '__footer__coupon input{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;min-height:40px;font-size:16px!important;color:var(--o-ink)}',
@@ -480,18 +492,26 @@ function cartCss() {
     D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;width:100%;height:100%;border-radius:3px;background:var(--o-incentive-fill);transform-origin:left center;transition:transform .25s ease}',
     D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
     '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
-    // Com o cupom recolhido e o CEP ainda fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (os dois são ações curtas): uma linha de
-    // 44 px a menos no rodapé fixo. Abriu o cupom ou o CEP, ou a marcação não é a esperada? Volta a uma linha cada. Nenhum nó é movido.
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > *{grid-column:1 / -1}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > .o-coupon-toggle{grid-column:1}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))) > .cart-drawer__footer__cep{grid-column:2}',
+    // "Adicionar cupom" (ou o selo do cupom já aplicado, como o BLACKMONTH automático) e "Frete · Inserir CEP" dividem uma linha: 44 px a menos no rodapé
+    // fixo. Quem decide é o theme-ui (data-origens-pair, só com a marcação esperada: cupom e CEP em <form> próprios, filhos do rodapé); o campo do CEP
+    // aberto desfaz a linha aqui mesmo. Nenhum nó é movido.
+    PAIR + '{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px;align-items:center}',
+    PAIR + ' > *{grid-column:1 / -1}',
+    PAIR + ' > #coupon-form{grid-column:1;min-width:0;gap:0!important}',
+    PAIR + ' > #cep-form{grid-column:2;min-width:0;gap:0!important}',
+    PAIR + ' .cart-drawer__footer__coupon{margin:0!important}',
+    PAIR + ' .cart-drawer__footer__cep [data-action*="insertCep"]{width:auto!important}',
+    PAIR + ' .cart-drawer__footer__cep :has(> [data-action*="insertCep"]){justify-content:flex-end!important;column-gap:10px}',
+    // Cupom aplicado na linha dividida: o selo fala por si (o rótulo "Cupom" fica só para leitor de tela).
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied]{justify-content:flex-start!important}',
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied] > div:first-child{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied] > div:last-child{width:auto!important;justify-content:flex-start!important}',
     // "Inserir CEP" da INK: 44 px de toque sem crescer a linha.
     D + '__footer__cep [data-action*="insertCep"]{display:inline-flex;align-items:center;min-height:44px;color:var(--o-ink);font-weight:600}',
     // Tela baixa (celular de 640–760 px de altura, notebook com a janela baixa): o rodapé fixo da gaveta comia a lista. Compacto, sem esconder nada da
     // INK e sem alvo de toque abaixo de 44 px.
     '@media (max-height:760px){' + D + '__footer{padding:8px 16px calc(10px + env(safe-area-inset-bottom))!important}' +
-      D + '__footer .footer-details{margin:2px 0 8px!important;gap:2px}' + D + '__footer .footer-details ul > li:last-child{font-size:18px;padding-top:2px}' +
+      D + '__footer .footer-details{margin:2px 0 6px!important;gap:4px!important}' + D + '__footer .footer-details > div > span > p{font-size:20px!important}' +
       D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}}',
     // Tela MUITO baixa (teclado do celular aberto no cupom ou no CEP, janela achatada): a gaveta rola inteira — itens, cupom, totais e botões em
     // sequência —, e o rodapé deixa de ser fixo para não cobrir o campo em uso nem o último produto.
@@ -514,9 +534,11 @@ function cartCss() {
     C + ' [data-origens-discovery][data-origens-empty] .o-actions > *{flex:0 0 auto!important;width:100%}',
     C + ' [data-origens-discovery][data-origens-empty] .o-toggle{background:var(--o-action)!important;border-color:var(--o-action)!important;color:var(--o-on-action)!important;min-height:52px}',
     C + ' [data-origens-discovery] .o-input{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;font-size:16px}',
-    // Carrinho preenchido: o bloco (denso, depois dos itens) é uma linha de duas ações de 44 px, sem disputar com os itens.
-    C + ' [data-origens-discovery="cart"].o-dense{padding:8px!important;margin:12px 16px!important}',
-    C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){min-height:44px!important;padding:6px 10px!important;font-size:14px!important;line-height:1.2}',
+    // Carrinho preenchido: o bloco (denso, no fim da área rolável, depois da oferta exclusiva) são dois links de texto de 44 px, sem caixa nem borda:
+    // continuar escolhendo é a saída secundária; os itens, a oferta e "Finalizar compra" vêm antes. Aberta a busca, o painel aparece como sempre.
+    C + ' [data-origens-discovery="cart"].o-dense{padding:4px 16px 12px!important;margin:0!important;background:transparent!important;border:0!important}',
+    C + ' [data-origens-discovery="cart"].o-dense .o-actions{justify-content:center;column-gap:20px}',
+    C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){flex:0 1 auto!important;width:auto!important;min-height:44px!important;padding:0 2px!important;border:0!important;background:transparent!important;font-size:14px!important;line-height:1.2;text-decoration:underline;text-underline-offset:3px}',
     // Pós-adição: só título e ações (o texto de apoio e o rótulo de cima alongavam a folha no celular).
     C + ' [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead){display:none}',
     C + ' [data-origens-discovery="post-add"] .o-title{font-size:16px!important;margin-bottom:8px}',

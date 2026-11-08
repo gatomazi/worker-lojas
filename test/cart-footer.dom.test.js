@@ -176,3 +176,58 @@ test('Turbo: página nova sem o carrinho tematizado = nenhum botão, nenhum ince
   assert.equal(toggles(t).length, 1);
   assert.equal(boxes(t).length, 1);
 });
+
+// Marcação REAL da gaveta da INK, lida na loja única em 08/11/2026 (estrutura, sem dados de sessão): cupom e CEP cada um no próprio <form>, filhos
+// diretos do rodapé; a promoção automática (BLACKMONTH) entra como cupom aplicado (campo escondido + selo com "remover"); o contêiner de erros vazio.
+function realDrawer({ applied = false, cepOpen = false } = {}) {
+  return '<div class="relative flex flex-col h-full" data-controller="ink-store--cart ink-store--progress-bar" data-ink-store--progress-bar-max-progress-value="0">' +
+    '<div class="cart-drawer__header"><div class="top-header"><span>Carrinho <span id="quantity-header" data-quantityheader="3">(3 produtos)</span></span></div></div>' +
+    '<div data-ink-store--cart-target="cartErrors"></div>' +
+    '<div class="cart-drawer__main flex-col"><ul class="flex flex-col w-full"><li class="main-list__item"><div class="item-wrapper"><p>Estampa</p></div></li></ul>' +
+    '<div data-ink-labs-anchor="cart_items_below"></div><turbo-frame id="order_bump_offer_frame"></turbo-frame></div>' +
+    '<div class="cart-drawer__footer"><div data-ink-labs-anchor="cart_shipping_bar"><div data-ink-labs-slot="progressive_discount_cart"><div data-ink-labs-progressive-discount="cart"></div></div></div>' +
+    '<form id="coupon-form" class="flex flex-col gap-4" action="/useorigens/cart/coupon" method="post" data-turbo="true"><div class="cart-drawer__footer__coupon mb-3">' +
+    '<div class="flex"><label for="cart_coupon_Cupom">Cupom</label></div><div class="flex justify-end items-center w-48">' +
+    '<input id="cart_coupon_code" class="' + (applied ? 'hidden ' : '') + 'coupon-input reset-input w-full" name="cart[coupon][code]" placeholder="CUPOM" value="">' +
+    '<button id="apply_coupon_code" type="button" class="btn-apply' + (applied ? ' hidden' : '') + '" data-action="click->ink-store--cart#addCoupon"></button>' +
+    (applied ? '<span id="badge-dismiss-yellow"><span>BLACKMONTH</span><button type="button" data-action="click->ink-store--cart#removeCoupon" aria-label="Remove"></button></span>' : '') +
+    '</div></div></form>' +
+    '<form id="cep-form" class="flex flex-col gap-4" action="/useorigens/cart/cep" method="post" data-turbo="true"><div class="cart-drawer__footer__cep"><div class="w-full block">' +
+    '<div class="flex justify-between w-full"><div class="flex"><span>Frete</span></div><div id="insert-cep-btn" class="flex justify-end items-center w-48" data-action="click->ink-store--cart#insertCep">Inserir CEP</div></div>' +
+    '<div class="flex justify-between w-full' + (cepOpen ? '' : ' hidden') + ' pt-3.5" data-ink-store--cart-target="cepInputContainer"><input id="cart-cep-input" class="cep-input" name="cart[cep]"></div></div></div></form>' +
+    '<div data-ink-labs-anchor="cart_summary"></div><div class="footer-details"><ul><li><span>Subtotal</span><span id="amount">R$ 359,70</span></li><li><span>Desconto</span><span>-R$ 65,00</span></li></ul>' +
+    '<div class="flex justify-between"><p>Total</p><span class="flex flex-col"><p>R$ 294,70</p><span>ou 5x de R$ 58,94</span></span></div></div>' +
+    '<form action="/useorigens/checkout" method="post" data-turbo="false"><button id="checkout-btn" type="button">Finalizar compra</button></form></div></div>';
+}
+const footer = (t) => t.doc.querySelector('.cart-drawer__footer');
+
+test('marcação real (08/11): cupom vazio recolhido DENTRO do form do cupom e "Adicionar cupom" + "Frete · Inserir CEP" numa linha; o contêiner de erros vazio não segura o campo aberto', async () => {
+  const t = setup({ cart: realDrawer() });
+  await tick();
+  assert.ok(row(t).hasAttribute('data-origens-collapsed'), 'erro vazio não é erro');
+  assert.equal(toggles(t).length, 1);
+  assert.equal(toggles(t)[0].parentElement, t.doc.getElementById('coupon-form'));
+  assert.ok(footer(t).hasAttribute('data-origens-pair'));
+  toggles(t)[0].click();
+  await tick();
+  assert.ok(!footer(t).hasAttribute('data-origens-pair'), 'abriu o cupom: uma linha cada');
+  assert.ok(!row(t).hasAttribute('data-origens-collapsed'));
+});
+
+test('marcação real (08/11): cupom aplicado (o BLACKMONTH automático) fica à mostra, só o selo, na mesma linha do frete; com erro ou sem o form do CEP, uma linha cada', async () => {
+  const t = setup({ cart: realDrawer({ applied: true }) });
+  await tick();
+  assert.ok(!row(t).hasAttribute('data-origens-collapsed'), 'cupom aplicado não se esconde');
+  assert.equal(toggles(t).length, 0);
+  assert.ok(row(t).hasAttribute('data-origens-applied'));
+  assert.ok(footer(t).hasAttribute('data-origens-pair'));
+  // Erro da INK com texto: nada de linha dividida.
+  const again = setup({ cart: realDrawer({ applied: true }).replace('<div data-ink-store--cart-target="cartErrors"></div>', '<div data-ink-store--cart-target="cartErrors">Cupom inválido</div>') });
+  await tick();
+  assert.ok(!footer(again).hasAttribute('data-origens-pair'));
+  assert.ok(!row(again).hasAttribute('data-origens-applied'));
+  // Marcação antiga (cupom e CEP soltos no rodapé): o atributo não aparece.
+  const old = setup();
+  await tick();
+  assert.ok(!footer(old).hasAttribute('data-origens-pair'));
+});

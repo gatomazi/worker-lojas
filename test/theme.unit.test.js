@@ -90,9 +90,9 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box]',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar i',
-    // A linha "Adicionar cupom" + "Frete · Inserir CEP" (grade do rodapé só com o nosso botão no lugar do cupom e o CEP fechado) e o alvo de 44 px do
-    // "Inserir CEP" (a INK alterna o campo do CEP, não este link).
-    'body[data-origens-theme~="cart"] .cart-drawer__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))',
+    // A linha "Adicionar cupom" (ou o selo do cupom aplicado) + "Frete · Inserir CEP": grade no rodapé, que a INK nunca esconde, só com o atributo NOSSO
+    // e o campo do CEP fechado; e o alvo de 44 px do "Inserir CEP" (a INK alterna o campo do CEP, não este link).
+    'body[data-origens-theme~="cart"] .cart-drawer__footer[data-origens-pair]:not(:has(> #cep-form [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))',
     'body[data-origens-theme~="cart"] .cart-drawer__footer__cep [data-action*="insertCep"]',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
