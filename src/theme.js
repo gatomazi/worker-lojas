@@ -537,7 +537,7 @@ function cartCss() {
     // Carrinho preenchido: o bloco (denso, no fim da área rolável, depois da oferta exclusiva) são dois links de texto de 44 px, sem caixa nem borda:
     // continuar escolhendo é a saída secundária; os itens, a oferta e "Finalizar compra" vêm antes. Aberta a busca, o painel aparece como sempre.
     C + ' [data-origens-discovery="cart"].o-dense{padding:4px 16px 12px!important;margin:0!important;background:transparent!important;border:0!important}',
-    C + ' [data-origens-discovery="cart"].o-dense .o-actions{justify-content:center;column-gap:20px}',
+    C + ' [data-origens-discovery="cart"].o-dense .o-actions{justify-content:center;column-gap:20px;row-gap:0}',
     C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){flex:0 1 auto!important;width:auto!important;min-height:44px!important;padding:0 2px!important;border:0!important;background:transparent!important;font-size:14px!important;line-height:1.2;text-decoration:underline;text-underline-offset:3px}',
     // Pós-adição: só título e ações (o texto de apoio e o rótulo de cima alongavam a folha no celular).
     C + ' [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead){display:none}',
