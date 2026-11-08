@@ -223,13 +223,16 @@ export const THEME_UI = String.raw`
       }
       anchor = node;
     }
-    // Guia/Informar medidas antes da quantidade (o quadro de variantes é re-renderizado pela INK: refeito a cada render).
+    // Quantidade NA LINHA do botão de compra ([− 1 +] [Adicionar ao carrinho]), o padrão do celular: antes ela fechava a coluna de escolhas, logo acima do
+    // botão e com outro espaçamento. Continua dentro do mesmo <form> e do mesmo quadro de variantes (re-renderizado pela INK: refeito a cada render).
     const type = frame.querySelector('.form-product-options__select-type');
-    const links = type && [...type.children].find((c) => c.querySelector('#open-modal-size'));
-    const qty = type && [...type.children].find((c) => c.querySelector(':scope > div.inline-flex'));
-    if (links && qty && (qty.compareDocumentPosition(links) & Node.DOCUMENT_POSITION_FOLLOWING)) {
-      const prev = qty.previousElementSibling;
-      themeMove(qty, () => links.after(qty), () => { if (prev && prev.isConnected) prev.after(qty); });
+    const qty = type && [...type.children].find((c) => c.querySelector(':scope > div.inline-flex input[name="quantity"]'));
+    const buy = frame.querySelector('.form-product-options__add-to-cart');
+    const cta = buy && buy.querySelector(':scope > #add-to-cart-desk');
+    if (qty && cta && qty.parentElement !== buy) {
+      const prev = qty.previousElementSibling; const parent = qty.parentElement;
+      qty.setAttribute('data-origens-qty', '');
+      themeMove(qty, () => cta.before(qty), () => { qty.removeAttribute('data-origens-qty'); if (prev && prev.isConnected) prev.after(qty); else if (parent.isConnected) parent.append(qty); });
     }
   }
 

@@ -12,7 +12,9 @@ export const REFERENCE_THEME = {
   v: 1, region: 'sul', surfaces: { pdp: true, cart: true, checkout: true }, palette: 'acento',
   tokens: { action: '#000000', onAction: '#ffffff', selected: '#4d543d', onSelected: '#ffffff', ground: '#ffffff', surface: '#ffffff', paper: '#f2f2f0', photo: '#e5e5e5', ink: '#000000', inkSoft: '#33332f', inkMute: '#56564f', line: '#b3b3b0', radius: 0, font: 'origens' }
 };
-export const LIVE_FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,size-fit';
+// As features do deploy de produção (lidas na loja em 08/11/2026), sem as theme-* (cada prévia liga as suas). size-fit ("Informar medidas") está
+// DESLIGADA em produção desde 31/10; quem precisa dela (qa-size-fit) liga à parte.
+export const LIVE_FEATURES = 'return-link,post-add-discovery,city-search,cart-discovery,cart-mirror,product-discovery,header-nav,list-session,promo-fab,auto-recommendations,pdp-share,size-guide,pdp-guide,top-bar,assistant,pdp-cep,pdp-coupons,post-add-kit';
 // A loja única atende em loja.useorigens.com.br/useorigens desde 16/10/2026 (SINGLE_STORE_DOMAIN=next em produção; o domínio antigo só redireciona).
 // A prévia segue a produção; SINGLE_STORE_DOMAIN=current no ambiente volta ao domínio antigo.
 export const SINGLE_STORE_DOMAIN = process.env.SINGLE_STORE_DOMAIN ?? 'next';

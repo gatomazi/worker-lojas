@@ -288,6 +288,7 @@ function cookieCss() {
 function pdpCss() {
   const F = P + ' form[id^="form-product-"]';
   const T = F + ' .form-product-options__select-type';
+  const Q = F + ' .form-product-options__add-to-cart:has(> [data-origens-qty])';
   return [
     stripCss(P), headerCss(),
     P + '{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
@@ -346,7 +347,7 @@ function pdpCss() {
     F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-size:15px;font-weight:400}',
     F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:600}',
     F + ' del,' + F + ' .line-through{color:var(--o-ink-mute)}',
-    // Escolhas: uma coluna (modelo › cor › tamanho › medidas › quantidade — a quantidade é posta depois das medidas no DOM pelo theme-ui).
+    // Escolhas: uma coluna (modelo › cor › tamanho › medidas). A quantidade vai para a linha do botão de compra (theme-ui, data-origens-qty).
     T + '{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:20px!important;margin-bottom:4px!important}',
     T + ' > div:has(#open-modal-size){margin-top:-10px}',
     T + ' p strong,' + T + ' p{' + groupLabel + '}',
@@ -368,8 +369,20 @@ function pdpCss() {
     T + ' #open-modal-size,' + T + ' button[data-origens-fit]{min-height:44px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:600!important;width:auto!important;flex:0 0 auto!important;gap:8px!important}',
     T + ' #open-modal-size .o-size-label,' + T + ' button[data-origens-fit] > span{text-decoration:underline!important;text-underline-offset:4px;text-decoration-color:var(--o-line)!important}',
     T + ' #open-modal-size .o-size-chevron{display:none}',
-    // Quantidade discreta.
+    // Quantidade discreta (onde a INK a deixa, sem o theme-ui).
     T + ' .inline-flex.items-center.px-3.border-solid{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;min-height:44px;background:var(--o-surface)}',
+    // Quantidade NA LINHA do botão ([− 1 +] [Adicionar ao carrinho], o padrão do celular), quando o theme-ui a move para antes do botão: mesma altura do
+    // botão, o rótulo "Quantidade" só para leitor de tela; a confiança e os pagamentos continuam embaixo, na largura toda. Sem o atributo, como a INK desenha.
+    Q + '{flex-direction:row!important;flex-wrap:wrap;align-items:stretch;column-gap:10px!important;row-gap:18px!important}',
+    Q + ' > [data-origens-qty]{flex:0 0 auto;gap:0!important}',
+    Q + ' > [data-origens-qty] > p{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
+    Q + ' > [data-origens-qty] > div{flex:1 1 auto}',
+    Q + ' > [data-origens-qty] .inline-flex.items-center{height:100%;min-height:52px;padding:0 2px!important;border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    Q + ' > [data-origens-qty] button{width:34px!important;min-width:0!important;min-height:44px;margin:0!important;padding:0!important;font-size:20px;color:var(--o-ink)}',
+    Q + ' > [data-origens-qty] input[name="quantity"]{width:28px!important;height:44px!important;margin:0!important;padding:0!important;font-size:16px!important;color:var(--o-ink)}',
+    // O texto do botão numa linha só em 360 px: o recuo lateral menor (era 24 px) e sem quebra; em telas menores ele ainda pode quebrar.
+    Q + ' > #add-to-cart-desk{flex:1 1 0;min-width:0;width:auto!important;padding:0 10px!important;letter-spacing:.02em}',
+    Q + ' > :not([data-origens-qty]):not(#add-to-cart-desk){flex:1 0 100%}',
     // CTA: largura total da coluna; mesmo botão, mesmo clique e mesma validação da INK.
     btn(F + ' #add-to-cart-desk,' + F + ' #add-to-cart-mob'),
     F + ' #add-to-cart-desk{width:100%;max-width:none}',
@@ -420,6 +433,7 @@ function pdpCss() {
 
 function cartCss() {
   const D = C + ' .cart-drawer';
+  const ITEM = D + '__main .main-list__item .item-wrapper:has(> header > div > .item-details):has(> .item-details__footer)';
   const PAIR = D + '__footer[data-origens-pair]:not(:has(> #cep-form [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))';
   return [
     // Painel: compra em primeiro plano. Cabeçalho enxuto; itens separados por linha fina; rodapé com o resumo e UMA ação principal.
@@ -432,21 +446,27 @@ function cartCss() {
     D + '__header .top-header > span .text-gray-500{color:var(--o-ink-mute)!important;font-weight:400;font-size:14px!important}',
     D + '__header #cart-drawer-close{width:28px!important;height:28px!important;min-width:28px;cursor:pointer;color:var(--o-ink)}',
     D + '__main{background:var(--o-surface)!important}',
-    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding:14px 16px!important;gap:12px}',
-    D + '__main .main-list__item > img{width:88px!important;height:88px!important;max-width:88px;flex:0 0 88px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
-    D + '__main .main-list__item .item-wrapper .item-header{font-size:15px;font-weight:600;color:var(--o-ink)}',
-    D + '__main .main-list__item .item-wrapper .item-details > span,' + D + '__main .main-list__item .item-wrapper .item-details p{color:var(--o-ink-mute);font-size:14px}',
-    D + '__main .main-list__item .item-wrapper .item-details > p:first-child{color:var(--o-ink);font-weight:600;font-size:15px}',
-    D + '__main .main-list__item .item-wrapper .item-details .price span{color:var(--o-ink);font-weight:600}',
-    // Preço numa linha só, mesmo com nome longo (o nome é que quebra).
-    D + '__main .main-list__item .item-wrapper .price-details{flex:0 0 auto;padding-left:8px}',
-    D + '__main .main-list__item .item-wrapper :is(.price,.price span,.price del){white-space:nowrap}',
-    D + '__main .main-list__item .item-wrapper .item-details > :is(span,p){line-height:1.35}',
-    D + '__main .main-list__item .item-wrapper .item-details .price del{color:var(--o-ink-mute)}',
+    // Item compacto (marcação real de 08/11/2026: img + .item-wrapper > header > div > [.item-details, preço] + .item-details__footer): foto de 72 px;
+    // nome e variação à esquerda; preço e quantidade empilhados à direita. Antes cada item tinha ~175 px de altura e empurrava a oferta exclusiva para
+    // baixo do rodapé. A grade só vale com essa estrutura (:has); outra marcação fica no fluxo de antes.
+    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding:12px 16px!important;gap:12px;align-items:flex-start}',
+    D + '__main .main-list__item > img{width:72px!important;height:72px!important;max-width:72px;flex:0 0 72px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
+    ITEM + '{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:12px;row-gap:8px;align-items:start;min-height:72px}',
+    ITEM + ' > header,' + ITEM + ' > header > div{display:contents!important}',
+    ITEM + ' .item-details{grid-column:1;grid-row:1 / 3;min-width:0;gap:0!important}',
+    ITEM + ' > header > div > :not(.item-details){grid-column:2;grid-row:1;justify-self:end;text-align:right;padding:0!important}',
+    ITEM + ' > .item-details__footer{grid-column:2;grid-row:2;align-self:end;justify-self:end;margin:0!important;padding:0!important}',
+    D + '__main .main-list__item .item-wrapper .item-details p{margin:0;padding:0!important;color:var(--o-ink-mute);font-size:13px;line-height:1.35}',
+    ITEM + ' > .item-details__footer :is(form,form > div){margin:0!important;padding:0!important}',
+    D + '__main .main-list__item .item-wrapper .item-details > p:first-child{margin-bottom:2px;color:var(--o-ink);font-weight:600;font-size:15px;line-height:1.3}',
+    ITEM + ' > header > div > :not(.item-details) span{white-space:nowrap;font-size:14px;font-weight:600;color:var(--o-ink)}',
+    ITEM + ' > header > div > :not(.item-details) del{font-size:12px;font-weight:400;color:var(--o-ink-mute)}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity{border:1px solid var(--o-line-soft);border-radius:var(--o-radius);width:fit-content!important;max-width:100%}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:44px!important;height:44px!important}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:30px!important;text-align:center;font-weight:600;color:var(--o-ink)}',
+    // Menos vão entre a lista e a oferta exclusiva (o !pb-6 da INK e a margem do cartão).
+    D + '__main > ul{padding-bottom:4px!important}',
+    D + '__main #order-bump-offer{margin-top:12px!important;margin-bottom:8px!important}',
     // Lixeira em tinta, não vermelha: é um controle de uso comum, não um alerta.
     D + '__main .main-list__item .item-wrapper .item-details__quantity svg[class*="text-red"]{color:var(--o-ink-soft)!important}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
