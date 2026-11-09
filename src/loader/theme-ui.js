@@ -223,13 +223,16 @@ export const THEME_UI = String.raw`
       }
       anchor = node;
     }
-    // Guia/Informar medidas antes da quantidade (o quadro de variantes é re-renderizado pela INK: refeito a cada render).
+    // Quantidade NA LINHA do botão de compra ([− 1 +] [Adicionar ao carrinho]), o padrão do celular: antes ela fechava a coluna de escolhas, logo acima do
+    // botão e com outro espaçamento. Continua dentro do mesmo <form> e do mesmo quadro de variantes (re-renderizado pela INK: refeito a cada render).
     const type = frame.querySelector('.form-product-options__select-type');
-    const links = type && [...type.children].find((c) => c.querySelector('#open-modal-size'));
-    const qty = type && [...type.children].find((c) => c.querySelector(':scope > div.inline-flex'));
-    if (links && qty && (qty.compareDocumentPosition(links) & Node.DOCUMENT_POSITION_FOLLOWING)) {
-      const prev = qty.previousElementSibling;
-      themeMove(qty, () => links.after(qty), () => { if (prev && prev.isConnected) prev.after(qty); });
+    const qty = type && [...type.children].find((c) => c.querySelector(':scope > div.inline-flex input[name="quantity"]'));
+    const buy = frame.querySelector('.form-product-options__add-to-cart');
+    const cta = buy && buy.querySelector(':scope > #add-to-cart-desk');
+    if (qty && cta && qty.parentElement !== buy) {
+      const prev = qty.previousElementSibling; const parent = qty.parentElement;
+      qty.setAttribute('data-origens-qty', '');
+      themeMove(qty, () => cta.before(qty), () => { qty.removeAttribute('data-origens-qty'); if (prev && prev.isConnected) prev.after(qty); else if (parent.isConnected) parent.append(qty); });
     }
   }
 
@@ -292,7 +295,29 @@ export const THEME_UI = String.raw`
     if (!input) return true; // marcação desconhecida: não mexe
     if (input.value.trim() !== '' || document.activeElement === input) return true;
     if (row.querySelector('[data-action*="clearCoupon"], [data-action*="removeCoupon"], [role="alert"], [class*="text-red"], [class*="error"]')) return true;
-    return !!document.querySelector('.cart-drawer [data-ink-store--cart-target="cartErrors"]');
+    return themeCartError();
+  }
+  // A INK deixa o contêiner de erros na gaveta mesmo vazio: só conta com texto.
+  const themeCartError = () => [...document.querySelectorAll('.cart-drawer [data-ink-store--cart-target="cartErrors"]')].some((el) => el.textContent.trim() !== '');
+  // Cupom JÁ aplicado (a promoção automática da INK entra assim, ex.: BLACKMONTH): o campo some, fica o selo com o código e o "remover". Nada a digitar.
+  function themeCouponApplied(row) {
+    const input = row.querySelector(THEME_COUPON_INPUT);
+    return !!input && (input.hidden || input.classList.contains('hidden')) && document.activeElement !== input &&
+      !!row.querySelector('[data-action*="removeCoupon"], [data-action*="clearCoupon"]') && !themeCartError();
+  }
+  // Cupom e frete numa linha só (marcação real da INK em 08/11/2026: cada um no próprio <form>, filho direto do rodapé): com o cupom recolhido em
+  // "Adicionar cupom" ou já aplicado (só o selo) e o CEP ainda por inserir. O atributo é NOSSO; o CSS desfaz a linha se o campo do CEP abrir.
+  function themeFooterPair(drawer) {
+    const footer = drawer && drawer.querySelector('.cart-drawer__footer');
+    if (!footer) return;
+    const coupon = footer.querySelector(':scope > #coupon-form');
+    const cep = footer.querySelector(':scope > #cep-form');
+    const row = coupon && coupon.querySelector('.cart-drawer__footer__coupon');
+    const applied = !!row && !row.hasAttribute('data-origens-collapsed') && themeCouponApplied(row);
+    const short = !!row && (applied || (row.hasAttribute('data-origens-collapsed') && !!coupon.querySelector('.o-coupon-toggle')));
+    const pair = short && !!cep && !!cep.querySelector('[data-action*="insertCep"]');
+    if (row && row.hasAttribute('data-origens-applied') !== applied) row.toggleAttribute('data-origens-applied', applied);
+    if (footer.hasAttribute('data-origens-pair') !== pair) footer.toggleAttribute('data-origens-pair', pair);
   }
   function themeCoupon() {
     const drawer = themeDrawer();
@@ -319,6 +344,7 @@ export const THEME_UI = String.raw`
       themeCouponOpen = true;
       row.removeAttribute('data-origens-collapsed');
       toggle.remove();
+      themeFooterPair(drawer);
       const input = row.querySelector(THEME_COUPON_INPUT);
       if (input) input.focus();
     });
@@ -409,6 +435,7 @@ export const THEME_UI = String.raw`
     // Resposta chegou quando a INK trocou o rodapé ou a contagem.
     if (themeCartWait && drawer && (drawer.querySelector('.cart-drawer__footer') !== themeCartWait.footer || themeQty(drawer) !== themeCartWait.qty)) themeCartRelease(false);
     themeCoupon();
+    themeFooterPair(drawer);
     themeIncentive();
   }
   function themeCartListen(on) {
@@ -424,6 +451,7 @@ export const THEME_UI = String.raw`
     themeCouponOpen = false;
     for (const node of document.querySelectorAll('.o-coupon-toggle, [data-origens-incentive-slot], [data-origens-incentive-box]')) node.remove();
     for (const node of document.querySelectorAll('[data-origens-collapsed]')) node.removeAttribute('data-origens-collapsed');
+    for (const node of document.querySelectorAll('[data-origens-pair], [data-origens-applied]')) { node.removeAttribute('data-origens-pair'); node.removeAttribute('data-origens-applied'); }
   }
 
   function themeListen(on) {

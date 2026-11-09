@@ -94,12 +94,17 @@ test('uma foto só = sem grade e sem esconder pontos', async () => {
   assert.ok(!body(t).classList.contains('o-thumbs'));
 });
 
-test('ordem do DOM = ordem visual: prazo, cupom e "Também disponível em" depois do quadro de compra; medidas antes da quantidade; desligar devolve', async () => {
+test('ordem do DOM = ordem visual: prazo, cupom e "Também disponível em" depois do quadro de compra; quantidade na linha do botão de compra; desligar devolve', async () => {
   const t = setup();
   assert.deepEqual(formOrder(t), NATIVE_FORM);
   await tick();
   assert.deepEqual(formOrder(t), THEMED_FORM);
-  assert.deepEqual(typeOrder(t).slice(-2), ['o-test-links', 'o-test-qty']);
+  // A quantidade sai do fim das escolhas e vai para logo antes do botão (mesmo <form>, mesmo quadro), marcada para o CSS.
+  const qty = t.doc.getElementById('o-test-qty');
+  assert.equal(typeOrder(t).slice(-1)[0], 'o-test-links');
+  assert.equal(qty.nextElementSibling, t.doc.getElementById('add-to-cart-desk'));
+  assert.ok(qty.hasAttribute('data-origens-qty'));
+  assert.ok(qty.closest('form[id^="form-product-"]'));
   // Muitas mutações não movem de novo nem duplicam nada.
   for (let i = 0; i < 20; i++) t.doc.body.appendChild(t.doc.createElement('i'));
   await tick();
@@ -111,6 +116,7 @@ test('ordem do DOM = ordem visual: prazo, cupom e "Também disponível em" depoi
   await tick();
   assert.deepEqual(formOrder(t), NATIVE_FORM, 'blocos de volta ao lugar nativo');
   assert.deepEqual(typeOrder(t).slice(-2), ['o-test-qty', 'o-test-links']);
+  assert.ok(!qty.hasAttribute('data-origens-qty'));
   assert.equal(thumbs(t).length, 0);
   assert.ok(!body(t).classList.contains('o-thumbs'));
 });

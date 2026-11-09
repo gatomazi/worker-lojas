@@ -90,10 +90,13 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box]',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar',
     'body[data-origens-theme~="cart"] .cart-drawer [data-origens-incentive-box] .o-incentive-bar i',
-    // A linha "Adicionar cupom" + "Frete · Inserir CEP" (grade do rodapé só com o nosso botão no lugar do cupom e o CEP fechado) e o alvo de 44 px do
-    // "Inserir CEP" (a INK alterna o campo do CEP, não este link).
-    'body[data-origens-theme~="cart"] .cart-drawer__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))',
+    // A linha "Adicionar cupom" (ou o selo do cupom aplicado) + "Frete · Inserir CEP": grade no rodapé, que a INK nunca esconde, só com o atributo NOSSO
+    // e o campo do CEP fechado; e o alvo de 44 px do "Inserir CEP" (a INK alterna o campo do CEP, não este link).
+    'body[data-origens-theme~="cart"] .cart-drawer__footer[data-origens-pair]:not(:has(> #cep-form [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))',
     'body[data-origens-theme~="cart"] .cart-drawer__footer__cep [data-action*="insertCep"]',
+    // Item do carrinho compacto: grade no .item-wrapper e `contents` no cabeçalho dele, contêineres que a INK nunca alterna, só com a estrutura esperada (:has).
+    'body[data-origens-theme~="cart"] .cart-drawer__main .main-list__item .item-wrapper:has(> header > div > .item-details):has(> .item-details__footer)',
+    'body[data-origens-theme~="cart"] .cart-drawer__main .main-list__item .item-wrapper:has(> header > div > .item-details):has(> .item-details__footer) > header,body[data-origens-theme~="cart"] .cart-drawer__main .main-list__item .item-wrapper:has(> header > div > .item-details):has(> .item-details__footer) > header > div',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
     'body[data-origens-theme~="checkout"] nav.bg-store-primary a:has([data-origens-brand])',
@@ -136,9 +139,9 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
   assert.ok(k.includes('html:has(> body[data-origens-theme~="checkout"]){scroll-padding-top:48px}'));
   assert.ok(/@media \(max-width:767px\)\{html:has\(> body\[data-origens-theme~="checkout"\] div\.fixed\.bottom-0 button\.md\\:hidden\)\{scroll-padding-bottom:104px\}\}/.test(k));
   assert.ok(!buildThemeCss(t, ['pdp', 'cart']).includes('scroll-padding'), 'only the checkout touches scroll-padding');
-  // Carrinho: preço de cada item numa linha; botões de quantidade/remover com 44 px.
+  // Carrinho: preço de cada item numa linha; botões de quantidade/remover com 44 px (o item compacto não encolhe o alvo de toque).
   const c = buildThemeCss(t, ['cart']);
-  assert.ok(c.includes(':is(.price,.price span,.price del){white-space:nowrap}') && c.includes('.item-details__quantity button{width:44px!important;height:44px!important}'));
+  assert.ok(c.includes(':not(.item-details) span{white-space:nowrap') && c.includes('.item-details__quantity button{width:44px!important;height:44px!important}'));
 });
 
 test('incentive: só ligado, frete grátis por PEÇAS, meta 2–20, UFs desta região; inválido = sem incentivo (o tema continua); atributo só com números e siglas', () => {

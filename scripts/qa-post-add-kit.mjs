@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // SIMULAÇÃO do "Monte seu kit" (post-add-kit) no modal pós-adição, sem carrinho real: adicionar ao carrinho real não é permitido nesta sessão (a trava do
 // harness aborta todo não-GET do carrinho). Abre a PDP REAL pelo Worker LOCAL (harness de preview-tema, mesmo worker.js/loader de produção, tema da compra
-// ligado), com o storefront respondendo um kit fixo em /api/post-add-kit/sul (as faixas reais da LEVEMAIS de 27/10/2026). O "envio" do formulário de compra
+// ligado), com o storefront respondendo um kit fixo em /api/post-add-kit/sul (as faixas reais da BLACKMONTH automática de 03/11/2026). O "envio" do formulário de compra
 // é só o evento turbo:submit-start (nada sai); o modal é a marcação da INK (classes e ids de docs/evidence/drawer/before-drawer-*.audit.json) com a geometria
-// MEDIDA nessa auditoria (folha inferior no celular, gaveta à direita no desktop), inserida em #last_added_product. Toda captura leva a faixa "SIMULAÇÃO".
+// MEDIDA nessa auditoria (folha inferior no celular, gaveta à direita no desktop), inserida em #last_added_product. Onde o cliente está vem da barra da
+// promoção da INK no carrinho: aqui um [data-ink-labs-progressive-discount] com o texto real de 08/11/2026 ("R$ 25,00 OFF aplicado · adicione 1 peça e
+// sobe para R$ 50,00 OFF"); a variante "sem-estado" não tem barra nem contagem (o título e o texto do CMS). Toda captura leva a faixa "SIMULAÇÃO".
 // Não prova a integração com o modal real: a conferência real é do dono (docs/post-add-kit.md, roteiro manual).
 //   PW_PATH=<pasta com playwright-core> node scripts/qa-post-add-kit.mjs --out <dir> [--antes]
 import { mkdirSync } from 'node:fs';
@@ -14,7 +16,9 @@ const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : nu
 const OUT = opt('--out'); if (!OUT) { console.error('--out <dir>'); process.exit(2); }
 mkdirSync(OUT, { recursive: true });
 
-const KIT = { v: 1, region: 'sul', kit: { id: 73095, code: 'LEVEMAIS', auto: false, kind: 'value', tiers: [{ items: 3, discount: 25 }, { items: 4, discount: 40 }, { items: 5, discount: 60 }, { items: 6, discount: 85 }], eyebrow: 'Economize montando seu kit', title: 'Monte seu kit e pague menos', lead: 'Você pode combinar produtos participantes. Os valores abaixo usam o preço atual deste produto como referência.' } };
+const KIT = { v: 1, region: 'sul', kit: { id: 73095, code: 'BLACKMONTH', auto: true, kind: 'value', tiers: [{ items: 3, discount: 25 }, { items: 4, discount: 50 }, { items: 5, discount: 75 }, { items: 6, discount: 100 }], eyebrow: 'Monte seu kit', title: 'Quanto mais peças, maior o desconto', lead: 'A partir de 3 peças o desconto entra sozinho no carrinho.' } };
+// --barra: o texto da barra da INK (padrão: 1ª faixa alcançada). Ex.: --barra 'Adicione 2 peças e ganhe R$ 25,00 OFF'.
+const BAR = opt('--barra') || '<strong>R$ 25,00 OFF aplicado</strong> · adicione 1 peça e sobe para R$ 50,00 OFF';
 const OFF = { v: 1, region: 'sul', kit: null };
 const VIEWPORTS = [{ name: 'desktop-1440', width: 1440, height: 900 }, { name: 'celular-390', width: 390, height: 844 }, { name: 'celular-360x640', width: 360, height: 640 }];
 
@@ -50,11 +54,12 @@ for (const [tag, payload] of runs) {
     await page.goto(H.HOST + DEFAULT_PDP, { waitUntil: 'networkidle', timeout: 90000 });
     await H.acceptCookies(page); await page.waitForTimeout(1200);
     const imgs = await page.evaluate(() => [...document.querySelectorAll('img')].map((i) => i.currentSrc || i.getAttribute('src')).filter((src) => src && /majestic\.ink.*\/images\/product/.test(src)).slice(0, 8));
-    for (const priced of tag === 'depois' ? [true, false] : [true]) {
-      // Sem preço: página nova (o preço da adição anterior vale 30 s) e nenhum envio antes do modal.
-      if (!priced) { await page.reload({ waitUntil: 'networkidle', timeout: 90000 }); await page.waitForTimeout(1200); }
+    for (const comEstado of tag === 'depois' ? [true, false] : [true]) {
+      // Sem estado: página nova, sem a barra da INK.
+      if (!comEstado) { await page.reload({ waitUntil: 'networkidle', timeout: 90000 }); await page.waitForTimeout(1200); }
+      else await page.evaluate((bar) => { const h = document.createElement('div'); h.setAttribute('data-ink-labs-progressive-discount', 'cart'); h.hidden = true; h.attachShadow({ mode: 'open' }).innerHTML = '<p>' + bar + '</p>'; document.body.appendChild(h); }, BAR);
       // O "envio": só o evento que o Turbo dispara no formulário de compra (nenhum pedido sai).
-      if (priced) await page.evaluate(() => { const f = [...document.querySelectorAll('form[id^="form-product-"]')].find((x) => !x.closest('.modal-buy-together, #quick_add_frame')); if (f) f.dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true })); });
+      if (comEstado) await page.evaluate(() => { const f = [...document.querySelectorAll('form[id^="form-product-"]')].find((x) => !x.closest('.modal-buy-together, #quick_add_frame')); if (f) f.dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true })); });
       await page.evaluate(({ html }) => { let f = document.getElementById('last_added_product'); if (!f) { f = document.createElement('turbo-frame'); f.id = 'last_added_product'; document.body.appendChild(f); } f.innerHTML = html; }, { html: modalHtml(imgs, s.mobile) });
       await page.waitForTimeout(1500);
       await page.evaluate(BANNER);
@@ -63,17 +68,17 @@ for (const [tag, payload] of runs) {
         const label = (sel) => document.querySelector(sel + ' span')?.textContent ?? null;
         const w = document.getElementById('modal-wrapper'); if (w) w.scrollTop = 0;
         const eyebrow = r('[data-origens-kit] .o-kit-eyebrow'); const head = r('[data-origens-kit-head]');
-        return { vh: innerHeight, kit: r('[data-origens-kit]'), close: r('#modal-close-button'), sheet: r('#modal-wrapper'), reach: eyebrow && head ? eyebrow.y - head.bottom : (eyebrow ? eyebrow.y : null), priced: document.querySelector('[data-origens-kit]')?.getAttribute('data-priced') ?? null, tiers: document.querySelectorAll('.o-kit-tier').length,
+        return { vh: innerHeight, kit: r('[data-origens-kit]'), close: r('#modal-close-button'), sheet: r('#modal-wrapper'), reach: eyebrow && head ? eyebrow.y - head.bottom : (eyebrow ? eyebrow.y : null), state: document.querySelector('[data-origens-kit]')?.getAttribute('data-state') ?? null, steps: document.querySelectorAll('.o-kit-step').length,
           checkout: r('#modal-wrapper .checkout-btn'), more: r('#continue-shopping-button'), labels: [label('#modal-wrapper .checkout-btn'), label('#continue-shopping-button')],
           hScroll: document.documentElement.scrollWidth > innerWidth, sheetScroll: (() => { const w = document.getElementById('modal-wrapper'); return w ? w.scrollWidth > w.clientWidth : null; })() };
       });
       const visible = m.checkout && m.checkout.y >= 0 && m.checkout.bottom <= m.vh;
       const closable = m.close && m.close.y >= 0 && m.close.bottom <= m.vh;
       const reachable = m.reach === null || m.reach === undefined || m.reach >= 0;
-      console.log(`[${tag} ${vp.name}${priced ? '' : ' sem preço'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela', closable ? '| OK: × à vista' : '| ATENÇÃO: × fora da tela', reachable ? '| OK: começo do kit alcançável' : '| ATENÇÃO: começo do kit ' + (-m.reach) + ' px escondido (a rolagem não chega)');
-      const name = `${tag}-${vp.name}${priced ? '' : '-sem-preco'}`;
+      console.log(`[${tag} ${vp.name}${comEstado ? '' : ' sem estado'}]`, JSON.stringify(m), visible ? 'OK: "Finalizar compra" à vista' : 'ATENÇÃO: botão fora da tela', closable ? '| OK: × à vista' : '| ATENÇÃO: × fora da tela', reachable ? '| OK: começo do kit alcançável' : '| ATENÇÃO: começo do kit ' + (-m.reach) + ' px escondido (a rolagem não chega)');
+      const name = `${tag}-${vp.name}${comEstado ? '' : '-sem-estado'}`;
       await page.screenshot({ path: `${OUT}/${name}.png` });
-      if (s.mobile && tag === 'depois' && priced) {
+      if (s.mobile && tag === 'depois' && comEstado) {
         // Rola a folha até o fim: os botões seguem presos ao pé enquanto há kit; depois a busca e "As mais vendidas".
         await page.evaluate(() => { const w = document.getElementById('modal-wrapper'); if (w) w.scrollTop = w.scrollHeight; });
         await page.waitForTimeout(500);

@@ -160,8 +160,17 @@ PW_PATH=… node scripts/validacao-checkout.mjs --checkout <uuid de teste> --out
 
 - **Cupom.** Com o carrinho tematizado, o `theme-ui` põe `data-origens-collapsed` na linha do cupom da INK (`.cart-drawer__footer__coupon`) e um botão
   "Adicionar cupom" no lugar. Isso só acontece quando o campo está vazio, sem foco, sem cupom aplicado (ações `clearCoupon`/`removeCoupon`) e sem erro
-  (`cartErrors`). Depois de aberto pelo cliente, fica aberto até a próxima página. Sem o código (falhou, tema desligado), o campo da INK aparece. Com o
-  cupom recolhido e o CEP fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (grade do rodapé por `:has()`, só CSS).
+  (`cartErrors` com texto; a INK deixa o contêiner vazio na gaveta). Depois de aberto pelo cliente, fica aberto até a próxima página. Sem o código
+  (falhou, tema desligado), o campo da INK aparece.
+- **Cupom e frete numa linha (08/11/2026).** Na marcação real o cupom e o CEP estão cada um no próprio `<form>` (`#coupon-form`, `#cep-form`), filhos
+  diretos do rodapé; a regra anterior (`:has(> .o-coupon-toggle)`, feita sobre a marcação reconstruída) nunca casou. Agora o `theme-ui` põe
+  `data-origens-pair` no rodapé quando o cupom está recolhido **ou já aplicado** (a BLACKMONTH automática entra como cupom: campo escondido + selo com
+  "remover"; `data-origens-applied` na linha, o rótulo "Cupom" fica só para leitor de tela) e o "Inserir CEP" existe; o CSS desfaz a linha se o campo
+  do CEP abrir. Totais: subtotal e desconto numa linha, Total em 22 px. Rodapé fixo medido na gaveta real (614×757): 333 → 249 px, e a oferta
+  exclusiva da INK aparece inteira. Lixeira em tinta, não vermelha.
+- **Descoberta no carrinho cheio.** Com o tema e a área rolável em coluna (marcação real: lista, "Leve também", oferta exclusiva), o bloco vai para o
+  FIM dela, depois da oferta, como dois links de texto ("Buscar cidade ou estado" · "Explorar todas as estampas"); antes eram dois botões com borda
+  logo antes da oferta.
 - **Incentivo.** Regra publicada pelo painel (`incentive` no contrato v1, só ligada e confirmada pelo dono), validada pelo Worker (`normalizeIncentive`:
   frete grátis por peças, 2–20, UFs da região) e escrita no `<body>` como `data-origens-incentive="2|PR,SC,RS"`, só com `cart-incentive` no deploy e o
   carrinho tematizado. O `theme-ui` lê a contagem em `#quantity-header[data-quantityheader]` e a linha do frete da INK (`.cart-drawer__footer__cep`:

@@ -390,6 +390,17 @@ export const DISCOVERY_TEMPLATE = String.raw`(() => {
         // (o item do carrinho perderia largura/preço). Por isso o bloco vai DENTRO do <ul>, como último item de largura total.
         const list = main.querySelector('ul');
         if (!list) return false;
+        // Com o tema, na marcação real de 08/11/2026 a área rolável é uma COLUNA (lista, "Leve também" e a oferta exclusiva da INK, nessa ordem): o
+        // bloco vai para o fim dela, depois da oferta (um <div> irmão; numa linha ele espremeria os itens, então só em coluna).
+        if (themedCart() && getComputedStyle(main).flexDirection === 'column' && list.parentElement === main) {
+          const tail = document.createElement('div');
+          tail.setAttribute('data-origens-slot', '');
+          tail.style.cssText = 'flex:0 0 auto;width:100%;margin:0;padding:0';
+          tail.appendChild(root);
+          main.appendChild(tail);
+          root.classList.add('o-dense');
+          return tail;
+        }
         const slot = document.createElement('li');
         slot.setAttribute('role', 'none');
         slot.setAttribute('data-origens-slot', '');

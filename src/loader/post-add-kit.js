@@ -2,28 +2,28 @@
 //   Dados:    /__origens/kit (o Worker lê /api/post-add-kit/<região> do storefront, que lê a promoção na API da INK; contrato v1). Buscado uma vez ao montar
 //             (para o bloco nascer junto com o modal) e guardado 1 min (sessionStorage), validado de novo aqui. Erro, timeout, JSON inválido ou kit null =>
 //             NADA aparece: o modal fica exatamente como a INK desenha.
-//   Preço:    o da peça que ACABOU de ser adicionada, lido no próprio formulário de compra enviado (form-product-<id>: o da página, o do "compre junto" ou o do
-//             quick add), no envio. Sem preço legível (ou envio de mais de 30 s atrás), as faixas mostram só o desconto ("R$ 25 OFF no total"), sem contas.
-//             As contas são as da INK aplicadas a esse preço: `value` = R$ fora do total; `percentage` = % fora do total. Quem aplica é o carrinho da INK.
+//   Onde o cliente está: a frase e a trilha de passos dizem quanto ele já ganhou e quanto falta para a próxima faixa ("Você já ganhou R$ 25 OFF · Mais 1
+//             peça e o desconto sobe para R$ 50 OFF"). A fonte é a barra da própria INK no carrinho ([data-ink-labs-progressive-discount], shadow root
+//             aberto): ela já aplica a elegibilidade da promoção. Sem a barra (ou com números que não batem com as faixas do kit), as peças do carrinho
+//             (#quantity-header). Sem nenhuma das duas, o título e o texto do CMS, com a trilha sem destaque. Refeito quando o carrinho da INK atualiza.
+//             Antes (até 08/11/2026) eram 4 cartões com de/por/cada/economize por faixa: 16 preços e nenhum "você está aqui".
 //   Modal:    o bloco entra ANTES dos botões nativos; "Ver carrinho" vira "Finalizar compra" (o mesmo botão da INK, só o texto do rótulo muda) e ocupa a
 //             largura toda: "Continuar comprando" fica escondido enquanto há kit (decisão do dono: a busca logo abaixo já leva a outras estampas, e o × e o
 //             clique fora continuam fechando o modal). Ao desmontar, o texto e o botão voltam. No celular o botão fica preso ao pé da folha enquanto se rola,
 //             para "Finalizar compra" nunca sair da tela. A busca e "As mais vendidas" continuam abaixo.
 //   Copiar:   SÓ copia o código (Clipboard API e, sem ela, execCommand; sem nenhum, o código fica selecionado). Nunca toca no campo de cupom da INK.
-// Todo texto vem do CMS e entra só por textContent.
+// Todo texto vem do CMS ou é montado aqui, e entra só por textContent.
 export const POST_ADD_KIT = String.raw`
   const KIT_ENDPOINT = '/__origens/kit';
   const KIT_CACHE_KEY = 'origens:kit:v1';
   const KIT_CACHE_MS = 60 * 1000;
   const KIT_FETCH_MS = 4000;
-  const KIT_PRICE_MS = 30 * 1000;
   const KIT_MAX_TIERS = 6;
   const KIT_CODE = /^[A-Za-z0-9_-]{2,40}$/;
   const KIT_CONTROL = /[\u0000-\u001f\u007f<>]/;
   const KIT_LIMITS = { eyebrow: 40, title: 60, lead: 160 };
-  const KIT_MONEY = /^R\$\s?(\d{1,3}(?:\.\d{3})*|\d{1,6}),(\d{2})$/;
   const KIT_LABEL_CHECKOUT = 'Finalizar compra';
-  const KIT_NOTE = 'Em peças com preços diferentes, o total do kit pode variar.';
+  const KIT_NATIVE = '[data-ink-labs-progressive-discount]';
 
   function kitText(value, max) {
     const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
@@ -84,51 +84,54 @@ export const POST_ADD_KIT = String.raw`
     return kitPending;
   }
 
-  // "R$ 109,90" -> 10990. Só um preço inteiro, sozinho no elemento (as parcelas "5x de R$ 21,98" não passam).
-  function kitCents(text) {
-    const m = KIT_MONEY.exec(String(text || '').replace(/ /g, ' ').trim());
-    if (!m) return null;
-    const cents = Number(m[1].replace(/\./g, '')) * 100 + Number(m[2]);
-    return cents > 0 && cents <= 100000 * 100 ? cents : null;
-  }
-  // O preço COBRADO no formulário enviado. Na PDP real (27/10/2026) ele mora em [data-ink-labs-anchor="product_price"]: ali vale o MENOR preço inteiro
-  // (numa promoção o cobrado é sempre menor que o cheio, venha o cheio riscado ou não). Sem a âncora, o primeiro elemento-folha com só um preço. Sempre
-  // fora de riscados (o "de" de uma promoção) e do que é nosso.
-  function kitPriceIn(form) {
-    const anchor = form.querySelector('[data-ink-labs-anchor="product_price"]');
-    let best = null;
-    for (const el of (anchor || form).querySelectorAll('p, span, strong, b, div')) {
-      if (el.children.length || el.closest('del, s, strike, [class*="line-through"], [data-origens-kit], [data-origens-discovery], [data-origens-reco]')) continue;
-      const cents = kitCents(el.textContent);
-      if (!cents) continue;
-      if (!anchor) return cents;
-      if (best === null || cents < best) best = cents;
-    }
-    return best;
-  }
-  let kitLast = null; // { at, cents } do último envio de um formulário de compra
+  // Hora do último envio de um formulário de compra (o da página, o do "compre junto" ou o do quick add): o mesmo modal reaberto por uma nova adição
+  // é refeito. Lida NO ENVIO, antes de a resposta trocar a página ou o quadro do formulário.
+  let kitLast = null;
   function kitCapture(target) {
-    const form = target && target.closest ? target.closest('form[id^="form-product-"]') : null;
-    if (!form) return;
-    let cents = null;
-    try { cents = kitPriceIn(form); } catch (_) { /* sem preço: o bloco mostra só os descontos */ }
-    kitLast = { at: Date.now(), cents: cents };
+    if (target && target.closest && target.closest('form[id^="form-product-"]')) kitLast = { at: Date.now() };
   }
-  const kitPrice = () => (kitLast && Date.now() - kitLast.at < KIT_PRICE_MS ? kitLast.cents : null);
 
   const kitMoney = (cents) => { try { return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch (_) { return 'R$ ' + (cents / 100).toFixed(2).replace('.', ','); } };
   const kitOff = (kind, discount) => (kind === 'value' ? kitMoney(Math.round(discount * 100)).replace(/,00$/, '') : String(discount).replace('.', ',') + '%') + ' OFF';
-  // As mesmas contas do painel (src/lib/ink/progressive-promotions.ts no useorigens), em centavos. Uma faixa que zeraria o total => null (só os descontos).
-  function kitPrices(unit, kit) {
-    if (!unit) return null;
-    const out = [];
-    for (const t of kit.tiers) {
-      const full = unit * t.items;
-      const total = kit.kind === 'value' ? full - Math.round(t.discount * 100) : Math.round(full * (100 - t.discount) / 100);
-      if (total <= 0 || total >= full) return null;
-      out.push({ full: full, total: total, each: Math.round(total / t.items), saved: full - total });
+  const kitPieces = (n) => n + (n === 1 ? ' peça' : ' peças');
+  const kitStepOff = (kind, discount) => '−' + kitOff(kind, discount).replace(/ OFF$/, '');
+  // "R$ 1.234,50" / "25,00" -> 1234.5
+  const kitNumber = (text) => Number(String(text).replace(/\./g, '').replace(',', '.'));
+  // Só o texto visível (sem o de um <style> dentro do shadow root).
+  function kitVisibleText(root) {
+    let out = '';
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (!(n.parentElement && n.parentElement.closest('style, script'))) out += ' ' + n.nodeValue;
+    return out.replace(/\s+/g, ' ').trim();
+  }
+  // A barra da INK no carrinho: "R$ 25,00 OFF aplicado · adicione 1 peça e sobe para R$ 50,00 OFF" ou "Adicione 1 peça e ganhe R$ 25,00 OFF".
+  function kitNative() {
+    for (const host of document.querySelectorAll(KIT_NATIVE)) {
+      const text = kitVisibleText(host.shadowRoot || host);
+      const applied = /R\$\s?([\d.]+(?:,\d{1,2})?)\s*OFF aplicado/i.exec(text);
+      const add = /adicione\s+(\d{1,3})\s+peças?/i.exec(text);
+      const next = /(?:para|ganhe)\s+R\$\s?([\d.]+(?:,\d{1,2})?)\s*OFF/i.exec(text);
+      if (applied || add) return { applied: applied ? kitNumber(applied[1]) : 0, missing: add ? Number(add[1]) : 0, next: next ? kitNumber(next[1]) : null };
     }
-    return out;
+    return null;
+  }
+  // { reached, missing }: reached = índice da última faixa alcançada (-1 = nenhuma); missing = peças até a próxima (0 na última). null = não dá para saber.
+  function kitState(kit) {
+    const tiers = kit.tiers;
+    const native = kit.kind === 'value' ? kitNative() : null;
+    if (native) {
+      const reached = native.applied ? tiers.findIndex((t) => t.discount === native.applied) : -1;
+      const next = tiers[reached + 1];
+      const fits = (native.applied === 0 || reached >= 0) && (next ? native.missing >= 1 && native.next === next.discount : native.missing === 0);
+      if (fits) return { reached: reached, missing: next ? native.missing : 0 };
+    }
+    const header = document.querySelector('.cart-drawer #quantity-header[data-quantityheader], #quantity-header[data-quantityheader]');
+    const count = header ? Number.parseInt(header.getAttribute('data-quantityheader'), 10) : NaN;
+    if (!(count >= 1 && count <= 999)) return null;
+    let reached = -1;
+    tiers.forEach((t, i) => { if (count >= t.items) reached = i; });
+    const next = tiers[reached + 1];
+    return { reached: reached, missing: next ? next.items - count : 0 };
   }
 
   // Medição: só com o gtag da PRÓPRIA INK para a propriedade da região na página e com o aviso de cookies da INK aceito (a mesma regra de tracking.js).
@@ -190,12 +193,12 @@ export const POST_ADD_KIT = String.raw`
   const KIT_PRIMARY = (STORE.theme && STORE.theme.primary) || '#4d543d';
   const KIT_CSS = [
     // Cores e raio do tema da compra (theme-cart) quando ele está no ar; sem ele, a cor da região e o raio dos botões da INK.
-    '[data-origens-kit]{--k-accent:var(--o-selected,' + KIT_PRIMARY + ');--k-ink:var(--o-ink,#111827);--k-mute:var(--o-ink-mute,#4b5563);--k-line:var(--o-line-soft,rgba(17,24,39,.14));--k-radius:var(--o-radius,8px);--k-surface:var(--o-surface,#fff);box-sizing:border-box;margin:18px 0 16px;font-family:inherit;color:var(--k-ink);text-align:left}',
+    '[data-origens-kit]{--k-accent:var(--o-selected,' + KIT_PRIMARY + ');--k-ok:var(--o-ok,#1f6f43);--k-ink:var(--o-ink,#111827);--k-mute:var(--o-ink-mute,#4b5563);--k-line:var(--o-line-soft,rgba(17,24,39,.14));--k-radius:var(--o-radius,8px);--k-surface:var(--o-surface,#fff);box-sizing:border-box;margin:18px 0 16px;font-family:inherit;color:var(--k-ink);text-align:left}',
     '[data-origens-kit] *{box-sizing:border-box;font-family:inherit}',
     '[data-origens-kit] .o-kit-eyebrow{display:flex;align-items:center;gap:6px;margin:0 0 4px;font-size:11px;font-weight:700;line-height:1.3;letter-spacing:.08em;text-transform:uppercase;color:var(--k-accent)}',
     '[data-origens-kit] .o-kit-eyebrow svg{width:14px;height:14px;flex:none}',
-    '[data-origens-kit] .o-kit-title{margin:0;font-size:20px;line-height:1.2;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--k-ink)}',
-    '[data-origens-kit] .o-kit-lead{margin:6px 0 0;font-size:13px;line-height:1.4;color:var(--k-mute)}',
+    '[data-origens-kit] .o-kit-title{margin:0;font-size:21px;line-height:1.2;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--k-ink)}',
+    '[data-origens-kit] .o-kit-lead{margin:4px 0 0;font-size:14px;line-height:1.4;color:var(--k-mute)}',
     '[data-origens-kit] .o-kit-code{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0}',
     '[data-origens-kit] .o-kit-chip{display:inline-flex;align-items:center;gap:.3em;min-height:40px;padding:6px 12px;border-radius:var(--k-radius);background:color-mix(in srgb,var(--k-accent) 12%,var(--k-surface));color:var(--k-accent);font-size:14px;font-weight:700;line-height:1.2}',
     // "Copiar cupom" é um botão de verdade (borda, ícone), não um texto: a mesma altura do selo do cupom ao lado.
@@ -203,18 +206,24 @@ export const POST_ADD_KIT = String.raw`
     '[data-origens-kit] .o-kit-copy svg{width:16px;height:16px;flex:none}',
     '[data-origens-kit] .o-kit-copy:hover,[data-origens-kit] .o-kit-copy[data-copied]{background:var(--k-accent);color:var(--o-on-selected,#fff)}',
     '[data-origens-kit] .o-kit-copy:focus-visible{outline:2px solid var(--k-accent);outline-offset:2px}',
-    '[data-origens-kit] .o-kit-tiers{display:grid;gap:8px;margin:10px 0 0;padding:0;list-style:none}',
-    '[data-origens-kit] .o-kit-tier{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:56px;margin:0;padding:8px 12px;border:1px solid var(--k-line);border-radius:var(--k-radius);background:var(--k-surface)}',
-    '[data-origens-kit] .o-kit-tier[data-best]{border-color:var(--k-accent);background:color-mix(in srgb,var(--k-accent) 7%,var(--k-surface))}',
-    '[data-origens-kit] .o-kit-qty{font-size:15px;font-weight:700;line-height:1.2;white-space:nowrap}',
-    '[data-origens-kit] .o-kit-total,[data-origens-kit] .o-kit-each{display:flex;flex-direction:column;line-height:1.25;min-width:0}',
-    '[data-origens-kit] .o-kit-each{align-items:flex-end;text-align:right}',
-    '[data-origens-kit] .o-kit-total s{font-size:12px;color:var(--k-mute)}',
-    '[data-origens-kit] .o-kit-total strong{font-size:15px;font-weight:700;white-space:nowrap}',
-    '[data-origens-kit] .o-kit-each strong{font-size:14px;font-weight:700;color:var(--k-accent);white-space:nowrap}',
-    '[data-origens-kit] .o-kit-each small{font-size:11px;color:var(--k-mute);white-space:nowrap}',
-    '[data-origens-kit] .o-kit-off{grid-column:2 / 4;justify-self:end;font-size:15px;font-weight:700;color:var(--k-accent)}',
-    '[data-origens-kit] .o-kit-note{margin:8px 0 0;font-size:11.5px;line-height:1.4;color:var(--k-mute)}',
+    // Trilha: um passo por faixa, o desconto em destaque e as peças embaixo. Alcançado = barra e número na cor da marca; o próximo = barra clara e
+    // número em tinta; os demais apagados. Sem preço por peça: o que decide é quanto falta para o próximo desconto.
+    '[data-origens-kit] .o-kit-lead strong{font-weight:700;color:var(--k-ink)}',
+    '[data-origens-kit] .o-kit-steps{display:grid;grid-template-columns:repeat(var(--k-n,4),minmax(0,1fr));gap:6px;margin:14px 0 0;padding:0;list-style:none}',
+    '[data-origens-kit] .o-kit-step{display:flex;flex-direction:column;gap:1px;min-width:0;margin:0;padding:0}',
+    '[data-origens-kit] .o-kit-step > i{display:block;height:6px;margin:0 0 7px;border-radius:3px;background:var(--k-line)}',
+    '[data-origens-kit] .o-kit-step > b{font-size:15px;font-weight:600;line-height:1.2;color:var(--k-mute);white-space:nowrap}',
+    '[data-origens-kit] .o-kit-step > small{font-size:12px;line-height:1.3;color:var(--k-mute);white-space:nowrap}',
+    // Faixa alcançada em verde (o "ok" do tema) com o certo; a próxima enche de verde na proporção das peças que já estão no carrinho.
+    '[data-origens-kit] .o-kit-step[data-state="done"] > i{background:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step[data-state="done"] > b{display:flex;align-items:center;gap:3px;font-weight:800;color:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step > b > svg{width:14px;height:14px;flex:none}',
+    '[data-origens-kit] .o-kit-step[data-state="done"] > small{color:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step[data-state="next"] > i{background:linear-gradient(90deg,var(--k-ok) var(--k-fill,0%),var(--k-line) var(--k-fill,0%))}',
+    '[data-origens-kit] .o-kit-step[data-state="next"] > b{font-weight:800;color:var(--k-ink)}',
+    '[data-origens-kit] .o-kit-step[data-state="todo"] > i{background:color-mix(in srgb,var(--k-line) 55%,var(--k-surface))}',
+    '[data-origens-kit] .o-kit-auto{display:flex;align-items:center;gap:6px;margin:12px 0 0;font-size:13px;line-height:1.35;color:var(--k-mute)}',
+    '[data-origens-kit] .o-kit-auto svg{width:15px;height:15px;flex:none;color:var(--k-ok)}',
     '[data-origens-kit] .o-kit-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}',
     // Um botão só, na largura toda: "Finalizar compra". O "Continuar comprando" nativo fica escondido enquanto há kit (a busca logo abaixo faz esse papel).
     '#modal-wrapper [data-origens-kit-footer]{display:grid!important;grid-template-columns:1fr;gap:8px;align-items:stretch}',
@@ -226,6 +235,9 @@ export const POST_ADD_KIT = String.raw`
     '#modal-wrapper [data-origens-kit-footer] .checkout-btn{font-weight:700!important}',
     // Depois da regra geral acima (ordem e especificidade dizem o mesmo).
     '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{display:none!important}',
+    // A barra da promoção que a INK põe no modal (app progressive_discount, lugar "progressive_discount_added", antes dos botões) repete a trilha:
+    // some só quando a trilha sabe onde o cliente está. A do carrinho fica (é dela que kitNative lê o estado).
+    'body:has([data-origens-kit][data-state="known"]) [data-ink-labs-slot="progressive_discount_added"]{display:none!important}',
     // Enquanto há kit, o modal é TOPO fixo + MEIO que rola + PÉ fixo (pedido do dono em 28/10/2026): o topo ("Produto adicionado ao carrinho" e o ×)
     // preso no alto, "Finalizar compra" preso embaixo, e o kit, a busca e "As mais vendidas" rolando entre os dois. Vale no celular e no desktop.
     // align-items:flex-start: a folha da INK é flex em linha com items-center; com o conteúdo mais alto que ela, o centro empurrava metade da sobra para
@@ -245,9 +257,8 @@ export const POST_ADD_KIT = String.raw`
     // Altura inteira (sem folga em cima: ela mostrava a faixa preta do topo da INK atrás) e cantos retos no alto (arredondados, deixavam a faixa
     // aparecer nas pontas).
     '@media (max-width:767px){#modal-wrapper[data-origens-kit-open]{max-height:100vh!important;max-height:100dvh!important}' +
-      '#modal-wrapper [data-origens-kit-body],#modal-wrapper [data-origens-kit-head]{border-top-left-radius:0!important;border-top-right-radius:0!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:18px}}',
-    '@media (max-width:359px){[data-origens-kit] .o-kit-tier{column-gap:8px;padding:8px 10px}[data-origens-kit] .o-kit-each small{display:none}}',
-    '@media (max-height:700px){[data-origens-kit] .o-kit-lead{display:none}}'
+      '#modal-wrapper [data-origens-kit-body],#modal-wrapper [data-origens-kit-head]{border-top-left-radius:0!important;border-top-right-radius:0!important}[data-origens-kit]{margin:14px 0 12px}[data-origens-kit] .o-kit-title{font-size:19px}}',
+    '@media (max-width:359px){[data-origens-kit] .o-kit-steps{gap:4px}[data-origens-kit] .o-kit-step > b{font-size:14px}[data-origens-kit] .o-kit-step > small{font-size:11px}}'
   ].join('');
 
   function kitStyle() {
@@ -299,18 +310,82 @@ export const POST_ADD_KIT = String.raw`
     for (const body of root.querySelectorAll('[data-origens-kit-body]')) body.removeAttribute('data-origens-kit-body');
   }
 
-  function kitBuild(kit, unit, signal) {
+  // Certo (o desconto entra sozinho).
+  function kitCheckIcon() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.5'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+    const path = document.createElementNS(ns, 'path'); path.setAttribute('d', 'm5 12 5 5 9-10');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  // Frase de onde o cliente está + trilha de passos (uma faixa = um passo: o desconto e as peças). Partes em [tipo, texto]; 'b' = destaque.
+  function kitCopyFor(kit, st) {
+    const tiers = kit.tiers;
+    if (!st) return { title: kit.title, sub: [['', kit.lead]] };
+    const next = tiers[st.reached + 1];
+    if (st.reached < 0) {
+      return { title: (st.missing === 1 ? 'Falta ' : 'Faltam ') + kitPieces(st.missing) + ' para ' + kitOff(kit.kind, next.discount),
+        sub: [['', kit.auto ? 'O desconto entra sozinho no carrinho.' : 'Use o cupom no carrinho.']] };
+    }
+    const got = kitOff(kit.kind, tiers[st.reached].discount);
+    const title = (kit.auto ? 'Você já ganhou ' : 'Seu kit já vale ') + got;
+    if (!next) return { title: title, sub: [['', 'É o maior desconto do kit.']] };
+    return { title: title, sub: [['', 'Mais '], ['b', kitPieces(st.missing)], ['', ' e o desconto sobe para '], ['b', kitOff(kit.kind, next.discount)], ['', '.']] };
+  }
+  // Quanto da próxima faixa as peças do carrinho já cobrem (0–100), contando a partir da faixa alcançada.
+  function kitFill(kit, st) {
+    const next = kit.tiers[st.reached + 1];
+    const from = st.reached >= 0 ? kit.tiers[st.reached].items : 0;
+    const span = next.items - from;
+    if (!(span > 0)) return 0;
+    return Math.round(Math.min(1, Math.max(0, (next.items - st.missing - from) / span)) * 100);
+  }
+  const kitKey = (st) => (st ? st.reached + ':' + st.missing : '-');
+  function kitProgress(kit, st) {
+    const box = kitEl('div', { class: 'o-kit-progress', 'data-key': kitKey(st) });
+    const copy = kitCopyFor(kit, st);
+    box.appendChild(kitEl('h4', { id: 'o-kit-title', class: 'o-kit-title' }, copy.title));
+    const sub = kitEl('p', { class: 'o-kit-lead' });
+    for (const [kind, text] of copy.sub) sub.appendChild(kind === 'b' ? kitEl('strong', null, text) : document.createTextNode(text));
+    box.appendChild(sub);
+    const steps = kitEl('ol', { class: 'o-kit-steps', 'aria-label': 'Faixas de desconto' });
+    steps.style.setProperty('--k-n', String(kit.tiers.length));
+    kit.tiers.forEach((t, i) => {
+      const state = !st ? 'todo' : i <= st.reached ? 'done' : i === st.reached + 1 ? 'next' : 'todo';
+      const li = kitEl('li', { class: 'o-kit-step', 'data-state': state });
+      if (st && i === st.reached) li.setAttribute('aria-current', 'step');
+      if (state === 'next') li.style.setProperty('--k-fill', kitFill(kit, st) + '%');
+      li.appendChild(kitEl('i', { 'aria-hidden': 'true' }));
+      const off = kitEl('b', null, kitStepOff(kit.kind, t.discount));
+      if (state === 'done') off.prepend(kitCheckIcon());
+      li.appendChild(off);
+      li.appendChild(kitEl('small', null, kitPieces(t.items)));
+      li.appendChild(kitEl('span', { class: 'o-kit-sr' }, state === 'done' ? ', alcançado' : state === 'next' ? ', próximo' : ''));
+      steps.appendChild(li);
+    });
+    box.appendChild(steps);
+    return box;
+  }
+
+  function kitBuild(kit, signal) {
     const root = kitEl('section', { 'data-origens-kit': '', 'aria-labelledby': 'o-kit-title' });
     const eyebrow = kitEl('p', { class: 'o-kit-eyebrow' });
     eyebrow.appendChild(kitIcon()); eyebrow.appendChild(document.createTextNode(kit.eyebrow));
     root.appendChild(eyebrow);
-    root.appendChild(kitEl('h4', { id: 'o-kit-title', class: 'o-kit-title' }, kit.title));
-    root.appendChild(kitEl('p', { class: 'o-kit-lead' }, kit.lead));
+    const st = kitState(kit);
+    root.appendChild(kitProgress(kit, st));
+    root.setAttribute('data-state', st ? 'known' : 'unknown');
 
-    const code = kitEl('div', { class: 'o-kit-code' });
     const status = kitEl('span', { class: 'o-kit-sr', role: 'status', 'aria-live': 'polite' });
-    if (kit.auto) code.appendChild(kitEl('span', { class: 'o-kit-chip' }, 'Desconto aplicado no carrinho'));
-    else {
+    if (kit.auto) {
+      const auto = kitEl('p', { class: 'o-kit-auto' });
+      auto.appendChild(kitCheckIcon()); auto.appendChild(document.createTextNode('Desconto automático, sem cupom'));
+      root.appendChild(auto);
+    } else {
+      const code = kitEl('div', { class: 'o-kit-code' });
       const chip = kitEl('span', { class: 'o-kit-chip' }, 'Cupom');
       const codeText = kitEl('span', { 'data-origens-kit-code': '' }, kit.code);
       chip.appendChild(codeText);
@@ -332,38 +407,20 @@ export const POST_ADD_KIT = String.raw`
         }
       }, { signal: signal });
       code.appendChild(chip); code.appendChild(copy);
+      root.appendChild(code);
     }
-    root.appendChild(code);
-
-    const prices = kitPrices(unit, kit);
-    const list = kitEl('ol', { class: 'o-kit-tiers' });
-    kit.tiers.forEach((t, i) => {
-      const li = kitEl('li', { class: 'o-kit-tier' });
-      if (i === kit.tiers.length - 1 && kit.tiers.length > 1) li.setAttribute('data-best', '');
-      const qty = t.items + ' peças';
-      const p = prices ? prices[i] : null;
-      if (p) {
-        li.appendChild(kitEl('span', { class: 'o-kit-sr' }, qty + ': de ' + kitMoney(p.full) + ' por ' + kitMoney(p.total) + ', ' + kitMoney(p.each) + ' cada, economia de ' + kitMoney(p.saved) + '.'));
-        li.appendChild(kitEl('span', { class: 'o-kit-qty', 'aria-hidden': 'true' }, qty));
-        const total = kitEl('span', { class: 'o-kit-total', 'aria-hidden': 'true' });
-        total.appendChild(kitEl('s', null, 'de ' + kitMoney(p.full)));
-        total.appendChild(kitEl('strong', null, 'por ' + kitMoney(p.total)));
-        li.appendChild(total);
-        const each = kitEl('span', { class: 'o-kit-each', 'aria-hidden': 'true' });
-        each.appendChild(kitEl('strong', null, kitMoney(p.each) + ' cada'));
-        each.appendChild(kitEl('small', null, 'economize ' + kitMoney(p.saved)));
-        li.appendChild(each);
-      } else {
-        li.appendChild(kitEl('span', { class: 'o-kit-qty' }, qty));
-        li.appendChild(kitEl('span', { class: 'o-kit-off' }, kitOff(kit.kind, t.discount) + ' no total'));
-      }
-      list.appendChild(li);
-    });
-    root.appendChild(list);
-    root.appendChild(kitEl('p', { class: 'o-kit-note' }, KIT_NOTE));
     root.appendChild(status);
-    root.setAttribute('data-priced', prices ? 'true' : 'false');
     return root;
+  }
+  // O carrinho da INK mudou (a resposta da adição chegou depois do modal, ou a barra dela terminou de desenhar): refaz só a frase e a trilha.
+  function kitRefresh(kit) {
+    const root = document.querySelector('#modal-wrapper [data-origens-kit]');
+    const box = root && root.querySelector('.o-kit-progress');
+    if (!box) return;
+    const st = kitState(kit);
+    if (box.getAttribute('data-key') === kitKey(st)) return;
+    box.replaceWith(kitProgress(kit, st));
+    root.setAttribute('data-state', st ? 'known' : 'unknown');
   }
 
   register({
@@ -379,7 +436,7 @@ export const POST_ADD_KIT = String.raw`
       if (!this.ac) {
         this.ac = new AbortController();
         const opts = { signal: this.ac.signal, capture: true };
-        // O preço é lido NO ENVIO (antes da resposta trocar a página ou o quadro do formulário).
+        // A hora da adição é lida NO ENVIO (antes da resposta trocar a página ou o quadro do formulário).
         document.addEventListener('submit', (event) => kitCapture(event.target), opts);
         document.addEventListener('turbo:submit-start', (event) => kitCapture(event.target), opts);
         for (const name of ['turbo:frame-load', 'turbo:frame-render', 'turbo:before-stream-render']) {
@@ -409,8 +466,9 @@ export const POST_ADD_KIT = String.raw`
       const wrapper = document.getElementById('modal-wrapper');
       if (!this.isOpen(wrapper)) { this.clear(); return; }
       const present = wrapper.querySelector('[data-origens-kit]');
-      // Mesmo modal reaberto por uma nova adição (a INK pode só mostrar de novo os mesmos nós): o preço é outro, o bloco é refeito.
-      if (present && !(kitLast && this.shown && kitLast.at > this.shown.at)) return;
+      // Mesmo modal reaberto por uma nova adição (a INK pode só mostrar de novo os mesmos nós): o bloco é refeito. Senão, só a frase e a trilha
+      // acompanham o carrinho.
+      if (present && !(kitLast && this.shown && kitLast.at > this.shown.at)) { if (this.shown) kitRefresh(this.shown.kit); return; }
       kitLoad().then((data) => {
         const current = document.getElementById('modal-wrapper');
         // Revalida depois do carregamento assíncrono: rota, modal ainda aberto.
@@ -422,7 +480,7 @@ export const POST_ADD_KIT = String.raw`
         this.clear();
         kitStyle();
         this.clicks = new AbortController();
-        const root = kitBuild(data.kit, kitPrice(), this.clicks.signal);
+        const root = kitBuild(data.kit, this.clicks.signal);
         footer.insertAdjacentElement('beforebegin', root);
         footer.setAttribute('data-origens-kit-footer', '');
         // A folha (o próprio #modal-wrapper), o corpo (o pai dos botões, que vira coluna) e o topo com o × (o pai do botão de fechar), para o CSS.
@@ -443,6 +501,9 @@ export const POST_ADD_KIT = String.raw`
         // Só medimos: o clique segue para a INK (abrir o carrinho) exatamente como antes.
         if (checkout) checkout.addEventListener('click', () => kitTrack('kit_checkout_click', data.kit), { signal: this.clicks.signal });
         this.shown = { at: Date.now(), kit: data.kit };
+        // A barra da INK (um web component) pode terminar de desenhar depois do modal: confere de novo.
+        const shown = this.shown;
+        for (const ms of [600, 1500]) setTimeout(() => { if (this.shown === shown) kitRefresh(shown.kit); }, ms);
         kitTrack('kit_view', data.kit);
       });
     },

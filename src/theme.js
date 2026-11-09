@@ -288,6 +288,7 @@ function cookieCss() {
 function pdpCss() {
   const F = P + ' form[id^="form-product-"]';
   const T = F + ' .form-product-options__select-type';
+  const Q = F + ' .form-product-options__add-to-cart:has(> [data-origens-qty])';
   return [
     stripCss(P), headerCss(),
     P + '{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
@@ -346,7 +347,7 @@ function pdpCss() {
     F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-size:15px;font-weight:400}',
     F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:600}',
     F + ' del,' + F + ' .line-through{color:var(--o-ink-mute)}',
-    // Escolhas: uma coluna (modelo › cor › tamanho › medidas › quantidade — a quantidade é posta depois das medidas no DOM pelo theme-ui).
+    // Escolhas: uma coluna (modelo › cor › tamanho › medidas). A quantidade vai para a linha do botão de compra (theme-ui, data-origens-qty).
     T + '{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:20px!important;margin-bottom:4px!important}',
     T + ' > div:has(#open-modal-size){margin-top:-10px}',
     T + ' p strong,' + T + ' p{' + groupLabel + '}',
@@ -368,8 +369,20 @@ function pdpCss() {
     T + ' #open-modal-size,' + T + ' button[data-origens-fit]{min-height:44px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:600!important;width:auto!important;flex:0 0 auto!important;gap:8px!important}',
     T + ' #open-modal-size .o-size-label,' + T + ' button[data-origens-fit] > span{text-decoration:underline!important;text-underline-offset:4px;text-decoration-color:var(--o-line)!important}',
     T + ' #open-modal-size .o-size-chevron{display:none}',
-    // Quantidade discreta.
+    // Quantidade discreta (onde a INK a deixa, sem o theme-ui).
     T + ' .inline-flex.items-center.px-3.border-solid{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;min-height:44px;background:var(--o-surface)}',
+    // Quantidade NA LINHA do botão ([− 1 +] [Adicionar ao carrinho], o padrão do celular), quando o theme-ui a move para antes do botão: mesma altura do
+    // botão, o rótulo "Quantidade" só para leitor de tela; a confiança e os pagamentos continuam embaixo, na largura toda. Sem o atributo, como a INK desenha.
+    Q + '{flex-direction:row!important;flex-wrap:wrap;align-items:stretch;column-gap:10px!important;row-gap:18px!important}',
+    Q + ' > [data-origens-qty]{flex:0 0 auto;gap:0!important}',
+    Q + ' > [data-origens-qty] > p{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
+    Q + ' > [data-origens-qty] > div{flex:1 1 auto}',
+    Q + ' > [data-origens-qty] .inline-flex.items-center{height:100%;min-height:52px;padding:0 2px!important;border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    Q + ' > [data-origens-qty] button{width:34px!important;min-width:0!important;min-height:44px;margin:0!important;padding:0!important;font-size:20px;color:var(--o-ink)}',
+    Q + ' > [data-origens-qty] input[name="quantity"]{width:28px!important;height:44px!important;margin:0!important;padding:0!important;font-size:16px!important;color:var(--o-ink)}',
+    // O texto do botão numa linha só em 360 px: o recuo lateral menor (era 24 px) e sem quebra; em telas menores ele ainda pode quebrar.
+    Q + ' > #add-to-cart-desk{flex:1 1 0;min-width:0;width:auto!important;padding:0 10px!important;letter-spacing:.02em}',
+    Q + ' > :not([data-origens-qty]):not(#add-to-cart-desk){flex:1 0 100%}',
     // CTA: largura total da coluna; mesmo botão, mesmo clique e mesma validação da INK.
     btn(F + ' #add-to-cart-desk,' + F + ' #add-to-cart-mob'),
     F + ' #add-to-cart-desk{width:100%;max-width:none}',
@@ -420,6 +433,8 @@ function pdpCss() {
 
 function cartCss() {
   const D = C + ' .cart-drawer';
+  const ITEM = D + '__main .main-list__item .item-wrapper:has(> header > div > .item-details):has(> .item-details__footer)';
+  const PAIR = D + '__footer[data-origens-pair]:not(:has(> #cep-form [data-ink-store--cart-target="cepInputContainer"]:not(.hidden)))';
   return [
     // Painel: compra em primeiro plano. Cabeçalho enxuto; itens separados por linha fina; rodapé com o resumo e UMA ação principal.
     D + '{font-family:var(--o-font);letter-spacing:normal;color:var(--o-ink);background:var(--o-surface)}',
@@ -431,26 +446,43 @@ function cartCss() {
     D + '__header .top-header > span .text-gray-500{color:var(--o-ink-mute)!important;font-weight:400;font-size:14px!important}',
     D + '__header #cart-drawer-close{width:28px!important;height:28px!important;min-width:28px;cursor:pointer;color:var(--o-ink)}',
     D + '__main{background:var(--o-surface)!important}',
-    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding:14px 16px!important;gap:12px}',
-    D + '__main .main-list__item > img{width:88px!important;height:88px!important;max-width:88px;flex:0 0 88px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
-    D + '__main .main-list__item .item-wrapper .item-header{font-size:15px;font-weight:600;color:var(--o-ink)}',
-    D + '__main .main-list__item .item-wrapper .item-details > span,' + D + '__main .main-list__item .item-wrapper .item-details p{color:var(--o-ink-mute);font-size:14px}',
-    D + '__main .main-list__item .item-wrapper .item-details > p:first-child{color:var(--o-ink);font-weight:600;font-size:15px}',
-    D + '__main .main-list__item .item-wrapper .item-details .price span{color:var(--o-ink);font-weight:600}',
-    // Preço numa linha só, mesmo com nome longo (o nome é que quebra).
-    D + '__main .main-list__item .item-wrapper .price-details{flex:0 0 auto;padding-left:8px}',
-    D + '__main .main-list__item .item-wrapper :is(.price,.price span,.price del){white-space:nowrap}',
-    D + '__main .main-list__item .item-wrapper .item-details > :is(span,p){line-height:1.35}',
-    D + '__main .main-list__item .item-wrapper .item-details .price del{color:var(--o-ink-mute)}',
+    // Item compacto (marcação real de 08/11/2026: img + .item-wrapper > header > div > [.item-details, preço] + .item-details__footer): foto de 72 px;
+    // nome e variação à esquerda; preço e quantidade empilhados à direita. Antes cada item tinha ~175 px de altura e empurrava a oferta exclusiva para
+    // baixo do rodapé. A grade só vale com essa estrutura (:has); outra marcação fica no fluxo de antes.
+    D + '__main .main-list__item{border-bottom:1px solid var(--o-line-soft);padding:12px 16px!important;gap:12px;align-items:flex-start}',
+    D + '__main .main-list__item > img{width:72px!important;height:72px!important;max-width:72px;flex:0 0 72px;object-fit:cover;background:var(--o-photo);border-radius:var(--o-radius)}',
+    ITEM + '{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:12px;row-gap:8px;align-items:start;min-height:72px}',
+    ITEM + ' > header,' + ITEM + ' > header > div{display:contents!important}',
+    ITEM + ' .item-details{grid-column:1;grid-row:1 / 3;min-width:0;gap:0!important}',
+    ITEM + ' > header > div > :not(.item-details){grid-column:2;grid-row:1;justify-self:end;text-align:right;padding:0!important}',
+    ITEM + ' > .item-details__footer{grid-column:2;grid-row:2;align-self:end;justify-self:end;margin:0!important;padding:0!important}',
+    D + '__main .main-list__item .item-wrapper .item-details p{margin:0;padding:0!important;color:var(--o-ink-mute);font-size:13px;line-height:1.35}',
+    ITEM + ' > .item-details__footer :is(form,form > div){margin:0!important;padding:0!important}',
+    D + '__main .main-list__item .item-wrapper .item-details > p:first-child{margin-bottom:2px;color:var(--o-ink);font-weight:600;font-size:15px;line-height:1.3}',
+    ITEM + ' > header > div > :not(.item-details) span{white-space:nowrap;font-size:14px;font-weight:600;color:var(--o-ink)}',
+    ITEM + ' > header > div > :not(.item-details) del{font-size:12px;font-weight:400;color:var(--o-ink-mute)}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity{border:1px solid var(--o-line-soft);border-radius:var(--o-radius);width:fit-content!important;max-width:100%}',
     D + '__main .main-list__item .item-wrapper .item-details__quantity button{width:44px!important;height:44px!important}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:36px!important;text-align:center}',
-    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{font-weight:600;color:var(--o-ink)}',
+    D + '__main .main-list__item .item-wrapper .item-details__quantity .quantity-input{width:30px!important;text-align:center;font-weight:600;color:var(--o-ink)}',
+    // Menos vão entre a lista e a oferta exclusiva (o !pb-6 da INK e a margem do cartão).
+    D + '__main > ul{padding-bottom:4px!important}',
+    D + '__main #order-bump-offer{margin-top:12px!important;margin-bottom:8px!important}',
+    // Lixeira em tinta, não vermelha: é um controle de uso comum, não um alerta.
+    D + '__main .main-list__item .item-wrapper .item-details__quantity svg[class*="text-red"]{color:var(--o-ink-soft)!important}',
     // Rodapé: cupom e CEP em segundo plano (linhas compactas), total em destaque, "Finalizar compra" como única ação principal.
     D + '__footer{background:var(--o-panel)!important;border-top:1px solid var(--o-line-soft);padding:10px 16px calc(12px + env(safe-area-inset-bottom))!important}',
-    D + '__footer .footer-details{margin:4px 0 10px!important;gap:4px}',
-    D + '__footer .footer-details ul > li{font-size:14px;font-weight:400;color:var(--o-ink-soft)}',
-    D + '__footer .footer-details ul > li:last-child{font-size:20px;font-weight:700;color:var(--o-ink);padding-top:6px}',
+    // Totais (marcação real da INK em 08/11/2026: <ul> com Subtotal e Desconto, e o Total num <div> irmão). Subtotal e desconto numa linha só, em
+    // segundo plano; o Total é o número que importa. O rodapé fixo tinha 333 de 701 px (quase metade da gaveta) e escondia a oferta exclusiva.
+    D + '__footer .footer-details{margin:6px 0 8px!important;gap:6px!important}',
+    D + '__footer .footer-details > ul{flex-direction:row!important;flex-wrap:wrap;justify-content:space-between;column-gap:16px;row-gap:2px}',
+    D + '__footer .footer-details > ul > li{justify-content:flex-start!important;align-items:baseline;gap:6px;font-size:13px;font-weight:400;color:var(--o-ink-soft)}',
+    D + '__footer .footer-details > ul > li > span{font-size:13px!important;color:var(--o-ink-soft)}',
+    D + '__footer .footer-details > div{align-items:baseline!important}',
+    D + '__footer .footer-details > div > p{font-size:16px!important;font-weight:600!important;color:var(--o-ink)!important}',
+    D + '__footer .footer-details > div > span > p{font-size:22px!important;line-height:1.15;font-weight:700!important;color:var(--o-ink)!important}',
+    D + '__footer .footer-details > div > span > span{font-size:12px!important;color:var(--o-ink-mute)!important}',
+    // A barra da promoção progressiva da INK (shadow root: só o espaço em volta é nosso).
+    D + '__footer [data-ink-labs-anchor="cart_shipping_bar"]:has([data-ink-labs-progressive-discount]){margin:0 0 4px}',
     D + '__footer :is(.text-green-500,.text-green-600){color:var(--o-ok)!important}',
     D + '__footer__cep,' + D + '__footer__coupon{min-height:44px}',
     D + '__footer__cep input,' + D + '__footer__coupon input{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;min-height:40px;font-size:16px!important;color:var(--o-ink)}',
@@ -480,18 +512,26 @@ function cartCss() {
     D + ' [data-origens-incentive-box] .o-incentive-bar i{display:block;width:100%;height:100%;border-radius:3px;background:var(--o-incentive-fill);transform-origin:left center;transition:transform .25s ease}',
     D + ' [data-origens-incentive-box][data-loading] > *{visibility:hidden}',
     '@media (prefers-reduced-motion:reduce){' + D + ' [data-origens-incentive-box] .o-incentive-bar i{transition:none}}',
-    // Com o cupom recolhido e o CEP ainda fechado, "Adicionar cupom" e "Frete · Inserir CEP" dividem uma linha (os dois são ações curtas): uma linha de
-    // 44 px a menos no rodapé fixo. Abriu o cupom ou o CEP, ou a marcação não é a esperada? Volta a uma linha cada. Nenhum nó é movido.
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > *{grid-column:1 / -1}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]) > .o-coupon-toggle{grid-column:1}',
-    D + '__footer:has(> .o-coupon-toggle):has(> .cart-drawer__footer__cep [data-action*="insertCep"]):not(:has(> .cart-drawer__footer__cep [data-ink-store--cart-target="cepInputContainer"]:not(.hidden))) > .cart-drawer__footer__cep{grid-column:2}',
+    // "Adicionar cupom" (ou o selo do cupom já aplicado, como o BLACKMONTH automático) e "Frete · Inserir CEP" dividem uma linha: 44 px a menos no rodapé
+    // fixo. Quem decide é o theme-ui (data-origens-pair, só com a marcação esperada: cupom e CEP em <form> próprios, filhos do rodapé); o campo do CEP
+    // aberto desfaz a linha aqui mesmo. Nenhum nó é movido.
+    PAIR + '{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px;align-items:center}',
+    PAIR + ' > *{grid-column:1 / -1}',
+    PAIR + ' > #coupon-form{grid-column:1;min-width:0;gap:0!important}',
+    PAIR + ' > #cep-form{grid-column:2;min-width:0;gap:0!important}',
+    PAIR + ' .cart-drawer__footer__coupon{margin:0!important}',
+    PAIR + ' .cart-drawer__footer__cep [data-action*="insertCep"]{width:auto!important}',
+    PAIR + ' .cart-drawer__footer__cep :has(> [data-action*="insertCep"]){justify-content:flex-end!important;column-gap:10px}',
+    // Cupom aplicado na linha dividida: o selo fala por si (o rótulo "Cupom" fica só para leitor de tela).
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied]{justify-content:flex-start!important}',
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied] > div:first-child{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
+    PAIR + ' .cart-drawer__footer__coupon[data-origens-applied] > div:last-child{width:auto!important;justify-content:flex-start!important}',
     // "Inserir CEP" da INK: 44 px de toque sem crescer a linha.
     D + '__footer__cep [data-action*="insertCep"]{display:inline-flex;align-items:center;min-height:44px;color:var(--o-ink);font-weight:600}',
     // Tela baixa (celular de 640–760 px de altura, notebook com a janela baixa): o rodapé fixo da gaveta comia a lista. Compacto, sem esconder nada da
     // INK e sem alvo de toque abaixo de 44 px.
     '@media (max-height:760px){' + D + '__footer{padding:8px 16px calc(10px + env(safe-area-inset-bottom))!important}' +
-      D + '__footer .footer-details{margin:2px 0 8px!important;gap:2px}' + D + '__footer .footer-details ul > li:last-child{font-size:18px;padding-top:2px}' +
+      D + '__footer .footer-details{margin:2px 0 6px!important;gap:4px!important}' + D + '__footer .footer-details > div > span > p{font-size:20px!important}' +
       D + ' #checkout-btn,' + D + '__footer__submit{min-height:48px}}',
     // Tela MUITO baixa (teclado do celular aberto no cupom ou no CEP, janela achatada): a gaveta rola inteira — itens, cupom, totais e botões em
     // sequência —, e o rodapé deixa de ser fixo para não cobrir o campo em uso nem o último produto.
@@ -514,9 +554,11 @@ function cartCss() {
     C + ' [data-origens-discovery][data-origens-empty] .o-actions > *{flex:0 0 auto!important;width:100%}',
     C + ' [data-origens-discovery][data-origens-empty] .o-toggle{background:var(--o-action)!important;border-color:var(--o-action)!important;color:var(--o-on-action)!important;min-height:52px}',
     C + ' [data-origens-discovery] .o-input{border-radius:var(--o-radius)!important;border-color:var(--o-line)!important;font-size:16px}',
-    // Carrinho preenchido: o bloco (denso, depois dos itens) é uma linha de duas ações de 44 px, sem disputar com os itens.
-    C + ' [data-origens-discovery="cart"].o-dense{padding:8px!important;margin:12px 16px!important}',
-    C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){min-height:44px!important;padding:6px 10px!important;font-size:14px!important;line-height:1.2}',
+    // Carrinho preenchido: o bloco (denso, no fim da área rolável, depois da oferta exclusiva) são dois links de texto de 44 px, sem caixa nem borda:
+    // continuar escolhendo é a saída secundária; os itens, a oferta e "Finalizar compra" vêm antes. Aberta a busca, o painel aparece como sempre.
+    C + ' [data-origens-discovery="cart"].o-dense{padding:4px 16px 12px!important;margin:0!important;background:transparent!important;border:0!important}',
+    C + ' [data-origens-discovery="cart"].o-dense .o-actions{justify-content:center;column-gap:20px;row-gap:0}',
+    C + ' [data-origens-discovery="cart"].o-dense :is(.o-toggle,.o-cta){flex:0 1 auto!important;width:auto!important;min-height:44px!important;padding:0 2px!important;border:0!important;background:transparent!important;font-size:14px!important;line-height:1.2;text-decoration:underline;text-underline-offset:3px}',
     // Pós-adição: só título e ações (o texto de apoio e o rótulo de cima alongavam a folha no celular).
     C + ' [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead){display:none}',
     C + ' [data-origens-discovery="post-add"] .o-title{font-size:16px!important;margin-bottom:8px}',

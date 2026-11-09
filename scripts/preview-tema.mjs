@@ -15,6 +15,7 @@
 //     --proposta A|B  aplica a proposta de cor (scripts/lib/propostas-cor.mjs) — só nesta prévia; --rotulo "<texto>" põe uma etiqueta no canto
 //     --incentivo-exemplo  publica NA PRÉVIA a regra de exemplo do incentivo (frete grátis a partir de 2 peças, PR/SC/RS) e liga cart-incentive.
 //                 Só para conferir a aparência e o comportamento com o carrinho real; no ar, a regra só existe se o dono confirmar no painel.
+//     --extra <f1,f2>  liga mais features do deploy nesta prévia (ex.: post-add-kit, para o "Monte seu kit" no modal pós-adição)
 //     --capturar-carrinho <dir>  (com --headed) a cada Enter no terminal, captura a gaveta do carrinho como ESTÁ em cada janela (topo e fim da lista).
 //                 Quem adiciona/remove itens é a pessoa, à mão; o script só abre a gaveta e fotografa (nenhum POST sai dele).
 // TRAVA: qualquer requisição não-GET para <loja>/checkout é ABORTADA no navegador (nunca chega à INK: nada de pedido, pagamento ou cobrança).
@@ -33,7 +34,7 @@ if (UUID && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.te
 const SHOTS = opt('--shots');
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const PDP = process.env.PREVIEW_PDP || DEFAULT_PDP;
-const H = await createHarness({ config, off: OFF, headed: flag('--headed'), allowCart: flag('--allow-cart'), themeFeatures: 'theme-pdp,theme-cart,theme-checkout' + (EXAMPLE ? ',cart-incentive' : ''), proposta: opt('--proposta'), rotulo: opt('--rotulo') });
+const H = await createHarness({ config, off: OFF, headed: flag('--headed'), allowCart: flag('--allow-cart'), themeFeatures: 'theme-pdp,theme-cart,theme-checkout' + (EXAMPLE ? ',cart-incentive' : '') + (opt('--extra') ? ',' + opt('--extra') : ''), proposta: opt('--proposta'), rotulo: opt('--rotulo') });
 const { session, blocked, HOST, store, acceptCookies } = H;
 const browser = { close: () => H.close() };
 const mf = { dispose: async () => {} };
