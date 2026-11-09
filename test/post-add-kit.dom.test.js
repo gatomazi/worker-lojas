@@ -147,12 +147,17 @@ test('post-add-kit: where the customer is comes from INK\'s own progressive bar 
   assert.equal(say(t), 'Você já ganhou R$ 25 OFF | Mais 1 peça e o desconto sobe para R$ 50 OFF.');
   assert.deepEqual(steps(t), ['done −R$ 25 3 peças', 'next −R$ 50 4 peças', 'todo −R$ 75 5 peças', 'todo −R$ 100 6 peças']);
   assert.equal(t.doc.querySelector('.o-kit-step[aria-current="step"] b').textContent.replace(/\u00a0/g, ' '), '−R$ 25');
+  // Faixa alcançada leva o certo; só ela.
+  assert.deepEqual([...t.doc.querySelectorAll('.o-kit-step')].map((li) => !!li.querySelector('b > svg')), [true, false, false, false]);
+  const fill = (x) => x.doc.querySelector('.o-kit-step[data-state="next"]').style.getPropertyValue('--k-fill');
+  assert.equal(fill(t), '0%');
   // Antes da primeira faixa e na última.
   cart(t, { qty: 1, bar: 'Adicione 2 peças e ganhe R$ 25,00 OFF' });
   t.doc.dispatchEvent(new t.w.Event('turbo:before-stream-render'));
   await tick();
   assert.equal(say(t), 'Faltam 2 peças para R$ 25 OFF | O desconto entra sozinho no carrinho.');
   assert.deepEqual(steps(t).map((x) => x.split(' ')[0]), ['next', 'todo', 'todo', 'todo']);
+  assert.equal(fill(t), '33%'); // 1 de 3 peças
   cart(t, { qty: 7, bar: '<strong>R$ 100,00 OFF aplicado</strong>' });
   t.doc.dispatchEvent(new t.w.Event('turbo:before-stream-render'));
   await tick();
@@ -178,6 +183,7 @@ test('post-add-kit: without INK\'s bar (or with numbers that do not match the ti
   cart(pct, { qty: 16 });
   await openModal(pct);
   assert.deepEqual(steps(pct), ['done −20% 15 peças', 'next −12,5% 20 peças']);
+  assert.equal(pct.doc.querySelector('.o-kit-step[data-state="next"]').style.getPropertyValue('--k-fill'), '20%'); // 1 das 5 peças entre 15 e 20
   assert.equal(say(pct), 'Seu kit já vale 20% OFF | Mais 4 peças e o desconto sobe para 12,5% OFF.');
 });
 test('post-add-kit: a promotion INK applies by itself has no code to copy', async () => {

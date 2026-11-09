@@ -6,8 +6,9 @@ no CMS do storefront (Marketing › Monte seu kit; `docs/storefront/kit-pos-adic
 - a chamada (do CMS);
 - **onde o cliente está**, em tamanho de título: "Você já ganhou R$ 25 OFF" + "Mais **1 peça** e o desconto sobe para **R$ 50 OFF**." (ou "Falta 1
   peça para R$ 25 OFF", ou "É o maior desconto do kit."). Numa promoção com cupom, "Seu kit já vale R$ 25 OFF". Sem como saber, o título e o texto do CMS;
-- uma **trilha de passos**, um por faixa (até 6): o desconto ("−R$ 25") e as peças ("3 peças"). Alcançado = barra e número na cor da marca, o próximo
-  marcado, os demais apagados;
+- uma **trilha de passos**, um por faixa (até 6): o desconto ("−R$ 25") e as peças ("3 peças"). Alcançado = barra e número em verde (`--o-ok`) com
+  um certo ✓; a barra do próximo enche de verde conforme as peças que já estão no carrinho (1 de 3 = 33%, `--k-fill`); os demais apagados
+  (pedido do dono em 09/11: o cinza e preto não davam a sensação de "completei");
 - "Cupom BLACKMONTH" + o botão **Copiar cupom** (com borda e ícone; "Copiado" por 2 s), ou "✓ Desconto automático, sem cupom" quando a INK aplica sozinha.
 
 Até 08/11/2026 eram cartões por faixa com de/por/cada/economize (16 preços com 4 faixas), a maior faixa em destaque e nenhum "você está aqui"; a

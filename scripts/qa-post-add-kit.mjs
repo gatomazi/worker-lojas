@@ -17,7 +17,8 @@ const OUT = opt('--out'); if (!OUT) { console.error('--out <dir>'); process.exit
 mkdirSync(OUT, { recursive: true });
 
 const KIT = { v: 1, region: 'sul', kit: { id: 73095, code: 'BLACKMONTH', auto: true, kind: 'value', tiers: [{ items: 3, discount: 25 }, { items: 4, discount: 50 }, { items: 5, discount: 75 }, { items: 6, discount: 100 }], eyebrow: 'Monte seu kit', title: 'Quanto mais peças, maior o desconto', lead: 'A partir de 3 peças o desconto entra sozinho no carrinho.' } };
-const BAR = '<strong>R$ 25,00 OFF aplicado</strong> · adicione 1 peça e sobe para R$ 50,00 OFF';
+// --barra: o texto da barra da INK (padrão: 1ª faixa alcançada). Ex.: --barra 'Adicione 2 peças e ganhe R$ 25,00 OFF'.
+const BAR = opt('--barra') || '<strong>R$ 25,00 OFF aplicado</strong> · adicione 1 peça e sobe para R$ 50,00 OFF';
 const OFF = { v: 1, region: 'sul', kit: null };
 const VIEWPORTS = [{ name: 'desktop-1440', width: 1440, height: 900 }, { name: 'celular-390', width: 390, height: 844 }, { name: 'celular-360x640', width: 360, height: 640 }];
 

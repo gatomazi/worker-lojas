@@ -193,7 +193,7 @@ export const POST_ADD_KIT = String.raw`
   const KIT_PRIMARY = (STORE.theme && STORE.theme.primary) || '#4d543d';
   const KIT_CSS = [
     // Cores e raio do tema da compra (theme-cart) quando ele está no ar; sem ele, a cor da região e o raio dos botões da INK.
-    '[data-origens-kit]{--k-accent:var(--o-selected,' + KIT_PRIMARY + ');--k-ink:var(--o-ink,#111827);--k-mute:var(--o-ink-mute,#4b5563);--k-line:var(--o-line-soft,rgba(17,24,39,.14));--k-radius:var(--o-radius,8px);--k-surface:var(--o-surface,#fff);box-sizing:border-box;margin:18px 0 16px;font-family:inherit;color:var(--k-ink);text-align:left}',
+    '[data-origens-kit]{--k-accent:var(--o-selected,' + KIT_PRIMARY + ');--k-ok:var(--o-ok,#1f6f43);--k-ink:var(--o-ink,#111827);--k-mute:var(--o-ink-mute,#4b5563);--k-line:var(--o-line-soft,rgba(17,24,39,.14));--k-radius:var(--o-radius,8px);--k-surface:var(--o-surface,#fff);box-sizing:border-box;margin:18px 0 16px;font-family:inherit;color:var(--k-ink);text-align:left}',
     '[data-origens-kit] *{box-sizing:border-box;font-family:inherit}',
     '[data-origens-kit] .o-kit-eyebrow{display:flex;align-items:center;gap:6px;margin:0 0 4px;font-size:11px;font-weight:700;line-height:1.3;letter-spacing:.08em;text-transform:uppercase;color:var(--k-accent)}',
     '[data-origens-kit] .o-kit-eyebrow svg{width:14px;height:14px;flex:none}',
@@ -214,13 +214,16 @@ export const POST_ADD_KIT = String.raw`
     '[data-origens-kit] .o-kit-step > i{display:block;height:6px;margin:0 0 7px;border-radius:3px;background:var(--k-line)}',
     '[data-origens-kit] .o-kit-step > b{font-size:15px;font-weight:600;line-height:1.2;color:var(--k-mute);white-space:nowrap}',
     '[data-origens-kit] .o-kit-step > small{font-size:12px;line-height:1.3;color:var(--k-mute);white-space:nowrap}',
-    '[data-origens-kit] .o-kit-step[data-state="done"] > i{background:var(--k-accent)}',
-    '[data-origens-kit] .o-kit-step[data-state="done"] > b{color:var(--k-accent)}',
-    '[data-origens-kit] .o-kit-step[data-state="next"] > i{background:color-mix(in srgb,var(--k-accent) 45%,var(--k-surface))}',
+    // Faixa alcançada em verde (o "ok" do tema) com o certo; a próxima enche de verde na proporção das peças que já estão no carrinho.
+    '[data-origens-kit] .o-kit-step[data-state="done"] > i{background:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step[data-state="done"] > b{display:flex;align-items:center;gap:3px;font-weight:800;color:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step > b > svg{width:14px;height:14px;flex:none}',
+    '[data-origens-kit] .o-kit-step[data-state="done"] > small{color:var(--k-ok)}',
+    '[data-origens-kit] .o-kit-step[data-state="next"] > i{background:linear-gradient(90deg,var(--k-ok) var(--k-fill,0%),var(--k-line) var(--k-fill,0%))}',
     '[data-origens-kit] .o-kit-step[data-state="next"] > b{font-weight:800;color:var(--k-ink)}',
     '[data-origens-kit] .o-kit-step[data-state="todo"] > i{background:color-mix(in srgb,var(--k-line) 55%,var(--k-surface))}',
     '[data-origens-kit] .o-kit-auto{display:flex;align-items:center;gap:6px;margin:12px 0 0;font-size:13px;line-height:1.35;color:var(--k-mute)}',
-    '[data-origens-kit] .o-kit-auto svg{width:15px;height:15px;flex:none;color:var(--k-accent)}',
+    '[data-origens-kit] .o-kit-auto svg{width:15px;height:15px;flex:none;color:var(--k-ok)}',
     '[data-origens-kit] .o-kit-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}',
     // Um botão só, na largura toda: "Finalizar compra". O "Continuar comprando" nativo fica escondido enquanto há kit (a busca logo abaixo faz esse papel).
     '#modal-wrapper [data-origens-kit-footer]{display:grid!important;grid-template-columns:1fr;gap:8px;align-items:stretch}',
@@ -329,6 +332,14 @@ export const POST_ADD_KIT = String.raw`
     if (!next) return { title: title, sub: [['', 'É o maior desconto do kit.']] };
     return { title: title, sub: [['', 'Mais '], ['b', kitPieces(st.missing)], ['', ' e o desconto sobe para '], ['b', kitOff(kit.kind, next.discount)], ['', '.']] };
   }
+  // Quanto da próxima faixa as peças do carrinho já cobrem (0–100), contando a partir da faixa alcançada.
+  function kitFill(kit, st) {
+    const next = kit.tiers[st.reached + 1];
+    const from = st.reached >= 0 ? kit.tiers[st.reached].items : 0;
+    const span = next.items - from;
+    if (!(span > 0)) return 0;
+    return Math.round(Math.min(1, Math.max(0, (next.items - st.missing - from) / span)) * 100);
+  }
   const kitKey = (st) => (st ? st.reached + ':' + st.missing : '-');
   function kitProgress(kit, st) {
     const box = kitEl('div', { class: 'o-kit-progress', 'data-key': kitKey(st) });
@@ -343,8 +354,11 @@ export const POST_ADD_KIT = String.raw`
       const state = !st ? 'todo' : i <= st.reached ? 'done' : i === st.reached + 1 ? 'next' : 'todo';
       const li = kitEl('li', { class: 'o-kit-step', 'data-state': state });
       if (st && i === st.reached) li.setAttribute('aria-current', 'step');
+      if (state === 'next') li.style.setProperty('--k-fill', kitFill(kit, st) + '%');
       li.appendChild(kitEl('i', { 'aria-hidden': 'true' }));
-      li.appendChild(kitEl('b', null, kitStepOff(kit.kind, t.discount)));
+      const off = kitEl('b', null, kitStepOff(kit.kind, t.discount));
+      if (state === 'done') off.prepend(kitCheckIcon());
+      li.appendChild(off);
       li.appendChild(kitEl('small', null, kitPieces(t.items)));
       li.appendChild(kitEl('span', { class: 'o-kit-sr' }, state === 'done' ? ', alcançado' : state === 'next' ? ', próximo' : ''));
       steps.appendChild(li);
