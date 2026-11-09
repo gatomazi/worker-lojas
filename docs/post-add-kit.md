@@ -9,6 +9,9 @@ no CMS do storefront (Marketing › Monte seu kit; `docs/storefront/kit-pos-adic
 - uma **trilha de passos**, um por faixa (até 6): o desconto ("−R$ 25") e as peças ("3 peças"). Alcançado = barra e número em verde (`--o-ok`) com
   um certo ✓; a barra do próximo enche de verde conforme as peças que já estão no carrinho (1 de 3 = 33%, `--k-fill`); os demais apagados
   (pedido do dono em 09/11: o cinza e preto não davam a sensação de "completei");
+- a barra da promoção que a INK põe no próprio modal (`[data-ink-labs-slot="progressive_discount_added"]`, antes dos botões, vista no print do
+  dono em 09/11) some quando a trilha sabe o estado (`data-state="known"`), porque repete a mesma informação. Sem estado ela continua. A barra do
+  carrinho nunca é escondida: é dela que o estado é lido;
 - "Cupom BLACKMONTH" + o botão **Copiar cupom** (com borda e ícone; "Copiado" por 2 s), ou "✓ Desconto automático, sem cupom" quando a INK aplica sozinha.
 
 Até 08/11/2026 eram cartões por faixa com de/por/cada/economize (16 preços com 4 faixas), a maior faixa em destaque e nenhum "você está aqui"; a

@@ -91,6 +91,12 @@ test('post-add-kit: the block goes BEFORE the native buttons; "Ver carrinho" onl
   assert.equal(block.querySelector('[data-origens-kit-code]').textContent, 'KITTESTE');
   // Sem carrinho legível: o título e o texto do CMS, e a trilha sem destaque (um passo por faixa: o desconto e as peças, sem preço por peça).
   assert.equal(block.getAttribute('data-state'), 'unknown');
+  // Sem estado, a barra da INK no modal continua (é a única que diz quanto falta).
+  const slot = t.doc.createElement('div');
+  slot.setAttribute('data-ink-labs-slot', 'progressive_discount_added');
+  t.doc.querySelector('.add-product-modal__modal-content__footer').before(slot);
+  assert.notEqual(t.w.getComputedStyle(slot).display, 'none');
+  slot.remove();
   assert.equal(block.querySelector('.o-kit-lead').textContent, KIT.lead);
   assert.deepEqual(steps(t), ['todo −R$ 25 3 peças', 'todo −R$ 40 4 peças', 'todo −R$ 60 5 peças', 'todo −R$ 85 6 peças']);
   assert.equal(block.querySelector('.o-kit-tier, .o-kit-note'), null, 'nada da tabela de preços antiga');
@@ -145,6 +151,12 @@ test('post-add-kit: where the customer is comes from INK\'s own progressive bar 
   await openModal(t);
   assert.equal(kit(t).getAttribute('data-state'), 'known');
   assert.equal(say(t), 'Você já ganhou R$ 25 OFF | Mais 1 peça e o desconto sobe para R$ 50 OFF.');
+  // A barra da INK dentro do modal (mesma informação) some; a do carrinho continua.
+  const slot = t.doc.createElement('div');
+  slot.setAttribute('data-ink-labs-slot', 'progressive_discount_added');
+  t.doc.querySelector('.add-product-modal__modal-content__footer').before(slot);
+  assert.equal(t.w.getComputedStyle(slot).display, 'none');
+  assert.notEqual(t.w.getComputedStyle(t.doc.querySelector('[data-ink-labs-anchor="cart_shipping_bar"]')).display, 'none');
   assert.deepEqual(steps(t), ['done −R$ 25 3 peças', 'next −R$ 50 4 peças', 'todo −R$ 75 5 peças', 'todo −R$ 100 6 peças']);
   assert.equal(t.doc.querySelector('.o-kit-step[aria-current="step"] b').textContent.replace(/\u00a0/g, ' '), '−R$ 25');
   // Faixa alcançada leva o certo; só ela.

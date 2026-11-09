@@ -235,6 +235,9 @@ export const POST_ADD_KIT = String.raw`
     '#modal-wrapper [data-origens-kit-footer] .checkout-btn{font-weight:700!important}',
     // Depois da regra geral acima (ordem e especificidade dizem o mesmo).
     '#modal-wrapper [data-origens-kit-footer] #continue-shopping-button{display:none!important}',
+    // A barra da promoção que a INK põe no modal (app progressive_discount, lugar "progressive_discount_added", antes dos botões) repete a trilha:
+    // some só quando a trilha sabe onde o cliente está. A do carrinho fica (é dela que kitNative lê o estado).
+    'body:has([data-origens-kit][data-state="known"]) [data-ink-labs-slot="progressive_discount_added"]{display:none!important}',
     // Enquanto há kit, o modal é TOPO fixo + MEIO que rola + PÉ fixo (pedido do dono em 28/10/2026): o topo ("Produto adicionado ao carrinho" e o ×)
     // preso no alto, "Finalizar compra" preso embaixo, e o kit, a busca e "As mais vendidas" rolando entre os dois. Vale no celular e no desktop.
     // align-items:flex-start: a folha da INK é flex em linha com items-center; com o conteúdo mais alto que ela, o centro empurrava metade da sobra para
