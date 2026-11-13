@@ -19,6 +19,8 @@
 //        · Ordem de leitura = ordem visual: "Guia/Informar medidas" antes da quantidade e prazo/cupom/"Também disponível em" depois da compra são
 //          REPOSICIONADOS no DOM (mesmo pai; testado: nenhum frame recarrega e os modais seguem abrindo), em vez de `order` no CSS. Voltam ao lugar ao desligar.
 //        · Barra fixa do celular some com o CTA principal à vista ou com teclado; toque na barra inerte leva à escolha que falta.
+//        · Barra fixa do celular sobe a altura do aviso de cookies da INK enquanto ele está na tela (--o-cookie-h), em vez de ficar debaixo dele.
+//        · "Adicionando…" no botão de compra durante o envio do carrinho (data-turbo-submits-with, atributo nativo do Turbo; o Turbo já bloqueia o toque duplo).
 //        · No celular, flutuantes (Ajuda, WhatsApp, cupons) saem do caminho enquanto as escolhas e o CTA estão na tela.
 //   Carrinho · Esc fecha o carrinho pelo "X" nativo e devolve o foco ao botão do carrinho.
 //            · Cupom recolhido atrás de "Adicionar cupom" quando vazio; incentivo de frete grátis por peças (cart-incentive, regra publicada no painel).
@@ -66,6 +68,61 @@ export const THEME_UI = String.raw`
     });
     themeObserver.observe(cta);
   }
+  // ── Barra fixa × aviso de cookies da INK ──
+  // No celular o aviso (fixo no pé) cobre a barra "Adicionar ao carrinho". A altura dele vira --o-cookie-h no <html> e o CSS do tema (theme.js) levanta a barra por ela;
+  // sem aviso (aceito, removido ou oculto) a variável sai e a barra volta ao pé. Só medida e variável: o aviso e os botões dele não são tocados.
+  const THEME_COOKIE = '.cookie-acceptance, [data-controller~="ink-store--cookie-acceptance"]';
+  let themeCookie = null; // { banner, resize, wait, timer }
+  function themeCookieOffset(banner) {
+    if (!banner || !banner.isConnected || banner.getClientRects().length === 0) return 0;
+    const style = window.getComputedStyle(banner);
+    if (style.position !== 'fixed') return 0; // só um aviso fixo cobre a barra
+    const gap = parseFloat(style.bottom);
+    return Math.ceil(banner.getBoundingClientRect().height + (gap > 0 ? gap : 0));
+  }
+  function themeCookieApply() {
+    const height = themeCookie ? themeCookieOffset(themeCookie.banner) : 0;
+    const root = document.documentElement;
+    if (height > 0) root.style.setProperty('--o-cookie-h', height + 'px'); else root.style.removeProperty('--o-cookie-h');
+  }
+  function themeStopCookie() {
+    if (themeCookie) {
+      if (themeCookie.resize) themeCookie.resize.disconnect();
+      if (themeCookie.wait) themeCookie.wait.disconnect();
+      clearTimeout(themeCookie.timer);
+    }
+    themeCookie = null;
+    document.documentElement.style.removeProperty('--o-cookie-h');
+  }
+  function themeWatchCookie() {
+    const banner = document.querySelector(THEME_COOKIE);
+    if (banner && themeCookie && themeCookie.banner === banner) return themeCookieApply();
+    themeStopCookie();
+    if (banner) {
+      themeCookie = { banner, resize: null, wait: null, timer: 0 };
+      if (typeof ResizeObserver === 'function') { themeCookie.resize = new ResizeObserver(themeCookieApply); themeCookie.resize.observe(banner); }
+      return themeCookieApply();
+    }
+    // O aviso pode entrar depois da carga: espera por ele só um pouco, sem observar a página para sempre.
+    if (typeof MutationObserver !== 'function' || !document.body) return;
+    themeCookie = { banner: null, resize: null, wait: null, timer: 0 };
+    themeCookie.wait = new MutationObserver(() => { if (document.querySelector(THEME_COOKIE)) themeWatchCookie(); });
+    themeCookie.wait.observe(document.body, { childList: true, subtree: true });
+    themeCookie.timer = setTimeout(() => { if (themeCookie && !themeCookie.banner) themeStopCookie(); }, 10000);
+  }
+
+  // ── "Adicionando…" no botão de compra ──
+  // O formulário do produto é um formulário Turbo da INK: no envio o Turbo já DESABILITA o botão (sem toque duplo) e a INK troca o rótulo por um spinner sem texto
+  // por ~2 s. O atributo nativo data-turbo-submits-with põe este texto no lugar do rótulo durante o envio e o devolve ao fim, com sucesso ou erro. Só atributo:
+  // nada aqui intercepta o envio, desabilita o botão ou cria item. Ao desligar, só os atributos que NÓS pusemos saem.
+  const THEME_SUBMITTING = 'Adicionando…';
+  function themeSubmitLabels(on) {
+    for (const button of document.querySelectorAll('form[id^="form-product-"] #add-to-cart-desk, form[id^="form-product-"] #add-to-cart-mob')) {
+      if (on && !button.hasAttribute('data-turbo-submits-with')) { button.setAttribute('data-turbo-submits-with', THEME_SUBMITTING); button.setAttribute('data-origens-submits', ''); }
+      else if (!on && button.hasAttribute('data-origens-submits')) { button.removeAttribute('data-turbo-submits-with'); button.removeAttribute('data-origens-submits'); }
+    }
+  }
+
   function themeMissingChoice() {
     const form = document.querySelector('form[id^="form-product-"]');
     if (!form) return null;
@@ -467,7 +524,7 @@ export const THEME_UI = String.raw`
   }
 
   function themeStopPdp() {
-    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeStopBusy(); themeRestoreMoves();
+    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeStopBusy(); themeRestoreMoves(); themeStopCookie(); themeSubmitLabels(false);
     if (themeBody()) themeBody().classList.remove('o-typing');
   }
   register({
@@ -478,7 +535,7 @@ export const THEME_UI = String.raw`
       const pdp = themeOn('pdp') && allowedNow();
       const cart = themeOn('cart');
       themeListen(pdp || cart);
-      if (pdp) { themeReorder(); themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); themeGalleryTop(); }
+      if (pdp) { themeReorder(); themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); themeGalleryTop(); themeWatchCookie(); themeSubmitLabels(true); }
       else themeStopPdp();
       if (cart) { themeCartListen(true); themeCartSync(); }
       else { themeStopCart(); themeOpener = null; }

@@ -406,6 +406,8 @@ function pdpCss() {
     // Barra fixa do celular (nativa): só quando o CTA principal está fora da tela; some com teclado, escolha em andamento e painéis (classes do theme-ui).
     F + ' .form-product-options__add-to-cart-mobile{left:0;right:0;width:auto!important;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--o-surface);border-top:1px solid var(--o-line-soft);transition:transform .2s var(--o-ease),visibility .2s}',
     F + ' #add-to-cart-mob{width:100%;min-height:52px}',
+    // Aviso de cookies da INK no pé (primeira visita): a barra sobe a altura dele (--o-cookie-h, medida no theme-ui) em vez de ficar escondida debaixo dele.
+    F + ' .form-product-options__add-to-cart-mobile{bottom:var(--o-cookie-h,0px)}',
     P + ':is(.o-cta-inview,.o-typing) form[id^="form-product-"] .form-product-options__add-to-cart-mobile{transform:translateY(110%);visibility:hidden}',
     F + ' .o-need-choice{outline:2px solid var(--o-error);outline-offset:6px;transition:outline-color .3s}',
     F + ' .o-need-choice p strong{color:var(--o-error)}',

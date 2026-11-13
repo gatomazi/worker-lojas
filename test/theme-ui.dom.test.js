@@ -11,7 +11,7 @@ const HOST = 'https://www.usesul.com.br';
 const PATH = '/usesul/product/florianopolis-legado-sc';
 const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function setup({ features = ['theme-pdp', 'theme-cart'], attr = 'pdp cart', html = FIXTURE } = {}) {
+function setup({ features = ['theme-pdp', 'theme-cart'], attr = 'pdp cart', html = FIXTURE, prepare = null } = {}) {
   if (attr !== null) html = html.replace('<body class="font-poppins">', '<body class="font-poppins" data-origens-theme="' + attr + '">');
   const dom = new JSDOM(html, { url: HOST + PATH, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
@@ -26,6 +26,7 @@ function setup({ features = ['theme-pdp', 'theme-cart'], attr = 'pdp cart', html
     if (/^dot-image-\d+$/.test(e.target.id || '')) native.dots.push(e.target.id);
   });
   w.document.addEventListener('submit', (e) => { native.submits++; e.preventDefault(); });
+  if (prepare) prepare(w);
   w.eval(buildLoaderSource([], ['return-link', ...features], 'product-catalog'));
   return { w, doc: w.document, observers, native };
 }
@@ -245,4 +246,99 @@ test('carrinho: Esc fecha pelo "X" nativo e devolve o foco; com o carrinho desli
   await tick();
   t.doc.dispatchEvent(new t.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(t.native.closes, 0);
+});
+
+// ── Barra fixa × aviso de cookies da INK (fixo no pé, primeira visita no celular) ──
+const COOKIE = '<div class="cookie-acceptance" style="position:fixed;bottom:0"></div>';
+const WITH_COOKIE = FIXTURE.replace('</body>', COOKIE + '</body>');
+const cookieVar = (t) => t.doc.documentElement.style.getPropertyValue('--o-cookie-h');
+function cookieSetup({ html = WITH_COOKIE, attr = 'pdp cart', height = 120 } = {}) {
+  const state = { height, resizers: [] };
+  const t = setup({
+    html, attr,
+    prepare(w) {
+      w.ResizeObserver = class { constructor(cb) { this.cb = cb; this.alive = true; state.resizers.push(this); } observe() {} disconnect() { this.alive = false; } };
+      const rect = w.Element.prototype.getBoundingClientRect;
+      w.Element.prototype.getBoundingClientRect = function () { return this.classList.contains('cookie-acceptance') ? { height: state.height, top: 700, bottom: 700 + state.height, left: 0, right: 390, width: 390, x: 0, y: 700 } : rect.call(this); };
+    },
+  });
+  return Object.assign(t, { state, banner: () => t.doc.querySelector('.cookie-acceptance') });
+}
+const resized = (t) => t.state.resizers.filter((r) => r.alive).forEach((r) => r.cb());
+
+test('aviso de cookies fixo: a barra sobe a altura dele (--o-cookie-h), acompanha uma mudança de altura e volta ao pé quando ele sai', async () => {
+  const t = cookieSetup();
+  await tick();
+  assert.equal(cookieVar(t), '120px');
+  t.state.height = 148; resized(t);
+  assert.equal(cookieVar(t), '148px', 'o aviso mudou de altura (rotação, fonte maior)');
+  t.banner().remove(); resized(t);
+  assert.equal(cookieVar(t), '', 'aceito/removido: a variável sai e a barra volta ao pé');
+  assert.equal(t.native.adds, 0); assert.equal(t.native.submits, 0);
+});
+
+test('aviso de cookies oculto, ou em fluxo (não fixo), não levanta a barra', async () => {
+  const hidden = cookieSetup();
+  await tick();
+  assert.equal(cookieVar(hidden), '120px');
+  hidden.banner().getClientRects = () => []; resized(hidden);
+  assert.equal(cookieVar(hidden), '', 'display:none');
+  const inFlow = cookieSetup({ html: FIXTURE.replace('</body>', '<div class="cookie-acceptance"></div></body>') });
+  await tick();
+  assert.equal(cookieVar(inFlow), '', 'sem position:fixed ele não cobre a barra');
+});
+
+test('sem aviso na carga: nada; um aviso que entra depois é medido', async () => {
+  const t = cookieSetup({ html: FIXTURE });
+  await tick();
+  assert.equal(cookieVar(t), '');
+  t.doc.body.insertAdjacentHTML('beforeend', COOKIE);
+  await tick(30);
+  assert.equal(cookieVar(t), '120px');
+  assert.equal(t.state.resizers.length, 1, 'o aviso passa a ser observado pelo tamanho');
+});
+
+test('REGRESSÃO: com a PDP desligada na página, ou ao sair dela por uma visita Turbo, a variável do aviso não fica', async () => {
+  const off = cookieSetup({ attr: 'cart' });
+  await tick();
+  assert.equal(cookieVar(off), '', 'body sem "pdp": nada da PDP atua');
+  const t = cookieSetup();
+  await tick();
+  assert.equal(cookieVar(t), '120px');
+  turboVisit(t, null);
+  await tick();
+  assert.equal(cookieVar(t), '');
+  assert.ok(t.state.resizers.every((r) => !r.alive), 'o observador do aviso foi desligado');
+});
+
+// ── "Adicionando…" no botão de compra ──
+test('botão de compra: ganha data-turbo-submits-with="Adicionando…"; nada é interceptado; desligar tira só o que nós pusemos', async () => {
+  const t = setup();
+  await tick();
+  const [desk, mob] = ['add-to-cart-desk', 'add-to-cart-mob'].map((id) => t.doc.getElementById(id));
+  assert.deepEqual([desk, mob].map((b) => b.getAttribute('data-turbo-submits-with')), ['Adicionando…', 'Adicionando…']);
+  // O envio, o bloqueio do toque duplo e a troca do rótulo são do Turbo/INK: nosso código não desabilita o botão nem mexe no rótulo.
+  desk.click();
+  assert.equal(t.native.adds, 1, 'o clique chega à INK');
+  assert.equal(desk.disabled, false);
+  assert.equal(desk.querySelector('span').textContent, 'Adicionar ao Carrinho');
+  // PDP desligada na MESMA página (painel): os atributos nossos saem.
+  t.doc.body.setAttribute('data-origens-theme', 'cart');
+  t.doc.dispatchEvent(new t.w.Event('turbo:render'));
+  await tick();
+  assert.equal(desk.hasAttribute('data-turbo-submits-with'), false);
+  assert.equal(mob.hasAttribute('data-turbo-submits-with'), false);
+});
+
+test('botão de compra: um data-turbo-submits-with que já existia (da INK) é respeitado e não é removido', async () => {
+  const html = FIXTURE.replace('id="add-to-cart-mob"', 'id="add-to-cart-mob" data-turbo-submits-with="Aguarde"');
+  const t = setup({ html });
+  await tick();
+  const mob = t.doc.getElementById('add-to-cart-mob');
+  assert.equal(mob.getAttribute('data-turbo-submits-with'), 'Aguarde');
+  assert.equal(t.doc.getElementById('add-to-cart-desk').getAttribute('data-turbo-submits-with'), 'Adicionando…');
+  t.doc.body.setAttribute('data-origens-theme', 'cart');
+  t.doc.dispatchEvent(new t.w.Event('turbo:render'));
+  await tick();
+  assert.equal(mob.getAttribute('data-turbo-submits-with'), 'Aguarde');
 });
