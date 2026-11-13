@@ -406,6 +406,8 @@ function pdpCss() {
     // Barra fixa do celular (nativa): só quando o CTA principal está fora da tela; some com teclado, escolha em andamento e painéis (classes do theme-ui).
     F + ' .form-product-options__add-to-cart-mobile{left:0;right:0;width:auto!important;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--o-surface);border-top:1px solid var(--o-line-soft);transition:transform .2s var(--o-ease),visibility .2s}',
     F + ' #add-to-cart-mob{width:100%;min-height:52px}',
+    // Aviso de cookies da INK no pé (primeira visita): a barra sobe a altura dele (--o-cookie-h, medida no theme-ui) em vez de ficar escondida debaixo dele.
+    F + ' .form-product-options__add-to-cart-mobile{bottom:var(--o-cookie-h,0px)}',
     P + ':is(.o-cta-inview,.o-typing) form[id^="form-product-"] .form-product-options__add-to-cart-mobile{transform:translateY(110%);visibility:hidden}',
     F + ' .o-need-choice{outline:2px solid var(--o-error);outline-offset:6px;transition:outline-color .3s}',
     F + ' .o-need-choice p strong{color:var(--o-error)}',
@@ -488,6 +490,19 @@ function cartCss() {
     D + '__footer__cep input,' + D + '__footer__coupon input{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;min-height:40px;font-size:16px!important;color:var(--o-ink)}',
     D + '__footer__cep input:focus,' + D + '__footer__coupon input:focus{border-color:var(--o-ink)!important;outline:2px solid var(--o-ink);outline-offset:0}',
     D + '__footer__cep .btn-apply,' + D + '__footer__coupon .btn-apply{min-width:44px;min-height:44px}',
+    // Campo do cupom ABERTO (depois de "Adicionar cupom"): a caixa ocupa a largura que sobra, o texto começa à esquerda e o botão de aplicar é um quadrado de
+    // 44 px com a seta centrada. A INK deixava a caixa em 12 rem com o texto centrado e a seta solta no alto do botão. Nenhum `display`: o que a INK
+    // esconde (campo e botão com o cupom aplicado) continua escondido por ela.
+    D + '__footer__coupon{align-items:center;column-gap:12px}',
+    D + '__footer__coupon > div:last-child{flex:1 1 auto;width:auto!important;min-width:0;column-gap:8px}',
+    D + '__footer__coupon input{flex:1 1 auto;width:auto!important;min-width:0;min-height:44px;padding:0 12px!important;text-align:left!important}',
+    D + '__footer__coupon input::placeholder{color:var(--o-ink-mute);letter-spacing:.04em}',
+    D + '__footer__coupon .btn-apply{flex:0 0 44px;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid var(--o-action)!important;border-radius:var(--o-radius)!important;background:var(--o-action)!important;color:var(--o-on-action)!important}',
+    // A INK pinta a seta de preto por conta própria (stroke="currentColor" com color preto no <svg>): sem isto ela some no botão escuro.
+    D + '__footer__coupon .btn-apply svg{width:20px;height:20px;color:var(--o-on-action)!important}',
+    // Foco do campo do cupom: borda de 1 px + anel de 1 px (2 px no total, visível), em vez de 1 + 2 (o anel de 3 px pesava ao abrir o campo).
+    D + '__footer__coupon input:focus{outline-width:1px!important}',
+    D + '__footer__coupon .btn-apply:focus-visible{outline:2px solid var(--o-ink);outline-offset:2px}',
     D + '__footer__cep label,' + D + '__footer__coupon label,' + D + '__footer__cep span,' + D + '__footer__coupon span{color:var(--o-ink-soft);font-weight:500;font-size:14px}',
     btn(D + ' #checkout-btn,' + D + '__footer__submit', 'cta'),
     D + ' #checkout-btn{width:100%}',

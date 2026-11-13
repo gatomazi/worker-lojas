@@ -27,6 +27,8 @@ Entra no loader com `theme-pdp` ou `theme-cart`; o checkout nunca recebe o loade
 | Comportamento | Como | Se falhar |
 |---|---|---|
 | Barra fixa "Adicionar ao Carrinho" do celular some com o botão principal à vista ou com o teclado aberto | `IntersectionObserver` só em `#add-to-cart-desk`; `focusin/focusout` em campos de texto | Barra fica sempre visível, como na INK |
+| Barra fixa sobe acima do aviso de cookies da INK (celular, primeira visita) | `ResizeObserver` no `.cookie-acceptance` (fixo no pé) grava a altura em `--o-cookie-h` no `<html>`; o CSS do tema aplica `bottom: var(--o-cookie-h, 0px)` na barra. Sem aviso (aceito, removido, oculto ou fora do pé) a variável sai | Barra no pé, sob o aviso, como na INK |
+| "Adicionando…" no botão de compra durante o envio do carrinho | `data-turbo-submits-with` (nativo do Turbo) em `#add-to-cart-desk` e `#add-to-cart-mob`; o Turbo troca o rótulo e o devolve ao fim, com sucesso ou erro. O bloqueio do toque duplo já é do Turbo (botão desabilitado). Um atributo que a INK já tenha é respeitado; ao desligar saem só os nossos | Só o spinner, sem texto, como na INK |
 | Toque na barra quando a INK a deixa inerte (`pointer-events-none`, antes do quadro de variantes carregar) | Rola até o quadro (lazy: carrega ao entrar na tela) ou, já carregado, foca a primeira escolha que falta e a destaca | O toque não faz nada, como hoje |
 | Esc fecha o carrinho | Dispara o clique no "X" nativo (`#cart-drawer-close`); devolve o foco ao botão do carrinho | Fecha só pelo "X" |
 
