@@ -351,7 +351,10 @@ export const THEME_UI = String.raw`
     const input = row.querySelector(THEME_COUPON_INPUT);
     if (!input) return true; // marcação desconhecida: não mexe
     if (input.value.trim() !== '' || document.activeElement === input) return true;
-    if (row.querySelector('[data-action*="clearCoupon"], [data-action*="removeCoupon"], [role="alert"], [class*="text-red"], [class*="error"]')) return true;
+    // Só conta o que está NA TELA: a INK deixa dentro da linha do cupom um selo com o botão "remover" ESCONDIDO (classe !hidden) mesmo sem cupom nenhum, e
+    // contar esse botão impedia o campo de recolher (ficava sempre aberto, largo, como na INK).
+    const shown = (el) => el.getClientRects().length > 0;
+    if ([...row.querySelectorAll('[data-action*="clearCoupon"], [data-action*="removeCoupon"], [role="alert"], [class*="text-red"], [class*="error"]')].some(shown)) return true;
     return themeCartError();
   }
   // A INK deixa o contêiner de erros na gaveta mesmo vazio: só conta com texto.
