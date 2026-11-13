@@ -13,7 +13,7 @@ const SLUG = /^[a-z0-9][a-z0-9_-]{0,160}$/;
 
 export const legacyRedirectOn = (env, store) => String(env.LEGACY_REDIRECT ?? '').toLowerCase() === 'on' && Boolean(store) && store.id !== SINGLE_ID;
 
-function withCampaign(target, from) {
+export function withCampaign(target, from) {
   for (const name of CARRY) {
     const value = from.searchParams.get(name);
     if (value && value.length <= 500 && !target.searchParams.has(name)) target.searchParams.set(name, value);

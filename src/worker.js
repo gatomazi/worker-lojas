@@ -17,6 +17,7 @@ import { parseScopeMode, inScope, isCatalogProductPath, CATALOG_MODE, shellPageK
 import { resolveStore, withInkDomain, productPagePattern, parseServedRegions, storeView, visitorRegion, regionCookie, clientStore } from './stores.js';
 import { onFormerHost, domainMoveRedirect } from './domain-move.js';
 import { legacyRedirect, legacyRedirectOn } from './legacy-redirect.js';
+import { oldCollectionRedirect } from './old-collections.js';
 import { THEME_PATH, SURFACES, SURFACE_FEATURE, createThemeSource, activeSurfaces, buildThemeCss, themeQuery, themeLinkTag, parseSurfaceParam, checkoutPageKind, accountPageKind, ACCOUNT_CSS_ONLY, incentiveAttr } from './theme.js';
 
 // UM Worker por loja: STORE_ID (var do TOML da loja) escolhe host, prefixo, storefront e KV em src/stores.js. Sem STORE_ID = Use Sul (o Worker em produção nunca
@@ -360,6 +361,12 @@ export function createWorker(upstream, { gateway = null, cartRefs = createCartRe
       if (legacyRedirectOn(env, store) && !url.pathname.startsWith('/__origens/')) {
         const moved = await legacyRedirect(request, url, store, env.LEGACY_MAP, env);
         if (moved) return moved;
+      }
+
+      // Coleção antiga da loja única que a INK não tem mais (sigla do estado, modelo): a página equivalente no storefront (old-collections.js).
+      if (mode !== 'false') {
+        const old = await oldCollectionRedirect(request, url, store, upstream);
+        if (old) return old;
       }
 
       // A região do visitante decide o que ele vê (loja única); sem SERVE_REGIONS ela é sempre a da loja e `view` é a própria loja.
