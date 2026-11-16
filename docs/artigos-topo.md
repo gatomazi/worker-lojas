@@ -51,7 +51,8 @@ Se a vitrine estiver fora do ar, passar de 1,5 s, devolver um formato desconheci
    `{"ok":true,"worker":"use-origens-artigos","topo":"on"}`. Se vier a página da Uma Penca, a zona não está vendo o tráfego (registro só-DNS apontando para a Cloudflare da Uma
    Penca): nesse caso **não mexa no DNS** (a Uma Penca costuma exigir só-DNS para renovar o certificado do domínio) e use o caminho abaixo.
 2. Publicar: `npx wrangler deploy -c wrangler.artigos.toml` (login do proprietário). Só depois do pedido do dono.
-3. Conferir ao vivo: `PW_PATH=<raiz com playwright-core> node scripts/qa-artigos.mjs` (o mesmo script que gerou as capturas, contra o Worker local; só lê, nunca adiciona item).
+3. **Ver antes de publicar:** `PW_PATH=<raiz com playwright-core> node scripts/ver-artigos.mjs` sobe o Worker local na frente da loja real e abre duas janelas (computador 1440×900 e celular 390×844), cada uma com a home e uma página de caneca. Nada é publicado.
+4. Conferir ao vivo: `PW_PATH=<raiz com playwright-core> node scripts/qa-artigos.mjs` (o mesmo script que gerou as capturas, contra o Worker local; só lê, nunca adiciona item).
 
 ## Caminho sem código (alternativa, ou complemento)
 
