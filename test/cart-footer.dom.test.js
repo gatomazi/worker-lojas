@@ -30,13 +30,14 @@ function drawer({ qty = 1, couponOpts = {}, shipping = '', errors = false, nativ
     '<button type="button" class="cart-drawer__footer__keep-shopping">Continuar comprando</button></div></div>';
 }
 
-function setup({ features = ['theme-pdp', 'theme-cart', 'cart-incentive'], attr = 'pdp cart', incentive = '2|PR,SC,RS', cart = drawer() } = {}) {
+function setup({ features = ['theme-pdp', 'theme-cart', 'cart-incentive'], attr = 'pdp cart', incentive = '2|PR,SC,RS', cart = drawer(), hideClassed = false } = {}) {
   let html = FIXTURE.replace(/<turbo-frame id="cart">[\s\S]*?<\/turbo-frame>/, '<turbo-frame id="cart">' + cart + '</turbo-frame>');
   const attrs = (attr !== null ? ' data-origens-theme="' + attr + '"' : '') + (incentive ? ' data-origens-incentive="' + incentive + '"' : '');
   html = html.replace('<body class="font-poppins">', '<body class="font-poppins"' + attrs + '>');
   const dom = new JSDOM(html, { url: HOST + PATH, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
-  w.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+  // hideClassed: o que a INK esconde com a classe `hidden` / `!hidden` (sem CSS no jsdom) não tem caixa, como no navegador.
+  w.HTMLElement.prototype.getClientRects = hideClassed ? function () { return this.closest('.hidden, .\\!hidden') ? [] : [{}]; } : function () { return [{}]; };
   w.HTMLElement.prototype.scrollIntoView = function () {};
   w.IntersectionObserver = class { observe() {} disconnect() {} };
   w.eval(buildLoaderSource([], ['return-link', ...features], 'product-catalog'));
@@ -179,7 +180,7 @@ test('Turbo: página nova sem o carrinho tematizado = nenhum botão, nenhum ince
 
 // Marcação REAL da gaveta da INK, lida na loja única em 08/11/2026 (estrutura, sem dados de sessão): cupom e CEP cada um no próprio <form>, filhos
 // diretos do rodapé; a promoção automática (BLACKMONTH) entra como cupom aplicado (campo escondido + selo com "remover"); o contêiner de erros vazio.
-function realDrawer({ applied = false, cepOpen = false } = {}) {
+function realDrawer({ applied = false, cepOpen = false, hiddenBadge = false } = {}) {
   return '<div class="relative flex flex-col h-full" data-controller="ink-store--cart ink-store--progress-bar" data-ink-store--progress-bar-max-progress-value="0">' +
     '<div class="cart-drawer__header"><div class="top-header"><span>Carrinho <span id="quantity-header" data-quantityheader="3">(3 produtos)</span></span></div></div>' +
     '<div data-ink-store--cart-target="cartErrors"></div>' +
@@ -191,6 +192,8 @@ function realDrawer({ applied = false, cepOpen = false } = {}) {
     '<input id="cart_coupon_code" class="' + (applied ? 'hidden ' : '') + 'coupon-input reset-input w-full" name="cart[coupon][code]" placeholder="CUPOM" value="">' +
     '<button id="apply_coupon_code" type="button" class="btn-apply' + (applied ? ' hidden' : '') + '" data-action="click->ink-store--cart#addCoupon"></button>' +
     (applied ? '<span id="badge-dismiss-yellow"><span>BLACKMONTH</span><button type="button" data-action="click->ink-store--cart#removeCoupon" aria-label="Remove"></button></span>' : '') +
+    // Marcação de 13/11: o selo existe SEMPRE, escondido (!hidden), com o botão "remover" dentro, mesmo sem cupom aplicado.
+    (hiddenBadge && !applied ? '<span id="badge-dismiss-yellow" class="!hidden flex"><span>CUPOM</span><button type="button" data-action="click->ink-store--cart#removeCoupon">Remove badge</button></span>' : '') +
     '</div></div></form>' +
     '<form id="cep-form" class="flex flex-col gap-4" action="/useorigens/cart/cep" method="post" data-turbo="true"><div class="cart-drawer__footer__cep"><div class="w-full block">' +
     '<div class="flex justify-between w-full"><div class="flex"><span>Frete</span></div><div id="insert-cep-btn" class="flex justify-end items-center w-48" data-action="click->ink-store--cart#insertCep">Inserir CEP</div></div>' +
@@ -230,4 +233,33 @@ test('marcação real (08/11): cupom aplicado (o BLACKMONTH automático) fica à
   const old = setup();
   await tick();
   assert.ok(!footer(old).hasAttribute('data-origens-pair'));
+});
+
+test('REGRESSÃO (13/11): a INK deixa um selo com o botão "remover" ESCONDIDO na linha do cupom mesmo sem cupom — o campo recolhe em "Adicionar cupom" do mesmo jeito', async () => {
+  const t = setup({ cart: realDrawer({ hiddenBadge: true }), hideClassed: true });
+  await tick();
+  assert.ok(row(t).hasAttribute('data-origens-collapsed'), 'o botão escondido não é um cupom aplicado');
+  assert.equal(toggles(t).length, 1);
+  assert.ok(footer(t).hasAttribute('data-origens-pair'), '"Adicionar cupom" + "Frete · Inserir CEP" numa linha');
+  toggles(t)[0].click();
+  await tick();
+  assert.ok(!row(t).hasAttribute('data-origens-collapsed'), 'abre o campo');
+  assert.equal(t.doc.activeElement, t.doc.getElementById('cart_coupon_code'));
+});
+
+test('selo do cupom VISÍVEL (cupom aplicado, ou erro em tela) segura o campo aberto, mesmo com o botão escondido ao lado', async () => {
+  // Aplicado de verdade: campo e botão de aplicar escondidos pela INK, selo e "remover" à mostra.
+  const applied = setup({ cart: realDrawer({ applied: true }), hideClassed: true });
+  await tick();
+  assert.ok(!row(applied).hasAttribute('data-origens-collapsed'));
+  assert.equal(toggles(applied).length, 0);
+  // Texto digitado no campo: atenção, nunca recolhe por baixo da pessoa.
+  const typed = setup({ cart: realDrawer({ hiddenBadge: true }), hideClassed: true });
+  await tick();
+  toggles(typed)[0].click();
+  const input = typed.doc.getElementById('cart_coupon_code');
+  input.value = 'PROMO10';
+  typed.doc.querySelector('turbo-frame#cart').dispatchEvent(new typed.w.CustomEvent('turbo:frame-render', { bubbles: true }));
+  await tick();
+  assert.ok(!row(typed).hasAttribute('data-origens-collapsed'));
 });
