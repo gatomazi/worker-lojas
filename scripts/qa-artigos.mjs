@@ -6,8 +6,8 @@
 //   --storefront=fixture   usa o payload guardado em test/fixtures (padrão: o /api/navbar/sul REAL de produção)
 // Só LEITURA na Uma Penca: abre páginas e abre/fecha o painel da sacola (nunca adiciona item, nunca vai ao checkout). Sessão anônima descartável.
 import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync } from 'node:fs';
-import { Miniflare } from 'miniflare';
+import { mkdirSync } from 'node:fs';
+import { HOST, PRODUCT, routeThroughWorker, startLocalWorker } from './lib/artigos-local.mjs';
 const require = createRequire((process.env.PW_PATH || '.') + '/');
 const { chromium } = require('playwright-core');
 
@@ -16,33 +16,11 @@ const HEADED = process.argv.includes('--headed');
 const HOLD = Number(arg('hold') || 0);
 const FIXTURE = arg('storefront') === 'fixture';
 const OUT = new URL('../docs/screenshots/artigos-topo/', import.meta.url).pathname; mkdirSync(OUT, { recursive: true });
-const SRC = new URL('../src/', import.meta.url).pathname;
-const MODULES = ['artigos/worker.js', 'artigos/escopo.js', 'artigos/site.js', 'artigos/rewrite.js', 'artigos/topo.js', 'navbar-gateway.js', 'stores.js'].map((file) => ({ type: 'ESModule', path: SRC + file }));
-const HOST = 'https://artigos.useorigens.com.br';
-const PRODUCT = '/caneca/la-de-chapeco-sc-444855.html';
 const failures = [];
 const check = (name, ok, detail = '') => { if (!ok) failures.push(name); console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  — ' + String(detail).slice(0, 240) : '')); };
 
-const mf = new Miniflare({
-  modulesRoot: SRC, modules: MODULES, compatibilityDate: '2026-08-01', bindings: { ARTIGOS_TOPO: 'true' },
-  outboundService: async (request) => {
-    const url = new URL(request.url);
-    if (url.host === 'useorigens.com.br' && FIXTURE) return new Response(readFileSync(new URL('../test/fixtures/artigos-navbar-sul.json', import.meta.url)), { headers: { 'content-type': 'application/json' } });
-    // O fetch do Node não aceita o Request do Miniflare: refaz o pedido pela URL, sem os cabeçalhos internos (host, cf-worker).
-    const headers = {}; request.headers.forEach((v, k) => { if (!['host', 'cf-worker'].includes(k)) headers[k] = v; });
-    return fetch(request.url, { method: request.method, headers, redirect: 'manual' });
-  }
-});
-
-const route = (page) => page.route(HOST + '/**', async (r) => {
-  const req = r.request();
-  if (req.resourceType() !== 'document' || req.method() !== 'GET') return r.continue();
-  const headers = { ...req.headers() }; delete headers.host;
-  const res = await mf.dispatchFetch(req.url(), { headers, redirect: 'manual' });
-  const body = Buffer.from(await res.arrayBuffer());
-  const out = {}; res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k)) out[k] = v; });
-  return r.fulfill({ status: res.status, headers: out, body });
-});
+const mf = startLocalWorker({ fixture: FIXTURE });
+const route = (page) => routeThroughWorker(page, mf);
 
 const browser = await chromium.launch({ headless: !HEADED });
 const settle = async (page) => { await page.waitForLoadState('networkidle').catch(() => {}); await page.waitForTimeout(1800); };
