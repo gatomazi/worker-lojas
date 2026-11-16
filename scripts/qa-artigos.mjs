@@ -47,6 +47,8 @@ const route = (page) => page.route(HOST + '/**', async (r) => {
 const browser = await chromium.launch({ headless: !HEADED });
 const settle = async (page) => { await page.waitForLoadState('networkidle').catch(() => {}); await page.waitForTimeout(1800); };
 const shot = (page, name) => page.screenshot({ path: OUT + name + '.png' });
+// O painel lateral da Uma Penca (sacola e busca abrem o mesmo #sidebar-content): fechado antes, aberto depois do toque.
+const sidebarOpen = (page) => page.evaluate(() => document.querySelector('#sidebar-content').classList.contains('open'));
 async function open(ctx, path) {
   const page = await ctx.newPage(); await route(page);
   const errors = []; page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 160)));
@@ -91,11 +93,15 @@ try {
   await shot(d.page, 'desktop-estados');
   await d.page.hover('.oa-inline .oa-dd-wide .oa-t'); await d.page.waitForTimeout(300);
   await shot(d.page, 'desktop-categorias');
-  // a sacola nativa continua abrindo o painel dela (só abre e fecha: nunca adiciona item)
+  // a sacola e a lupa nativas seguem abrindo o painel da Uma Penca (só abre: nunca adiciona item nem vai ao checkout)
   await d.page.mouse.move(700, 500);
+  check('computador: o painel da Uma Penca começa fechado', !(await sidebarOpen(d.page)));
   await d.page.click('#header-desktop #header-cart-desktop .button-open-cart'); await d.page.waitForTimeout(900);
-  check('computador: a sacola da Uma Penca abre o painel dela', await d.page.evaluate(() => !!document.querySelector('#header-right-sidebar.open, #header-right-sidebar-content.open, [id^="header-right-sidebar"] .open, #sidebar-content.open')));
-  await d.page.keyboard.press('Escape');
+  check('computador: clicar na sacola da Uma Penca abre o painel dela', await sidebarOpen(d.page));
+  await d.page.reload({ waitUntil: 'domcontentloaded' }); await settle(d.page);
+  check('computador: depois de recarregar o painel volta fechado', !(await sidebarOpen(d.page)));
+  await d.page.click('#header-desktop .button-open-search'); await d.page.waitForTimeout(900);
+  check('computador: clicar na lupa da Uma Penca abre a busca dela', await sidebarOpen(d.page));
   const p = await open(desk, PRODUCT);
   check('artigo: o topo também entra na página do produto', await p.page.evaluate(() => !!document.querySelector('[data-origens-artigos="nav"]')));
   await shot(p.page, 'desktop-artigo');
@@ -133,6 +139,12 @@ try {
   await shot(m.page, 'mobile-menu');
   await m.page.tap('[data-origens-artigos="menu"] summary'); await m.page.waitForTimeout(300);
   check('celular: tocar de novo fecha a gaveta', await m.page.evaluate(() => !document.querySelector('[data-origens-artigos="menu"]').open));
+  check('celular: o painel da Uma Penca começa fechado', !(await sidebarOpen(m.page)));
+  await m.page.tap('#header-mobile #header-cart-desktop .button-open-cart'); await m.page.waitForTimeout(900);
+  check('celular: tocar na sacola da Uma Penca abre o painel dela', await sidebarOpen(m.page));
+  await m.page.reload({ waitUntil: 'domcontentloaded' }); await settle(m.page);
+  await m.page.tap('#header-mobile .button-open-search'); await m.page.waitForTimeout(900);
+  check('celular: tocar na lupa da Uma Penca abre a busca dela', await sidebarOpen(m.page));
   const mp = await open(phone, PRODUCT);
   check('celular/artigo: o topo também entra na página do produto', await mp.page.evaluate(() => !!document.querySelector('[data-origens-artigos="menu"]')));
   await shot(mp.page, 'mobile-artigo');

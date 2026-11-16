@@ -44,6 +44,7 @@ Se a vitrine estiver fora do ar, passar de 1,5 s, devolver um formato desconheci
 
 ## Antes de publicar (nada foi publicado)
 
+0. **Nenhuma rota curinga cobre o artigos hoje:** conferidas as 15 rotas da zona, todas são de `loja.useorigens.com.br`. A do artigos será a primeira rota de Worker nesse host.
 1. **O registro `artigos` precisa estar proxiado (nuvem laranja) na zona `useorigens.com.br`.** Conferido de fora: `artigos` resolve para os **mesmos dois IPs** que `loja.useorigens.com.br`
    (que a nossa zona já proxia), sem CNAME visível, que é o padrão de um registro proxiado na nossa zona. Não consegui ler o registro em si (o token do `wrangler` não tem
    escopo de DNS). **A prova é a sonda depois do deploy:** `curl -s https://artigos.useorigens.com.br/__origens/health` deve responder
@@ -59,6 +60,10 @@ caminho de volta mínimo, sem Worker. Serve de plano B se o item 1 acima falhar.
 
 ## Decisões deixadas para o dono
 
+- **Região: este topo é sempre o da Sul (a loja única), diferente da INK.** A Uma Penca vende canecas das três regiões, mas nenhum sinal de região chega a este host: o storefront não grava cookie de região
+  no domínio compartilhado (conferido: `/norte` não manda `Set-Cookie`) e os links dos cartões levam direto ao artigo, sem `?origens_r=`. Então "Voltar para a Use Origens" leva a `/sul`, e "Estados"
+  mostra PR, SC e RS, mesmo para quem veio de uma caneca do Norte. O jeito de espelhar a INK é o storefront acrescentar `?origens_r=<região>` aos links para o artigos e este Worker ler o parâmetro
+  (`storeView(STORES.sul, região)` já devolve a navbar e a base da região). É mudança no storefront, fora deste PR.
 - **Rótulos "Loja" e "Contato":** mantidos como o painel da Uma Penca os publica. Com "Canecas" (da vitrine) ao lado, "Loja" pode confundir; trocar por "Todas as canecas" é uma linha em `NATIVE_LINKS` (`src/artigos/topo.js`).
 - **Rodapé e aviso de cookies:** o rodapé da Uma Penca não mudou. O aviso de cookies dela (fixo, z-index 30) cobre o pé da gaveta do celular até a pessoa clicar em "Concordar".
 - **Medição dos cliques de volta:** os links de saída não têm GA4/Meta próprios (a Uma Penca tem o pixel dela). Se quiser medir, é um passo à parte.
@@ -68,4 +73,4 @@ caminho de volta mínimo, sem Worker. Serve de plano B se o item 1 acima falhar.
 
 - `test/artigos.topo.test.js` (puro): marcação, escape, endereços, escopo, interruptor.
 - `test/artigos.workerd.test.js` (workerd real, Uma Penca e vitrine simuladas): topo aplicado; vitrine lida uma vez e sem cookie; fora do escopo nada muda; interruptor; fail-aberto (500, não-JSON, JSON quebrado, esquema, região errada, rede, lentidão); redirect/404/não-HTML; fragmento; saúde.
-- `scripts/qa-artigos.mjs` (navegador real, loja real, Worker local): 20 conferências e as capturas.
+- `scripts/qa-artigos.mjs` (navegador real, loja real, Worker local): 26 conferências (inclui: a sacola e a lupa da Uma Penca fechadas antes e abertas depois do toque, no computador e no celular) e as capturas.
