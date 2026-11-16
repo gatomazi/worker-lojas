@@ -1,0 +1,17 @@
+name = "use-origens-artigos"
+main = "src/artigos/worker.js"
+compatibility_date = "2026-08-01"
+workers_dev = false
+
+# NÃO PUBLICAR sem o pedido do dono (docs/artigos-topo.md). Worker SEPARADO do da INK (use-sul-widget): rota e variáveis só deste host. O `wrangler deploy` apaga as
+# rotas DESTE Worker que o TOML não declara, e este TOML só declara a do artigos: não há como ele tocar nas rotas do use-sul-widget.
+# A zona tem de ver o tráfego do host: o registro `artigos` precisa estar PROXIADO (nuvem laranja) na zona useorigens.com.br. Prova depois do deploy:
+#   curl -s https://artigos.useorigens.com.br/__origens/health   ->  {"ok":true,"worker":"use-origens-artigos","topo":"on"}
+
+[vars]
+# Interruptor do topo: só "true" liga. Desligar sem novo deploy de código: `wrangler deploy -c wrangler.artigos.toml --var ARTIGOS_TOPO:false` (o Worker passa a só repassar).
+ARTIGOS_TOPO = "true"
+
+[[routes]]
+pattern = "artigos.useorigens.com.br/*"
+zone_name = "useorigens.com.br"
