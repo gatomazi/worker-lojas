@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta content='width=device-width, initial-scale=1' name='viewport'>
+  <base href="/">
+  <title>Loja - Use Origens</title>
+</head>
+<body>
+<input type="hidden" id="lng" value="4" name="ln" />
+<div id="page">
+  <!-- Marcação do topo da Uma Penca como o HTML servido a entrega (conferida em 16/11/2026): inclui as diretivas do Vue no bloco de navegação. -->
+  <header id="header-mobile" class="hidden-sm-up header pos-relative header-stores">
+    <div id="header-mobile-topbar-wrapper" class="header-topbar-wrapper pos-fixed pos-top pos-left pos-right bg-header-1">
+      <div class="d-flex flex-align-center pos-relative pt-1">
+        <i id="header-drawer-icon"></i>
+        <a class="header-logo-up without-logo limit-text pos-absolute pos-center-x" href="/" title="Use Origens">
+          <strong>Use Origens</strong>
+        </a>
+        <div class="header-store-search search-icon mt-1 button-open-search"><a role="button" tabindex="0" aria-label="Buscar na loja"><i class="header-store-search-icon icon-cr icon-search new-up-icons mr-2"></i></a></div>
+        <div id="header-cart-desktop" class="header-cart text-yanone"><div class="header-topbar-btn button-open-cart pl-0"><div class="header-cart-icon-wrapper pos-relative"><div class="header-cart-icon icon-cr icon-bag new-up-icons"></div></div></div></div>
+      </div>
+    </div>
+  </header>
+  <header id="header-desktop" class="hidden-sm-down header pos-relative bg-header-1 header-stores">
+    <div id="header-desktop-topbar-wrapper" class="header-topbar-wrapper pos-fixed pos-top pos-left pos-right">
+      <div id="header-topbar" class="d-flex flex-align-center content">
+        <div id="header-desktop-logo-wrapper">
+          <div class="h-full d-flex flex-align-center flex-spaced-around" class="mr-4">
+            <a class="header-logo-up without-logo" href="/" title="Use Origens">
+              <h4 style="font-size: 20px"><strong>Use Origens</strong></h4>
+            </a>
+          </div>
+        </div>
+        <div id="header-desktop-nav" @mouseleave="closeMenu">
+          <nav class="h-full d-flex flex-align-center">
+            <div class="header-desktop-nav-frame d-flex rounded mr-auto" :class="{open: !!openedItem}">
+              <a class="header-product-title pos-relative cursor-pointer my-0 d-flex flex-align-center text-center" href="/" @click="openItem(1)" @mouseover="openItem(1)"><span>Loja</span></a>
+              <a class="header-product-title pos-relative cursor-pointer my-0 d-flex flex-align-center text-center" href="/fale-conosco" @click="openItem(4)" @mouseover="openItem(4)"><span>Contato</span></a>
+            </div>
+          </nav>
+        </div>
+        <div id="header-topbar-right" class="d-flex flex-align-center">
+          <a class="header-topbar-btn header-store-search button-open-search cursor-pointer pr-0 ml-1" role="button" tabindex="0" aria-label="Buscar na loja"><i class="icon-cr icon-search new-up-icons mt-1"></i></a>
+          <div id="header-account" class="cr-popover-right-bottom ml-1"><a class="header-topbar-btn desloged pr-0" id="button-open-login" rel="nofollow"><i class="header-account-icon icon-cr icon-indicates new-up-icons"></i></a></div>
+          <div id="header-cart-desktop" class="header-cart text-yanone"><div class="header-topbar-btn button-open-cart pl-0"><div class="header-cart-icon-wrapper pos-relative"><div class="header-cart-icon icon-cr icon-bag new-up-icons"></div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="hotsite-content"><h1>Conheça os produtos</h1><a href="/caneca/la-de-chapeco-sc-444855.html">Caneca Lá de Chapecó | SC</a></div>
+  <footer id="footer"><a href="/fale-conosco">Contato</a></footer>
+</div>
+</body>
+</html>
