@@ -76,14 +76,15 @@ test('frame da INK carregando (busy): o conjunto NÃO é movido (mover abortaria
   assert.ok(o.indexOf('escolhas') < o.indexOf('prazo+cupons'), o.join(' > '));
 });
 
-test('cupons: "Cupons disponíveis" entra depois do <form> (dentro do conjunto do prazo), FECHADO; abre as abas no toque; o frame é pedido já', async () => {
+test('cupons: "Cupons disponíveis" entra logo ABAIXO DO PREÇO, FECHADO; abre as abas no toque; o frame é pedido já; o tema não o move', async () => {
   const t = setup({ features: ['theme-pdp', 'pdp-coupons'], html: FIXTURE.replace('<turbo-frame id="product_promotions_frame"', '<turbo-frame id="product_promotions_frame" loading="lazy" src="/usesul/products/3890099/product_promotions"') });
   await tick();
   const frame = t.doc.getElementById('product_promotions_frame');
   assert.equal(frame.getAttribute('loading'), 'eager', 'a INK carrega o frame já, e o botão está na página desde o início');
-  const near = t.doc.querySelector('.container-form > .o-cpn-near');
-  assert.ok(near, 'dentro do conjunto prazo+cupons');
-  assert.equal(near.previousElementSibling.id, 'form-product-3890099', 'logo depois do <form>');
+  const price = column(t).querySelector(':scope > [data-ink-labs-anchor="product_price"]');
+  const near = price.nextElementSibling;
+  assert.ok(near && near.classList.contains('o-cpn-near'), 'logo depois do preço, filho da coluna');
+  assert.equal(t.doc.querySelectorAll('.o-cpn-near').length, 1);
   const toggle = near.querySelector('.o-cpn-toggle');
   assert.equal(toggle.getAttribute('aria-expanded'), 'false');
   assert.ok(near.querySelector('#o-cpn-box').hidden, 'fechado por padrão: não ocupa espaço');
@@ -91,12 +92,12 @@ test('cupons: "Cupons disponíveis" entra depois do <form> (dentro do conjunto d
   toggle.click();
   assert.equal(near.querySelector('#o-cpn-box').hidden, false);
   assert.deepEqual([...near.querySelectorAll('.o-cpn-tab')].map((b) => b.textContent.trim()), ['PRIMEIRACOMPRA', 'LEVEMAIS']);
-  // O conjunto vai junto quando o tema o leva para baixo do botão.
+  // Com o tema, só o prazo (conjunto) desce para depois do botão; o botão de cupons continua embaixo do preço.
   const t2 = setup({ features: ['theme-pdp', 'pdp-coupons'] });
   await tick();
   const o = order(t2);
   assert.ok(o.indexOf('escolhas') < o.indexOf('prazo+cupons'));
-  assert.ok(t2.doc.querySelector('.container-form > .o-cpn-near'));
+  assert.equal(column(t2).querySelector(':scope > [data-ink-labs-anchor="product_price"]').nextElementSibling.className, 'o-cpn-near');
 });
 
 test('guia da PDP: monta logo depois do prazo e dos cupons (que ficam depois do botão), não acima das variações', async () => {
@@ -127,4 +128,91 @@ test('"Você também pode gostar": sem "Compre junto" monta depois dos detalhes 
   await tick(300);
   const reco2 = b.doc.querySelector('[data-origens-reco]');
   assert.ok(reco2 && reco2.previousElementSibling.classList.contains('buy-together'), 'com "Compre junto": logo depois dele');
+});
+
+test('selo do preço: "16% OFF" da INK vira "Economize 16%"; o texto original volta ao desligar o tema', async () => {
+  const t = setup();
+  const badge = () => column(t).querySelector(':scope > [data-ink-labs-anchor="product_price"] > div > span');
+  const original = badge().textContent.trim();
+  assert.match(original, /^\d+\s*% OFF$/);
+  await tick();
+  assert.equal(badge().textContent, 'Economize ' + original.match(/^\d+/)[0] + '%');
+  for (let i = 0; i < 10; i++) t.doc.body.appendChild(t.doc.createElement('i'));
+  await tick();
+  assert.match(badge().textContent, /^Economize \d+%$/, 'remontar não repete nem estraga');
+  t.doc.body.setAttribute('data-origens-theme', 'cart');
+  t.doc.body.appendChild(t.doc.createElement('i'));
+  await tick();
+  assert.equal(badge().textContent.trim(), original);
+});
+
+test('"Também disponível em": a peça desta página entra na frente, "Você está aqui" (tipo da migalha, foto da galeria, preços do bloco de preço); sai ao desligar', async () => {
+  const section = '<section data-testid="product-styles"><div class="flex"><h2>Também disponível em</h2><span>2 produtos</span></div><ul><li class="flex w-[45%]"><div data-testid="product-card"><a href="/x"><p>Camiseta Infantil</p></a></div></li><li class="flex w-[45%]"><div data-testid="product-card"><a href="/y"><p>Body</p></a></div></li></ul></section>';
+  const crumbs = '<nav aria-label="Breadcrumb"><ol><li><a>Use Origens</a></li><li><a>Camiseta</a></li><li><span>Bagé | Origem RS</span></li></ol></nav>';
+  const html = FIXTURE.replace('<div class="details-product">', '<div class="details-product">' + crumbs + '<img src="https://gcp-images.majestic.ink.rsvcloud.com/images/product_art/final_image/abc.webp">')
+    .replace('<section class="buy-together"', section + '<section class="buy-together"');
+  const t = setup({ html });
+  await tick();
+  const items = [...t.doc.querySelectorAll('[data-testid="product-styles"] ul > li')];
+  assert.equal(items.length, 3);
+  const here = items[0];
+  assert.ok(here.hasAttribute('data-origens-style-here'));
+  assert.equal(here.className, items[1].className, 'mesmo tamanho dos outros cartões');
+  assert.equal(here.querySelector('.o-style-name').textContent, 'Camiseta');
+  assert.equal(here.querySelector('.o-style-here').textContent, 'Você está aqui');
+  assert.equal(here.querySelector('.o-style-card').getAttribute('aria-current'), 'page');
+  assert.equal(here.querySelector('img').getAttribute('src'), 'https://gcp-images.majestic.ink.rsvcloud.com/images/product_art/final_image/abc.webp');
+  assert.match(here.querySelector('.o-style-prices').textContent, /R\$\s*99,90/);
+  assert.equal(here.querySelector('.o-style-inst').textContent, '5x de R$ 19,98');
+  assert.equal(t.doc.querySelector('[data-testid="product-styles"] h2 + span').textContent, '3 produtos');
+  for (let i = 0; i < 10; i++) t.doc.body.appendChild(t.doc.createElement('i'));
+  await tick();
+  assert.equal(t.doc.querySelectorAll('[data-origens-style-here]').length, 1, 'não duplica');
+  t.doc.body.setAttribute('data-origens-theme', 'cart');
+  t.doc.body.appendChild(t.doc.createElement('i'));
+  await tick();
+  assert.equal(t.doc.querySelectorAll('[data-origens-style-here]').length, 0);
+  assert.equal(t.doc.querySelector('[data-testid="product-styles"] h2 + span').textContent, '2 produtos', 'o contador volta');
+});
+
+test('botão de compra atual: ganha data-turbo-submits-with="Adicionando…" (a INK demora); respeita o da INK; desligar tira só o nosso', async () => {
+  const t = setup();
+  const buy = () => t.doc.querySelector('[data-ink-labs-anchor="buy_button"]');
+  await tick();
+  assert.equal(buy().getAttribute('data-turbo-submits-with'), 'Adicionando…');
+  assert.ok(buy().hasAttribute('data-origens-submits'));
+  t.doc.body.setAttribute('data-origens-theme', 'cart');
+  t.doc.body.appendChild(t.doc.createElement('i'));
+  await tick();
+  assert.equal(buy().hasAttribute('data-turbo-submits-with'), false);
+  const own = setup({ html: FIXTURE.replace('data-ink-labs-anchor="buy_button"', 'data-ink-labs-anchor="buy_button" data-turbo-submits-with="Aguarde"') });
+  await tick();
+  assert.equal(own.doc.querySelector('[data-ink-labs-anchor="buy_button"]').getAttribute('data-turbo-submits-with'), 'Aguarde', 'o da INK é respeitado');
+});
+
+test('toque no botão ainda inerte: leva à escolha que falta e a marca; a quantidade e o botão ativo seguem da INK', async () => {
+  const t = setup();
+  await tick();
+  const floor = t.doc.querySelector('[data-video-gallery-floor]');
+  const buy = floor.querySelector('[data-ink-labs-anchor="buy_button"]');
+  assert.ok(buy.disabled, 'a INK deixa o botão inerte até as escolhas');
+  t.doc.querySelector('[data-missing-step]').setAttribute('data-missing-step', 'color');
+  floor.querySelector('[data-ink-store--product--variant-selection-target="increase"]').click();
+  assert.equal(t.doc.querySelector('.o-need-choice'), null, 'quantidade: nada marcado');
+  floor.querySelector('[data-testid="variant-selection-summary"]').click();
+  const marked = t.doc.querySelector('.o-need-choice');
+  assert.ok(marked, 'a escolha que falta ficou marcada');
+  assert.ok(marked.querySelector('a[data-step="color"]'), 'a da COR (data-missing-step)');
+  buy.disabled = false;
+  marked.classList.remove('o-need-choice');
+  floor.click();
+  assert.equal(t.doc.querySelector('.o-need-choice'), null, 'botão ativo: o clique é da INK');
+});
+
+test('Compartilhar: o botão volta a montar logo depois do título da PDP atual (h1 do data-ink-labs-anchor product_title)', async () => {
+  const html = FIXTURE.replace('<header><h1>', '<header><h1 data-ink-labs-anchor="product_title">');
+  const t = setup({ features: ['pdp-share'], attr: null, html });
+  await tick();
+  const h1 = t.doc.querySelector('h1[data-ink-labs-anchor="product_title"]');
+  assert.ok(h1.nextElementSibling && h1.nextElementSibling.hasAttribute('data-origens-share'), 'botão Compartilhar logo depois do título');
 });

@@ -8,7 +8,7 @@
 //     --medidas   imprime também o JSON das medidas (ordem dos blocos, elementos fixos)
 //
 // Estados: 1-topo (aviso de cookies na tela) · 2-escolhas (aviso na tela: a barra de compra fica ACIMA dele e os flutuantes acima da barra) ·
-// 3-escolhido (aviso aceito, modelo + cor + tamanho: botão ativo) · 4-cupons (aviso aceito, "Cupons disponíveis" aberto, logo abaixo do prazo).
+// 3-escolhido (aviso aceito, modelo + cor + tamanho: botão ativo) · 4-cupons (aviso aceito, "Cupons disponíveis" aberto, logo abaixo do preço).
 import { mkdirSync } from 'node:fs';
 import { createHarness, VIEWPORTS } from './lib/tema-harness.mjs';
 
@@ -54,7 +54,7 @@ try {
     if (await toggle.count()) {
       await toggle.first().scrollIntoViewIfNeeded().catch(() => {});
       await toggle.first().click({ timeout: 5000 }).catch(() => {});
-      await page.evaluate(() => { const e = document.querySelector('.o-cep') || document.querySelector('.o-cpn-near'); if (e) e.scrollIntoView({ behavior: 'instant', block: 'center' }); });
+      await page.evaluate(() => { const e = document.querySelector('.o-cpn-near'); if (e) e.scrollIntoView({ behavior: 'instant', block: 'center' }); });
       await page.waitForTimeout(600);
       await H.shot(page, dir + '/' + vp.name + '-4-cupons.png');
     }

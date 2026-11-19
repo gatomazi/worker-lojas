@@ -107,6 +107,10 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br',
     // O bloco do preço (riscado, preço e selo na mesma linha): um contêiner que a INK nunca esconde.
     'body[data-origens-theme~="pdp"] [data-buy-column] [data-ink-labs-anchor="product_price"]',
+    // O cartão "Você está aqui" do "Também disponível em": são nós NOSSOS (theme-ui), não da INK.
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] li > .o-style-card',
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] .o-style-media img',
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] .o-style-here',
     'body[data-origens-theme~="pdp"] .o-thumbs',
     'body[data-origens-theme~="pdp"] .o-thumb img'
   ].sort());

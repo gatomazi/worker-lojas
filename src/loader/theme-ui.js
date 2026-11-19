@@ -119,10 +119,69 @@ export const THEME_UI = String.raw`
   // nada aqui intercepta o envio, desabilita o botão ou cria item. Ao desligar, só os atributos que NÓS pusemos saem.
   const THEME_SUBMITTING = 'Adicionando…';
   function themeSubmitLabels(on) {
-    for (const button of document.querySelectorAll('form[id^="form-product-"] #add-to-cart-desk, form[id^="form-product-"] #add-to-cart-mob')) {
+    for (const button of document.querySelectorAll('form[id^="form-product-"] #add-to-cart-desk, form[id^="form-product-"] #add-to-cart-mob, [data-buy-column] [data-ink-labs-anchor="buy_button"]')) {
       if (on && !button.hasAttribute('data-turbo-submits-with')) { button.setAttribute('data-turbo-submits-with', THEME_SUBMITTING); button.setAttribute('data-origens-submits', ''); }
       else if (!on && button.hasAttribute('data-origens-submits')) { button.removeAttribute('data-turbo-submits-with'); button.removeAttribute('data-origens-submits'); }
     }
+  }
+
+  // ── Selo do preço: "16% OFF" da INK vira "Economize 16%" (o texto original volta ao desligar) ──
+  function themeSavings(on) {
+    for (const badge of document.querySelectorAll('[data-buy-column] [data-ink-labs-anchor="product_price"] > div > span')) {
+      const orig = badge.getAttribute('data-origens-orig');
+      if (on && orig === null) {
+        const m = /(\d+(?:[.,]\d+)?)\s*%\s*OFF/i.exec(badge.textContent || '');
+        if (m) { badge.setAttribute('data-origens-orig', badge.textContent); badge.textContent = 'Economize ' + m[1] + '%'; }
+      } else if (!on && orig !== null) { badge.textContent = orig; badge.removeAttribute('data-origens-orig'); }
+    }
+  }
+  // ── "Também disponível em": a peça DESTA página entra na frente, marcada "Você está aqui" (como na Use Graxa) ──
+  // Os dados vêm da própria página: o tipo da peça (migalha), a primeira foto de produto da galeria (ou a og:image) e os preços do bloco de preço. Tudo por
+  // textContent/atributos validados; o nó nosso e o contador voltam ao original ao desligar.
+  function themeStyleHere(on) {
+    const here = document.querySelector('[data-origens-style-here]');
+    const section = document.querySelector('[data-buy-column] [data-testid="product-styles"]');
+    const count = section && section.querySelector(':scope > div:first-child > span');
+    const restore = () => {
+      if (here) here.remove();
+      const orig = count && count.getAttribute('data-origens-orig');
+      if (count && orig !== null) { count.textContent = orig; count.removeAttribute('data-origens-orig'); }
+    };
+    if (!on || !section) { restore(); return; }
+    if (here && here.isConnected) return;
+    const track = section.querySelector('ul');
+    const template = track && track.querySelector(':scope > li');
+    const price = document.querySelector('[data-buy-column] > [data-ink-labs-anchor="product_price"]');
+    const crumbs = Array.prototype.map.call(document.querySelectorAll('nav[aria-label="Breadcrumb"] li'), (li) => (li.textContent || '').replace(/\s+/g, ' ').trim());
+    const type = crumbs.length >= 3 ? crumbs[crumbs.length - 2] : '';
+    const photo = document.querySelector('img[src*="/product_art/final_image/"]');
+    const meta = document.querySelector('meta[property="og:image"]');
+    const src = (photo && photo.getAttribute('src')) || (meta && meta.getAttribute('content')) || '';
+    const old = price && price.querySelector(':scope > del');
+    const now = price && price.querySelector(':scope > div > p');
+    const inst = price && price.querySelector(':scope > p');
+    if (!track || !template || !type || !/^https:\/\//.test(src) || !now) return;
+    const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text) node.textContent = text; return node; };
+    const li = el('li', template.className);
+    li.setAttribute('data-origens-style-here', '');
+    const card = el('div', 'o-style-card');
+    card.setAttribute('aria-current', 'page');
+    const media = el('span', 'o-style-media');
+    const img = document.createElement('img');
+    img.src = src; img.alt = type; img.loading = 'lazy'; img.decoding = 'async';
+    media.appendChild(img);
+    const prices = el('span', 'o-style-prices');
+    if (old && old.textContent.trim()) prices.appendChild(el('del', '', old.textContent.trim()));
+    prices.appendChild(document.createTextNode(now.textContent.trim()));
+    card.append(media, el('p', 'o-style-name', type), prices);
+    const parcel = inst ? inst.textContent.replace(/\s+/g, ' ').replace(/^ou\s+/i, '').replace(/\s+sem juros$/i, '').trim() : '';
+    if (parcel) card.appendChild(el('p', 'o-style-inst', parcel));
+    card.appendChild(el('span', 'o-style-here', 'Você está aqui'));
+    li.appendChild(card);
+    track.insertBefore(li, track.firstChild);
+    track.scrollLeft = 0; // o navegador manteria as peças que já estavam à vista: a primeira da fila é a desta página
+    const m = count && count.getAttribute('data-origens-orig') === null && /^(\d+)\s+produtos?$/i.exec((count.textContent || '').trim());
+    if (m) { count.setAttribute('data-origens-orig', count.textContent); count.textContent = (Number(m[1]) + 1) + ' produtos'; }
   }
 
   function themeMissingChoice() {
@@ -134,8 +193,26 @@ export const THEME_UI = String.raw`
     }
     return null;
   }
+  // PDP atual: o botão de compra fica desabilitado até modelo, cor e tamanho. Tocar nele (o CSS deixa o toque passar para a barra) leva à escolha que falta, que
+  // a INK indica em data-missing-step, e a marca por um instante. Nada é escolhido por nós.
+  function themeNeedChoice(floor, event) {
+    const buy = floor.querySelector('[data-ink-labs-anchor="buy_button"]');
+    if (!buy || !buy.disabled) return; // botão ativo: o clique é da INK, intacto
+    if (event.target.closest('[data-ink-store--product--variant-selection-target="decrease"], [data-ink-store--product--variant-selection-target="increase"]')) return;
+    const holder = document.querySelector('[data-buy-column] [data-missing-step]');
+    const step = holder && holder.getAttribute('data-missing-step');
+    const chips = Array.prototype.filter.call(document.querySelectorAll('[data-buy-column] a[data-step]'), (a) => !step || a.getAttribute('data-step') === step);
+    const first = chips.find((a) => a.getAttribute('aria-disabled') !== 'true' && a.getClientRects().length > 0) || chips[0];
+    const group = first && first.parentElement && first.parentElement.parentElement;
+    if (!group) return;
+    group.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    group.classList.add('o-need-choice');
+    setTimeout(() => group.classList.remove('o-need-choice'), 2400);
+  }
   function themeBarClick(event) {
     if (!themeOn('pdp')) return;
+    const floor = event.target && event.target.closest && event.target.closest('[data-buy-column] [data-video-gallery-floor]');
+    if (floor) { themeNeedChoice(floor, event); return; }
     const bar = event.target && event.target.closest && event.target.closest('.form-product-options__add-to-cart-mobile');
     const button = bar && bar.querySelector('#add-to-cart-mob');
     if (!button || !button.classList.contains('pointer-events-none')) return; // botão ativo: o clique é da INK, intacto
@@ -545,7 +622,7 @@ export const THEME_UI = String.raw`
   }
 
   function themeStopPdp() {
-    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeStopBusy(); themeRestoreMoves(); themeStopCookie(); themeSubmitLabels(false);
+    themeStopCta(); themeStopGallery(); themeStopChoosing(); themeStopBusy(); themeRestoreMoves(); themeStopCookie(); themeSubmitLabels(false); themeSavings(false); themeStyleHere(false);
     if (themeBody()) themeBody().classList.remove('o-typing');
   }
   register({
@@ -556,7 +633,7 @@ export const THEME_UI = String.raw`
       const pdp = themeOn('pdp') && allowedNow();
       const cart = themeOn('cart');
       themeListen(pdp || cart);
-      if (pdp) { themeReorder(); themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); themeGalleryTop(); themeWatchCookie(); themeSubmitLabels(true); }
+      if (pdp) { themeReorder(); themeWatchCta(); themeWatchGallery(); themeWatchChoosing(); themeGalleryTop(); themeWatchCookie(); themeSubmitLabels(true); themeSavings(true); themeStyleHere(true); }
       else themeStopPdp();
       if (cart) { themeCartListen(true); themeCartSync(); }
       else { themeStopCart(); themeOpener = null; }

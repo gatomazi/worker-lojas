@@ -283,7 +283,7 @@ export const PROMO_FAB = String.raw`
         if (control.getClientRects().length > 0 && promoHits(ours, control.getBoundingClientRect())) { covers = true; break; }
       }
       // O preço do produto também nunca fica debaixo do botão (auditoria de 13/10/2026: na primeira visita no celular o cupom cobria o "R$" do preço).
-      const priceEl = covers ? null : Array.prototype.find.call(document.querySelectorAll('.details-product [class*="price"], .details-product [data-ink-labs-anchor="product_price"]'), (e) => e.getClientRects().length > 0 && /R\$/.test(e.textContent || '') && !e.closest('[data-origens-reco], .buy-together, .modal-buy-together, #modal-wrapper, .cart-drawer'));
+      const priceEl = covers ? null : Array.prototype.find.call(document.querySelectorAll('.details-product [class*="price"], [data-buy-column] > [data-ink-labs-anchor="product_price"]'), (e) => e.getClientRects().length > 0 && /R\$/.test(e.textContent || '') && !e.closest('[data-origens-reco], .buy-together, .modal-buy-together, #modal-wrapper, .cart-drawer'));
       if (priceEl && promoHits(ours, priceEl.getBoundingClientRect())) covers = true;
       // Aviso de cookies da INK ainda na tela, no celular: aviso, cupom, WhatsApp e Ajuda disputavam os mesmos ~200 px da base (4 elementos fixos na
       // primeira visita). O cupom espera o aviso sair; no desktop há espaço e ele continua ao lado.

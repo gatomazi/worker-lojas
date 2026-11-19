@@ -292,10 +292,12 @@ function pdpCss() {
   // Marcação atual da INK: a coluna de compra, o preço, as escolhas (frame de variantes), a barra com quantidade e botão, e o botão de compra.
   const B = P + ' [data-buy-column]';
   const PRICE = B + ' [data-ink-labs-anchor="product_price"]';
-  const PENDING = B + ':has(> .container-form:has(~ div turbo-frame[id^="variant-selection-"]))';
+  // O conjunto prazo+cupons ainda ACIMA do bloco das escolhas no DOM (:has uma vez só: ele não pode ser aninhado).
+  const PENDING = B + ' > .container-form:has(~ div turbo-frame[id^="variant-selection-"])';
   const V = B + ' turbo-frame[id^="variant-selection-"]';
   const FLOOR = B + ' [data-video-gallery-floor]';
   const BUY = B + ' [data-ink-labs-anchor="buy_button"]';
+  const STY = B + ' [data-testid="product-styles"]';
   const chip = (suffix) => V + ' a[data-step="model"]' + suffix + ',' + V + ' a[data-step="size"]' + suffix;
   return [
     stripCss(P), headerCss(),
@@ -312,11 +314,11 @@ function pdpCss() {
       P + ' .details-product > .section-details{padding-top:4px}' +
     '}',
     // Migalha e título: discretos e legíveis (o título deixa de ser o elemento mais pesado da página).
-    P + ' .details-product nav[aria-label="Breadcrumb"] :is(a,span,li){font-size:13px;color:var(--o-ink-mute)}',
-    P + ' .details-product nav[aria-label="Breadcrumb"] a{text-decoration:underline;text-decoration-color:var(--o-line-soft);text-underline-offset:3px}',
-    P + ' .details-product nav[aria-label="Breadcrumb"] li:last-child span{color:var(--o-ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}',
+    P + ' nav[aria-label="Breadcrumb"] :is(a,span,li){font-size:13px;color:var(--o-ink-mute)}',
+    P + ' nav[aria-label="Breadcrumb"] a{text-decoration:underline;text-decoration-color:var(--o-line-soft);text-underline-offset:3px}',
+    P + ' nav[aria-label="Breadcrumb"] li:last-child span{color:var(--o-ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}',
     '@media (max-width:1023px){' + P + ' .details-product > div:first-child{margin:12px 0 4px!important}}',
-    P + ' .details-product h1{font-family:var(--o-font);font-weight:700;font-size:clamp(24px,2.3vw,34px);line-height:1.12;letter-spacing:-.015em;color:var(--o-ink);text-wrap:balance}',
+    P + ' h1[data-ink-labs-anchor="product_title"]{font-family:var(--o-font);font-weight:700;font-size:clamp(24px,2.3vw,34px);line-height:1.12;letter-spacing:-.015em;color:var(--o-ink);text-wrap:balance}',
     // Título, compartilhar e avaliações: título numa linha, as duas ações secundárias juntas na linha de baixo (antes: três linhas empilhadas).
     P + ' .details-product > header,' + P + ' .section-details > header{flex-direction:row!important;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:2px;margin-bottom:14px!important}',
     P + ' .details-product > header h1,' + P + ' .section-details > header h1{flex:1 0 100%;margin-bottom:4px}',
@@ -354,17 +356,18 @@ function pdpCss() {
     // Enquanto o prazo e os cupons (.container-form) ainda estão ACIMA das variações no DOM (o theme-ui só os leva para baixo quando a INK termina de carregar os
     // frames deles; mover antes aborta o pedido), a ordem VISUAL já sai certa por `order`, sem salto na tela. Depois da movimentação o :has deixa de valer e a
     // ordem do DOM (e do teclado) é a mesma da visual.
-    PENDING + ' > *{order:3}',
-    PENDING + ' > [data-ink-labs-anchor="product_price"]{order:0}',
-    PENDING + ' > div:has(turbo-frame[id^="variant-selection-"]){order:1}',
-    PENDING + ' > .container-form{order:2}',
-    // Preço: riscado, preço e selo na MESMA linha (antes: três linhas); as parcelas na de baixo.
-    PRICE + '{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px}',
-    PRICE + ' > del{flex:0 0 auto;font-size:16px;line-height:1.2;color:var(--o-ink-mute)}',
-    PRICE + ' > div{flex:0 1 auto;min-width:0;white-space:nowrap}',
+    PENDING + '{order:2}',
+    PENDING + ' ~ *{order:3}',
+    PENDING + ' ~ div:has(turbo-frame[id^="variant-selection-"]){order:1}',
+    // Preço: riscado, preço e selo na MESMA linha (antes: três linhas); as parcelas, com ênfase, num selo embaixo. O selo diz "Economize X%" (theme-ui troca o
+    // "X% OFF" da INK) e vai na cor principal da região, a mesma do tamanho escolhido.
+    PRICE + '{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;column-gap:12px;row-gap:10px}',
+    PRICE + ' > del{font-size:16px;line-height:1.2;color:var(--o-ink-mute)}',
+    PRICE + ' > div{min-width:0;white-space:nowrap}',
     PRICE + ' > div > p{font-family:var(--o-font);font-weight:700;font-size:clamp(28px,2.6vw,36px);line-height:1.05;letter-spacing:-.02em;color:var(--o-ink)}',
-    PRICE + ' > p{flex:1 0 100%;margin:0;color:var(--o-ink-soft);font-size:15px;font-weight:400}',
-    PRICE + ' > p > span{color:var(--o-ink);font-weight:600}',
+    PRICE + ' > div > span{padding:6px 14px;border-radius:999px;background:var(--o-selected)!important;color:var(--o-on-selected)!important;font-size:14px;font-weight:700;line-height:1.2;letter-spacing:0}',
+    PRICE + ' > p{grid-column:1 / -1;justify-self:start;margin:0;padding:6px 12px;border-radius:var(--o-radius);background:#eef6f0;background:color-mix(in srgb,var(--o-ok) 10%,var(--o-surface));color:var(--o-ink-soft);font-size:15px;font-weight:500;line-height:1.3}',
+    PRICE + ' > p > span{color:var(--o-ok)!important;font-weight:700}',
     // Escolhas: rótulos no tamanho de leitura do tema; chips de modelo e tamanho com linha fina e fundo claro, o escolhido na cor da região (cheio),
     // indisponível tracejado e apagado. Estados pelos atributos da INK (aria-current, aria-disabled), não por classe.
     V + ' span.uppercase{font-size:14px!important;font-weight:600!important;letter-spacing:0!important;text-transform:none!important;color:var(--o-ink)!important}',
@@ -375,6 +378,14 @@ function pdpCss() {
     chip('[aria-disabled="true"]') + '{border-style:dashed!important;border-color:var(--o-line)!important;background:var(--o-paper)!important;color:var(--o-ink-mute)!important;text-decoration:line-through}',
     chip(':focus-visible') + '{outline:2px solid var(--o-ink)!important;outline-offset:2px}',
     V + ' a[data-step="model"]{flex:1 1 calc(50% - 5px);justify-content:center;text-align:center}',
+    // Cores: todas numa linha (antes 8 + 1 no celular). Cada uma ocupa a sua fatia da largura (36 a 44 px) por 44 px de altura, sem vão entre elas: a bolinha
+    // continua com 28 px e o alvo de toque não encolhe. Mais cores do que cabem quebram em outra linha.
+    V + ' div:has(> a[data-step="color"]){gap:0!important}',
+    V + ' a[data-step="color"]{flex:1 1 0;width:auto!important;min-width:36px;max-width:44px;height:44px!important}',
+    // Toque no botão ainda inerte (theme-ui): leva à escolha que falta e a marca por um instante. O botão inerte deixa o toque passar para a barra.
+    V + ' .o-need-choice{outline:2px solid var(--o-error);outline-offset:6px;transition:outline-color .3s}',
+    V + ' .o-need-choice span.uppercase{color:var(--o-error)!important}',
+    BUY + ':disabled{pointer-events:none}',
     // Tamanhos: o máximo de colunas que cabe com alvo de toque de 44 px (os sete tamanhos da camiseta numa linha no computador).
     V + ' [data-ink-labs-anchor="size_selector"] > div.grid{grid-template-columns:repeat(auto-fit,minmax(44px,1fr))!important}',
     // Quantidade e botão de compra (a barra da INK): quantidade com a linha do tema, 44 px de toque; o botão é o do tema, cinza quando ainda falta escolher.
@@ -385,18 +396,33 @@ function pdpCss() {
     BUY + '{width:100%;max-width:none}',
     BUY + ':disabled,' + BUY + '[aria-disabled="true"]{border-color:var(--o-line)!important;background:var(--o-line)!important;color:var(--o-ink-soft)!important;cursor:not-allowed}',
     '@media (hover:hover){' + BUY + ':disabled:hover{background:var(--o-line)!important;color:var(--o-ink-soft)!important}}',
-    // Prazo e cupons, já abaixo do botão: o "Cupons disponíveis" (fechado) logo depois do campo do CEP.
+    // "Cupons disponíveis" (fechado) logo abaixo do preço, junto dele (o vão da coluna é de 24 px).
+    B + ' > .o-cpn-near{margin-top:-10px}',
+    // Sem preço na página o botão vem depois do <form>, dentro do conjunto do prazo.
     B + ' .container-form .o-cpn-near{margin-top:12px}',
     // Confiança e detalhes: a mesma linha fina e o mesmo raio dos controles.
     B + ' [data-testid="product-guarantees"]{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}',
     B + ' [data-testid="product-details"] summary > span{font-size:15px;font-weight:600;color:var(--o-ink)}',
-    // "Também disponível em" (as outras peças da mesma estampa, seção nativa da INK, só em produtos que as têm): título e contagem na linguagem dos outros rótulos,
-    // foto no cinza das fotos com o raio do tema e o selo Premium com texto escuro (o branco sobre o dourado não tem contraste).
-    B + ' [data-testid="product-styles"] h2{font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--o-ink)}',
-    B + ' [data-testid="product-styles"] > div:first-child > span{font-size:13px;color:var(--o-ink-mute)}',
-    B + ' [data-testid="product-styles"] [data-testid="product-card"] > div > a{border-radius:var(--o-radius)!important;background:var(--o-photo)!important}',
-    B + ' [data-testid="product-styles"] [data-testid="product-card"] > div > a span.rounded-full{color:#1b1d19!important}',
-    B + ' [data-testid="product-styles"] [data-testid="product-card"] p:first-child{color:var(--o-ink)}',
+    // "Também disponível em" (as outras peças da mesma estampa, seção nativa da INK, só em produtos que as têm; o theme-ui põe a peça desta página na frente, "Você
+    // está aqui"): título grande, cada peça num cartão de linha fina com a foto no cinza das fotos, a desta página com a linha forte e o selo, setas na cor da região.
+    STY + ' h2{font-size:clamp(20px,2.4vw,24px);font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--o-ink)}',
+    STY + ' > div:first-child > span{font-size:13px;color:var(--o-ink-mute)}',
+    STY + ' li > div[data-testid="product-card"],' + STY + ' li > .o-style-card{padding:10px;border:1px solid var(--o-line-soft);border-radius:calc(var(--o-radius) + 4px);background:var(--o-surface)}',
+    STY + ' li > .o-style-card{display:flex;flex-direction:column;gap:6px;min-width:0;border:2px solid var(--o-ink)}',
+    STY + ' [data-testid="product-card"] > div > a,' + STY + ' .o-style-media{border-radius:var(--o-radius)!important;background:var(--o-photo)!important}',
+    STY + ' [data-testid="product-card"] > div > a span.rounded-full{color:#1b1d19!important}',
+    STY + ' li > div{flex:1 1 auto}',
+    STY + ' [data-testid="product-card"] > a > p:first-child{font-size:15px!important;line-height:1.25!important}',
+    STY + ' [data-testid="product-card"] > a [class*="font-bold"]{font-size:16px!important}',
+    STY + ' [data-testid="product-card"] p:first-child,' + STY + ' .o-style-name{margin:0;color:var(--o-ink);font-weight:700}',
+    STY + ' .o-style-media{overflow:hidden}',
+    STY + ' .o-style-media img{display:block;width:100%;aspect-ratio:1;object-fit:cover}',
+    STY + ' .o-style-name{font-size:15px;line-height:1.25}',
+    STY + ' .o-style-prices{font-size:16px;font-weight:700;color:var(--o-ink)}',
+    STY + ' .o-style-prices del{margin-right:6px;font-size:13px;font-weight:500;color:var(--o-ink-mute)}',
+    STY + ' .o-style-inst{margin:0;font-size:13px;color:var(--o-ink-soft)}',
+    STY + ' .o-style-here{align-self:flex-start;display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:var(--o-ink);color:var(--o-surface);font-size:13px;font-weight:700;line-height:1}',
+    STY + ' button{background:var(--o-selected)!important;color:var(--o-on-selected)!important;border:0!important;box-shadow:0 1px 3px rgba(0,0,0,.25)}',
     // Prazo e cupons nativos (quando o nosso bloco não monta): perto da compra, como linhas discretas.
     P + ' #cheapest-estimate-button{min-height:44px;color:var(--o-ink)!important;font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--o-line)}',
     P + ' #cheapest-estimate-button :is(span,svg){color:var(--o-ink)!important}',
