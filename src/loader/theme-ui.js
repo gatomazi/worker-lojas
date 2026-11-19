@@ -18,7 +18,9 @@
 //          continuarem alcançáveis em telas baixas.
 //        · Ordem de leitura = ordem visual: "Guia/Informar medidas" antes da quantidade e prazo/cupom/"Também disponível em" depois da compra são
 //          REPOSICIONADOS no DOM (mesmo pai; testado: nenhum frame recarrega e os modais seguem abrindo), em vez de `order` no CSS. Voltam ao lugar ao desligar.
-//        · Barra fixa do celular some com o CTA principal à vista ou com teclado; toque na barra inerte leva à escolha que falta.
+//        · PDP atual da INK: prazo e cupons (.container-form) descem para depois das escolhas e do botão de compra; "Cupons disponíveis" fica fechado até o toque.
+//        · Barra fixa do celular (marcação antiga) some com o CTA principal à vista ou com teclado; toque na barra inerte leva à escolha que falta. Na atual
+//          (data-video-gallery-floor) a INK mantém a barra e ela só some com o teclado aberto (o-typing).
 //        · Barra fixa do celular sobe a altura do aviso de cookies da INK enquanto ele está na tela (--o-cookie-h), em vez de ficar debaixo dele.
 //        · "Adicionando…" no botão de compra durante o envio do carrinho (data-turbo-submits-with, atributo nativo do Turbo; o Turbo já bloqueia o toque duplo).
 //        · No celular, flutuantes (Ajuda, WhatsApp, cupons) saem do caminho enquanto as escolhas e o CTA estão na tela.
@@ -262,8 +264,24 @@ export const THEME_UI = String.raw`
   }
   function themeStopBusy() { for (const o of themeBusy.values()) o.disconnect(); themeBusy = new Map(); }
 
+  // PDP atual da INK: o conjunto prazo + cupons (.container-form, com o <form> e os dois frames) vem ACIMA das variações. Ele desce para logo depois do
+  // bloco das escolhas e do botão de compra (o nó inteiro, para os alvos e as referências de formulário da INK seguirem intactos), mantendo a ordem de leitura
+  // igual à visual. No celular o botão é uma barra fixa fora do fluxo: o conjunto fica depois das escolhas e a barra continua à vista.
+  function themeReorderBuy() {
+    const block = findBuyBlock();
+    const box = block && block.parentElement && block.parentElement.querySelector(':scope > .container-form');
+    if (!block || !box) return false;
+    if (block.nextElementSibling === box) return true;
+    // Frame carregando: mover agora o DESCONECTA e aborta o pedido da INK (ver themeIsBusy). Espera o fim do carregamento e refaz.
+    const busy = [...box.querySelectorAll('turbo-frame')].filter(themeIsBusy);
+    if (busy.length) { for (const frame of busy) themeWaitBusy(frame); return true; }
+    const prev = box.previousElementSibling; const parent = box.parentElement;
+    themeMove(box, () => block.after(box), () => (prev && prev.parentElement === parent ? prev.after(box) : parent.prepend(box)));
+    return true;
+  }
   function themeReorder() {
     themeMoves = themeMoves.filter((m) => m.node.isConnected); // nós que a INK re-renderizou não precisam voltar
+    if (themeReorderBuy()) return;
     const form = document.querySelector('form[id^="form-product-"]');
     const frame = form && form.querySelector(':scope > #product_variants_options_frame');
     if (!frame) return;
@@ -300,7 +318,7 @@ export const THEME_UI = String.raw`
   }
   function themeWatchChoosing() {
     // Áreas que os flutuantes não podem cobrir: as escolhas, o CTA e a grade de miniaturas.
-    const targets = [document.querySelector('form[id^="form-product-"] .form-product-options__select-type'), document.querySelector('form[id^="form-product-"] .form-product-options__add-to-cart'), document.querySelector('[data-origens-thumbs]')].filter(Boolean);
+    const targets = [document.querySelector('[data-buy-column] turbo-frame[id^="variant-selection-"]'), document.querySelector('form[id^="form-product-"] .form-product-options__select-type'), document.querySelector('form[id^="form-product-"] .form-product-options__add-to-cart'), document.querySelector('[data-origens-thumbs]')].filter(Boolean);
     if (themeChoosing && targets.length === themeChoosing.targets.length && targets.every((t, i) => t === themeChoosing.targets[i])) return;
     themeStopChoosing();
     if (!targets.length || typeof IntersectionObserver !== 'function') return;

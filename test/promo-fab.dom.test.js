@@ -188,6 +188,18 @@ test('collisions: above the sticky Adicionar ao carrinho and the cookie notice; 
   assert.match(t.q('#o-promo').getAttribute('data-promo-hidden'), /keyboard/);
 });
 
+test('collisions: the INK current buy bar (data-video-gallery-floor) counts as an obstacle only while it is fixed (phone); in flow (desktop) the button does not step back for it', async () => {
+  const H = 844;
+  const floor = { '[data-video-gallery-floor]': { left: 0, right: 390, top: H - 110, bottom: H } };
+  const phone = setup({ height: H, rects: floor, header: '<div data-video-gallery-floor style="position:fixed;bottom:0;left:0;right:0"></div>' });
+  await tick();
+  assert.match(phone.fab().style.bottom, /118px/, 'bar of 110px + 8px gap');
+  assert.equal(phone.fab().hidden, false);
+  const desk = setup({ height: H, rects: floor, header: '<div data-video-gallery-floor></div>' });
+  await tick();
+  assert.doesNotMatch(desk.fab().style.bottom, /118px/, 'static bar: not an obstacle');
+});
+
 test('collisions: the INK mobile menu open => hidden; the INK cookie notice in the corner => the button sits above it', async () => {
   const H = 844;
   const t = setup({ header: HEADER, height: H, rects: { '.cookie-acceptance': { left: 0, right: 390, top: H - 120, bottom: H } } });

@@ -85,8 +85,26 @@ export const RUNTIME_HEAD = String.raw`(() => {
     }
     return false;
   }
+  // PDP atual da INK (coluna data-buy-column): as escolhas e a barra de compra (data-video-gallery-floor, fixa no celular) moram num bloco filho direto da
+  // coluna, FORA do <form> (que só guarda campos ocultos, o prazo e os cupons). Devolve esse bloco; null na marcação antiga.
+  function findBuyBlock() {
+    const column = document.querySelector('[data-buy-column]');
+    const frame = column && column.querySelector('turbo-frame[id^="variant-selection-"]');
+    if (!frame) return null;
+    let node = frame;
+    while (node.parentElement && node.parentElement !== column) node = node.parentElement;
+    return node.parentElement === column && node.getClientRects().length > 0 ? node : null;
+  }
+  // Barras de compra FIXAS no pé da tela (celular): a antiga (#add-to-cart-mob) e a atual (a barra da INK só conta quando é fixed; no computador ela corre
+  // com a página). Os flutuantes (chat, cupom, WhatsApp, Ajuda) recuam acima delas.
+  function fixedBuyBars() {
+    return Array.prototype.filter.call(document.querySelectorAll('#add-to-cart-mob, [data-video-gallery-floor]'), (el) => el.getClientRects().length > 0 && (el.id === 'add-to-cart-mob' || getComputedStyle(el).position === 'fixed'));
+  }
   // Âncora: o CTA "em fluxo". #add-to-cart-mob é uma barra fixa no rodapé e NÃO é âncora.
   function findAnchor() {
+    // Atual: logo depois do bloco das escolhas, ou depois do prazo/cupons quando o tema já os pôs ali (theme-ui): os nossos blocos vêm por último.
+    const block = findBuyBlock();
+    if (block) { const next = block.nextElementSibling; return next && next.classList.contains('container-form') ? next : block; }
     const byId = document.getElementById('add-to-cart-desk');
     if (byId && byId.getClientRects().length > 0) return byId;
     const byClass = document.querySelector('.form-product-options__add-to-cart-btn');

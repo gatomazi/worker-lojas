@@ -247,11 +247,15 @@ export const PROMO_FAB = String.raw`
       const visibleBottom = vv && vv.height > 0 ? Math.min(vh, (vv.offsetTop || 0) + vv.height) : vh;
       const left = PROMO_MARGIN + (vv && vv.offsetLeft > 0 ? vv.offsetLeft : 0);
       let bottom = PROMO_MARGIN + Math.max(0, vh - visibleBottom);
-      for (const selector of ['#add-to-cart-mob', '.cookie-acceptance']) {
-        const el = document.querySelector(selector);
-        if (!el || el.getClientRects().length === 0) continue;
-        const r = el.getBoundingClientRect();
-        if (r.left < left + PROMO_SIZE && r.right > left && r.bottom > vh - bottom - PROMO_SIZE && r.top < visibleBottom) bottom = Math.max(bottom, vh - r.top + PROMO_GAP);
+      // Barra de compra fixa e aviso de cookies empilham no pé da tela: ao subir acima de um, o botão pode cair em cima do outro, por isso repete até assentar.
+      const obstacles = fixedBuyBars().concat(document.querySelector('.cookie-acceptance') || []);
+      for (let pass = 0, moved = true; moved && pass <= obstacles.length; pass++) {
+        moved = false;
+        for (const el of obstacles) {
+          if (!el || el.getClientRects().length === 0) continue;
+          const r = el.getBoundingClientRect();
+          if (r.left < left + PROMO_SIZE && r.right > left && r.bottom > vh - bottom - PROMO_SIZE && r.top < visibleBottom && vh - r.top + PROMO_GAP > bottom) { bottom = vh - r.top + PROMO_GAP; moved = true; }
+        }
       }
       fab.style.left = 'max(' + left + 'px, calc(' + (left - PROMO_MARGIN) + 'px + env(safe-area-inset-left, 0px)))';
       fab.style.bottom = 'calc(' + bottom + 'px + env(safe-area-inset-bottom, 0px))';
@@ -267,8 +271,9 @@ export const PROMO_FAB = String.raw`
       const helpOpen = promoShown('[data-controller~="ink-store--help-button"] [data-ink-store--help-button-target="linksList"]');
       // Controles essenciais da compra que estariam debaixo do botão (variantes, quantidade, Adicionar ao carrinho em fluxo). Links simples não contam.
       let covers = false;
-      for (const form of document.querySelectorAll('form[id^="form-product-"]')) {
-        for (const control of form.querySelectorAll('button, label, select, input:not([type="hidden"])')) {
+      // (PDP atual da INK: as escolhas ficam num frame fora do <form>; modelo, cor e tamanho são links a[data-step].)
+      for (const form of document.querySelectorAll('form[id^="form-product-"], [data-buy-column] turbo-frame[id^="variant-selection-"]')) {
+        for (const control of form.querySelectorAll('button, label, select, input:not([type="hidden"]), a[data-step]')) {
           if (control.getClientRects().length > 0 && promoHits(ours, control.getBoundingClientRect())) { covers = true; break; }
         }
         if (covers) break;
@@ -278,7 +283,7 @@ export const PROMO_FAB = String.raw`
         if (control.getClientRects().length > 0 && promoHits(ours, control.getBoundingClientRect())) { covers = true; break; }
       }
       // O preço do produto também nunca fica debaixo do botão (auditoria de 13/10/2026: na primeira visita no celular o cupom cobria o "R$" do preço).
-      const priceEl = covers ? null : Array.prototype.find.call(document.querySelectorAll('.details-product [class*="price"]'), (e) => e.getClientRects().length > 0 && /R\$/.test(e.textContent || '') && !e.closest('[data-origens-reco], .buy-together, .modal-buy-together, #modal-wrapper, .cart-drawer'));
+      const priceEl = covers ? null : Array.prototype.find.call(document.querySelectorAll('.details-product [class*="price"], .details-product [data-ink-labs-anchor="product_price"]'), (e) => e.getClientRects().length > 0 && /R\$/.test(e.textContent || '') && !e.closest('[data-origens-reco], .buy-together, .modal-buy-together, #modal-wrapper, .cart-drawer'));
       if (priceEl && promoHits(ours, priceEl.getBoundingClientRect())) covers = true;
       // Aviso de cookies da INK ainda na tela, no celular: aviso, cupom, WhatsApp e Ajuda disputavam os mesmos ~200 px da base (4 elementos fixos na
       // primeira visita). O cupom espera o aviso sair; no desktop há espaço e ele continua ao lado.

@@ -167,6 +167,22 @@ test('links outside the store are dropped on the client too (storage and replies
   assert.deepEqual(t.all('#o-assist [data-assist-link]').map((a) => a.getAttribute('href')), [HOST + '/usesul/orders']);
 });
 
+test('buy bar stacked over the cookie notice: the button clears BOTH (it never lands on the bar after stepping above the notice)', async () => {
+  const t = setup();
+  await tick();
+  const H = 844;
+  t.doc.body.insertAdjacentHTML('beforeend', '<div data-video-gallery-floor style="position:fixed"></div><div class="cookie-acceptance" style="position:fixed"></div>');
+  const rects = { '[data-video-gallery-floor]': { left: 0, right: 390, top: H - 66 - 110, bottom: H - 66 }, '.cookie-acceptance': { left: 0, right: 390, top: H - 66, bottom: H } };
+  t.w.HTMLElement.prototype.getBoundingClientRect = function () {
+    for (const [selector, r] of Object.entries(rects)) if (this.matches(selector)) return { ...r, width: r.right - r.left, height: r.bottom - r.top, x: r.left, y: r.top };
+    return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0 };
+  };
+  t.w.dispatchEvent(new t.w.Event('resize'));
+  await tick(150);
+  const bottom = parseFloat(/calc\(([\d.]+)px/.exec(t.q('#o-assist .o-assist-fab').style.bottom)[1]);
+  assert.ok(bottom >= 110 + 66, 'above the bar (176px from the bottom) and so above the notice: ' + bottom);
+});
+
 test('feature off: the bundle does not carry the module', () => {
   assert.match(buildLoaderSource([PATH], ['assistant']), /id: 'assistant'/);
   assert.doesNotMatch(buildLoaderSource([PATH], ['promo-fab']), /id: 'assistant'|__origens\/assistente/);

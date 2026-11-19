@@ -280,15 +280,23 @@ function cookieCss() {
       'color:#000!important;font-family:var(--o-font);font-size:12px!important;font-weight:700!important;letter-spacing:.04em;line-height:1;text-transform:uppercase;white-space:nowrap;cursor:pointer;box-shadow:none!important;transition:background-color .2s,color .2s}',
     '@media (hover:hover){' + B + ' button:hover{background:transparent!important;color:#fff!important}}',
     B + ' :is(a,button):focus-visible{outline:2px solid #fff;outline-offset:3px}',
+    // PDP no celular: a barra de compra da INK fica fixa no pé, logo acima do aviso. Para sobrar tela, texto e botão na MESMA linha (o aviso fica mais baixo).
+    '@media (max-width:639px){' + P + ' .cookie-acceptance{flex-direction:row!important;align-items:center!important;gap:12px!important;padding:8px 12px max(8px,env(safe-area-inset-bottom))!important}' +
+      P + ' .cookie-acceptance p{flex:1 1 auto;min-width:0}' + P + ' .cookie-acceptance button{width:auto!important;flex:0 0 auto;padding:0 14px!important}}',
     '@media (min-width:640px){' + B + '{flex-direction:row!important;align-items:center!important;gap:24px!important;padding-top:12px!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important}' +
       B + ' p{font-size:14px!important}' + B + ' button{width:auto;flex-shrink:0;padding:0 20px!important;font-size:14px!important}}'
   ].join('');
 }
 
 function pdpCss() {
-  const F = P + ' form[id^="form-product-"]';
-  const T = F + ' .form-product-options__select-type';
-  const Q = F + ' .form-product-options__add-to-cart:has(> [data-origens-qty])';
+  // Marcação atual da INK: a coluna de compra, o preço, as escolhas (frame de variantes), a barra com quantidade e botão, e o botão de compra.
+  const B = P + ' [data-buy-column]';
+  const PRICE = B + ' [data-ink-labs-anchor="product_price"]';
+  const PENDING = B + ':has(> .container-form:has(~ div turbo-frame[id^="variant-selection-"]))';
+  const V = B + ' turbo-frame[id^="variant-selection-"]';
+  const FLOOR = B + ' [data-video-gallery-floor]';
+  const BUY = B + ' [data-ink-labs-anchor="buy_button"]';
+  const chip = (suffix) => V + ' a[data-step="model"]' + suffix + ',' + V + ' a[data-step="size"]' + suffix;
   return [
     stripCss(P), headerCss(),
     P + '{background:var(--o-ground);color:var(--o-ink);font-family:var(--o-font)}',
@@ -339,78 +347,70 @@ function pdpCss() {
     P + ' #zoom-image-tooltip{width:auto!important;height:40px!important;padding:0 16px;border-radius:999px!important;background:rgba(0,0,0,.6)!important;font-size:14px}',
     P + '.o-thumbs #zoom-image-tooltip{bottom:calc(var(--o-thumbs-h,0px) + 16px)!important;top:auto!important}',
     P + ' .section-product-v2 > section{background:var(--o-ground)!important}',
-    // ── Coluna de compra na ordem da decisão: o theme-ui REPOSICIONA no DOM prazo, cupom e "Também disponível em" depois do quadro de compra (mesmo pai),
-    // para a ordem do teclado e do leitor de tela seguir a visual. Sem JS, fica a ordem nativa. ──
-    F + '{gap:22px!important}',
-    // Preço e condições.
-    F + ' .text-4xl{font-family:var(--o-font);font-weight:700;font-size:clamp(28px,2.6vw,36px);line-height:1.05;letter-spacing:-.02em;color:var(--o-ink)}',
-    F + ' > .flex.flex-col.items-start.gap-1 p.font-medium.text-base{color:var(--o-ink-soft);font-size:15px;font-weight:400}',
-    F + ' > .flex.flex-col.items-start.gap-1 :is(.text-green-500,.lg\\:text-green-600){color:var(--o-ink)!important;font-weight:600}',
-    F + ' del,' + F + ' .line-through{color:var(--o-ink-mute)}',
-    // Escolhas: uma coluna (modelo › cor › tamanho › medidas). A quantidade vai para a linha do botão de compra (theme-ui, data-origens-qty).
-    T + '{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:20px!important;margin-bottom:4px!important}',
-    T + ' > div:has(#open-modal-size){margin-top:-10px}',
-    T + ' p strong,' + T + ' p{' + groupLabel + '}',
-    // Chips de modelo e tamanho: linha fina e fundo claro no normal; o escolhido na cor da região (cheio); indisponível tracejado e apagado.
-    T + ' .form-product-options__select-type-model{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}',
-    T + ' .form-product-options__select-type-model-item{width:100%}',
-    T + ' .form-product-options__select-type-size{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:8px;width:100%}',
-    T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item,.form-product-options__select-type-size-item-disabled) label{width:100%!important;min-width:0!important;min-height:46px;height:auto!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-size:15px!important;font-weight:500;letter-spacing:0;transition:border-color .16s var(--o-ease),background-color .16s var(--o-ease),color .16s var(--o-ease)}',
-    '@media (hover:hover){' + T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) label:hover{border-color:var(--o-ink)!important}}',
-    T + ' :is(.form-product-options__select-type-model-item,.form-product-options__select-type-size-item) input:checked + label{background:var(--o-selected)!important;border-color:var(--o-selected)!important;color:var(--o-on-selected)!important;font-weight:600}',
-    T + ' .form-product-options__select-type-size-item-disabled label{border-style:dashed!important;border-color:var(--o-line)!important;color:var(--o-ink-mute)!important;background:var(--o-paper)!important}',
-    T + ' .form-product-options__select-type-size-item-disabled:after{background-color:var(--o-line);height:70%;top:15%}',
-    T + ' input[type="radio"]:focus-visible + label{outline:2px solid var(--o-ink)!important;outline-offset:2px}',
-    // Cores: o anel de seleção em tinta, separado da bolinha (legível em cor clara e escura).
-    T + ' .form-product-options__select-type-colors{gap:8px!important;flex-wrap:wrap}',
-    T + ' .form-product-options__select-type-colors-item input:checked + label{border-color:var(--o-surface)!important;box-shadow:0 0 0 2px var(--o-ink)}',
-    // Medidas: "Guia de medidas" e "Informar medidas" como links de ação lado a lado (antes: dois botões largos que truncavam no celular).
-    T + ' [data-origens-fit-row]{gap:4px 24px!important;flex-wrap:wrap;justify-content:flex-start!important;margin-bottom:0!important}',
-    T + ' #open-modal-size,' + T + ' button[data-origens-fit]{min-height:44px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:600!important;width:auto!important;flex:0 0 auto!important;gap:8px!important}',
-    T + ' #open-modal-size .o-size-label,' + T + ' button[data-origens-fit] > span{text-decoration:underline!important;text-underline-offset:4px;text-decoration-color:var(--o-line)!important}',
-    T + ' #open-modal-size .o-size-chevron{display:none}',
-    // Quantidade discreta (onde a INK a deixa, sem o theme-ui).
-    T + ' .inline-flex.items-center.px-3.border-solid{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;min-height:44px;background:var(--o-surface)}',
-    // Quantidade NA LINHA do botão ([− 1 +] [Adicionar ao carrinho], o padrão do celular), quando o theme-ui a move para antes do botão: mesma altura do
-    // botão, o rótulo "Quantidade" só para leitor de tela; a confiança e os pagamentos continuam embaixo, na largura toda. Sem o atributo, como a INK desenha.
-    Q + '{flex-direction:row!important;flex-wrap:wrap;align-items:stretch;column-gap:10px!important;row-gap:18px!important}',
-    Q + ' > [data-origens-qty]{flex:0 0 auto;gap:0!important}',
-    Q + ' > [data-origens-qty] > p{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
-    Q + ' > [data-origens-qty] > div{flex:1 1 auto}',
-    Q + ' > [data-origens-qty] .inline-flex.items-center{height:100%;min-height:52px;padding:0 2px!important;border:1px solid var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)}',
-    Q + ' > [data-origens-qty] button{width:34px!important;min-width:0!important;min-height:44px;margin:0!important;padding:0!important;font-size:20px;color:var(--o-ink)}',
-    Q + ' > [data-origens-qty] input[name="quantity"]{width:28px!important;height:44px!important;margin:0!important;padding:0!important;font-size:16px!important;color:var(--o-ink)}',
-    // O texto do botão numa linha só em 360 px: o recuo lateral menor (era 24 px) e sem quebra; em telas menores ele ainda pode quebrar.
-    Q + ' > #add-to-cart-desk{flex:1 1 0;min-width:0;width:auto!important;padding:0 10px!important;letter-spacing:.02em}',
-    Q + ' > :not([data-origens-qty]):not(#add-to-cart-desk){flex:1 0 100%}',
-    // CTA: largura total da coluna; mesmo botão, mesmo clique e mesma validação da INK.
-    btn(F + ' #add-to-cart-desk,' + F + ' #add-to-cart-mob'),
-    F + ' #add-to-cart-desk{width:100%;max-width:none}',
-    F + ' .form-product-options__add-to-cart{gap:16px!important}',
-    // Confiança logo abaixo do CTA: texto em tinta, ícone em verde AA, pagamento menor.
-    F + ' .form-product-options__add-to-cart :is(.text-green-500,.text-green-600,.text-green-700){color:var(--o-ink)!important;font-weight:600}',
-    F + ' .form-product-options__add-to-cart svg{color:var(--o-ok)}',
-    F + ' .form-product-options__add-to-cart .gap-8{gap:14px!important}',
-    F + ' .form-product-options__add-to-cart :is(p,span){font-size:14px}',
-    F + ' .form-product-options__add-to-cart ul img{height:24px!important;width:auto!important}',
-    // Prazo e cupons: perto da compra, como linhas discretas.
+    // ── Coluna de compra (marcação atual da INK: coluna data-buy-column; as escolhas e a barra de compra ficam fora do <form>, que só guarda os campos ocultos,
+    // o prazo e os cupons). Ordem: título › preço › modelo/cor/tamanho › medidas › quantidade e botão de compra › prazo › cupons (fechados) › confiança ›
+    // detalhes › "Compre junto" › recomendações. O theme-ui leva o prazo e os cupons (.container-form) para depois do botão no DOM, para a ordem do teclado
+    // e do leitor de tela seguir a visual. Sem JS, fica a ordem nativa. ──
+    // Enquanto o prazo e os cupons (.container-form) ainda estão ACIMA das variações no DOM (o theme-ui só os leva para baixo quando a INK termina de carregar os
+    // frames deles; mover antes aborta o pedido), a ordem VISUAL já sai certa por `order`, sem salto na tela. Depois da movimentação o :has deixa de valer e a
+    // ordem do DOM (e do teclado) é a mesma da visual.
+    PENDING + ' > *{order:3}',
+    PENDING + ' > [data-ink-labs-anchor="product_price"]{order:0}',
+    PENDING + ' > div:has(turbo-frame[id^="variant-selection-"]){order:1}',
+    PENDING + ' > .container-form{order:2}',
+    // Preço: riscado, preço e selo na MESMA linha (antes: três linhas); as parcelas na de baixo.
+    PRICE + '{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px}',
+    PRICE + ' > del{flex:0 0 auto;font-size:16px;line-height:1.2;color:var(--o-ink-mute)}',
+    PRICE + ' > div{flex:0 1 auto;min-width:0;white-space:nowrap}',
+    PRICE + ' > div > p{font-family:var(--o-font);font-weight:700;font-size:clamp(28px,2.6vw,36px);line-height:1.05;letter-spacing:-.02em;color:var(--o-ink)}',
+    PRICE + ' > p{flex:1 0 100%;margin:0;color:var(--o-ink-soft);font-size:15px;font-weight:400}',
+    PRICE + ' > p > span{color:var(--o-ink);font-weight:600}',
+    // Escolhas: rótulos no tamanho de leitura do tema; chips de modelo e tamanho com linha fina e fundo claro, o escolhido na cor da região (cheio),
+    // indisponível tracejado e apagado. Estados pelos atributos da INK (aria-current, aria-disabled), não por classe.
+    V + ' span.uppercase{font-size:14px!important;font-weight:600!important;letter-spacing:0!important;text-transform:none!important;color:var(--o-ink)!important}',
+    V + ' [data-ink-store--product--variant-selection-target="colorName"]{font-size:14px;font-weight:500;color:var(--o-ink-soft)}',
+    chip('') + '{min-height:46px;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-size:15px!important;font-weight:500!important;box-shadow:none!important;transition:border-color .16s var(--o-ease),background-color .16s var(--o-ease),color .16s var(--o-ease)}',
+    '@media (hover:hover){' + chip(':hover') + '{border-color:var(--o-ink)!important}}',
+    chip('[aria-current="true"]') + '{background:var(--o-selected)!important;border-color:var(--o-selected)!important;color:var(--o-on-selected)!important;font-weight:600!important;box-shadow:none!important}',
+    chip('[aria-disabled="true"]') + '{border-style:dashed!important;border-color:var(--o-line)!important;background:var(--o-paper)!important;color:var(--o-ink-mute)!important;text-decoration:line-through}',
+    chip(':focus-visible') + '{outline:2px solid var(--o-ink)!important;outline-offset:2px}',
+    V + ' a[data-step="model"]{flex:1 1 calc(50% - 5px);justify-content:center;text-align:center}',
+    // Tamanhos: o máximo de colunas que cabe com alvo de toque de 44 px (os sete tamanhos da camiseta numa linha no computador).
+    V + ' [data-ink-labs-anchor="size_selector"] > div.grid{grid-template-columns:repeat(auto-fit,minmax(44px,1fr))!important}',
+    // Quantidade e botão de compra (a barra da INK): quantidade com a linha do tema, 44 px de toque; o botão é o do tema, cinza quando ainda falta escolher.
+    FLOOR + ' [data-testid="variant-selection-summary"]{color:var(--o-ink-soft);font-size:14px}',
+    FLOOR + ' > div:has(> [data-ink-store--product--variant-selection-target="decrease"]){border-color:var(--o-line)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)}',
+    FLOOR + ' :is([data-ink-store--product--variant-selection-target="decrease"],[data-ink-store--product--variant-selection-target="increase"]){min-width:44px;color:var(--o-ink)!important}',
+    btn(BUY),
+    BUY + '{width:100%;max-width:none}',
+    BUY + ':disabled,' + BUY + '[aria-disabled="true"]{border-color:var(--o-line)!important;background:var(--o-line)!important;color:var(--o-ink-soft)!important;cursor:not-allowed}',
+    '@media (hover:hover){' + BUY + ':disabled:hover{background:var(--o-line)!important;color:var(--o-ink-soft)!important}}',
+    // Prazo e cupons, já abaixo do botão: o "Cupons disponíveis" (fechado) logo depois do campo do CEP.
+    B + ' .container-form .o-cpn-near{margin-top:12px}',
+    // Confiança e detalhes: a mesma linha fina e o mesmo raio dos controles.
+    B + ' [data-testid="product-guarantees"]{border-color:var(--o-line-soft)!important;border-radius:var(--o-radius)!important}',
+    B + ' [data-testid="product-details"] summary > span{font-size:15px;font-weight:600;color:var(--o-ink)}',
+    // "Também disponível em" (as outras peças da mesma estampa, seção nativa da INK, só em produtos que as têm): título e contagem na linguagem dos outros rótulos,
+    // foto no cinza das fotos com o raio do tema e o selo Premium com texto escuro (o branco sobre o dourado não tem contraste).
+    B + ' [data-testid="product-styles"] h2{font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--o-ink)}',
+    B + ' [data-testid="product-styles"] > div:first-child > span{font-size:13px;color:var(--o-ink-mute)}',
+    B + ' [data-testid="product-styles"] [data-testid="product-card"] > div > a{border-radius:var(--o-radius)!important;background:var(--o-photo)!important}',
+    B + ' [data-testid="product-styles"] [data-testid="product-card"] > div > a span.rounded-full{color:#1b1d19!important}',
+    B + ' [data-testid="product-styles"] [data-testid="product-card"] p:first-child{color:var(--o-ink)}',
+    // Prazo e cupons nativos (quando o nosso bloco não monta): perto da compra, como linhas discretas.
     P + ' #cheapest-estimate-button{min-height:44px;color:var(--o-ink)!important;font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--o-line)}',
     P + ' #cheapest-estimate-button :is(span,svg){color:var(--o-ink)!important}',
     P + ' #cheapest-estimate-button svg path{fill:var(--o-ink)}',
     P + ' #product_promotions_frame > div.border{border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-paper);padding:12px 14px!important}',
     P + ' #product_promotions_frame > div.border :is(span,a){font-size:14px!important}',
     P + ' #product_promotions_frame a.text-blue-600{color:var(--o-ink)!important}',
-    // "Também disponível em": outros tipos de peça, depois da compra e com peso secundário.
-    F + ' > [data-controller="ink-store--modal"] > span{font-size:13px!important;font-weight:600!important;letter-spacing:.04em;text-transform:uppercase;color:var(--o-ink-mute)}',
-    F + ' > [data-controller="ink-store--modal"] .no-scrollbar button{min-height:44px;padding:0 14px!important;border:1px solid var(--o-line-soft)!important;border-radius:var(--o-radius)!important;background:var(--o-surface)!important;color:var(--o-ink)!important;font-size:14px!important;font-weight:500!important;box-shadow:none!important}',
-    // Barra fixa do celular (nativa): só quando o CTA principal está fora da tela; some com teclado, escolha em andamento e painéis (classes do theme-ui).
-    F + ' .form-product-options__add-to-cart-mobile{left:0;right:0;width:auto!important;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--o-surface);border-top:1px solid var(--o-line-soft);transition:transform .2s var(--o-ease),visibility .2s}',
-    F + ' #add-to-cart-mob{width:100%;min-height:52px}',
-    // Aviso de cookies da INK no pé (primeira visita): a barra sobe a altura dele (--o-cookie-h, medida no theme-ui) em vez de ficar escondida debaixo dele.
-    F + ' .form-product-options__add-to-cart-mobile{bottom:var(--o-cookie-h,0px)}',
-    P + ':is(.o-cta-inview,.o-typing) form[id^="form-product-"] .form-product-options__add-to-cart-mobile{transform:translateY(110%);visibility:hidden}',
-    F + ' .o-need-choice{outline:2px solid var(--o-error);outline-offset:6px;transition:outline-color .3s}',
-    F + ' .o-need-choice p strong{color:var(--o-error)}',
+    // Barra de compra FIXA do celular (a INK a prende no pé da tela, z-index 31, o mesmo do aviso de cookies): ela sobe a altura do aviso (--o-cookie-h, medida
+    // no theme-ui) em vez de ficar debaixo dele, e some com o teclado aberto (classe do theme-ui). No computador ela corre com a página.
+    '@media (max-width:1023px){' +
+      FLOOR + '{bottom:var(--o-cookie-h,0px);background:var(--o-surface);border-top:1px solid var(--o-line-soft);transition:transform .2s var(--o-ease),visibility .2s}' +
+      BUY + '{min-height:52px}' +
+      P + '.o-typing ' + FLOOR + '{transform:translateY(110%);visibility:hidden}' +
+    '}',
     // Flutuantes (Ajuda da INK, WhatsApp e cupons nossos): no celular saem do caminho enquanto as escolhas e o CTA estão na tela (classe do theme-ui);
     // voltam ao rolar para fora. O menu lateral continua com o atendimento.
     '@media (max-width:1023px){' + P + '.o-choosing :is([data-controller~="ink-store--help-button"],#o-wa-fab,#o-promo){opacity:0!important;visibility:hidden!important;pointer-events:none!important}' +
