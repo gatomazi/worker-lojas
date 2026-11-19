@@ -881,7 +881,7 @@ export const HEADER_NAV = String.raw`
       const ours = { left: vw - right - TAB_SIZE, right: vw - right, top: vh - bottom - TAB_SIZE, bottom: vh - bottom };
       const header = document.querySelector('header');
       const noRoom = ours.top < (header ? Math.max(0, header.getBoundingClientRect().bottom) : 0) + 8;
-      const covered = ['#add-to-cart-mob'].some((sel) => { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0 && waIntersects(ours, el.getBoundingClientRect()); });
+      const covered = fixedBuyBars().some((el) => waIntersects(ours, el.getBoundingClientRect()));
       const blocked = panelOpen || menuOpen || keyboard || noRoom || covered || waShown('.cart-drawer.open') || waShown('#modal-wrapper');
       fab.hidden = blocked;
       fab.style.display = blocked ? 'none' : 'flex';

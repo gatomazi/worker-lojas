@@ -323,11 +323,15 @@ export const ASSISTANT = String.raw`
       const right = Math.max(ASSIST_MARGIN, document.documentElement.clientWidth - visibleRight + ASSIST_MARGIN);
       const left = document.documentElement.clientWidth - right - width;
       let bottom = ASSIST_MARGIN + Math.max(0, vh - visibleBottom);
-      for (const selector of ['#add-to-cart-mob', '.cookie-acceptance']) {
-        const el = document.querySelector(selector);
-        if (!el || el.getClientRects().length === 0) continue;
-        const r = el.getBoundingClientRect();
-        if (r.right > left && r.left < left + width && r.bottom > vh - bottom - ASSIST_HEIGHT && r.top < visibleBottom) bottom = Math.max(bottom, vh - r.top + ASSIST_GAP);
+      // Barra de compra fixa e aviso de cookies empilham no pé da tela: ao subir acima de um, o botão pode cair em cima do outro, por isso repete até assentar.
+      const obstacles = fixedBuyBars().concat(document.querySelector('.cookie-acceptance') || []);
+      for (let pass = 0, moved = true; moved && pass <= obstacles.length; pass++) {
+        moved = false;
+        for (const el of obstacles) {
+          if (!el || el.getClientRects().length === 0) continue;
+          const r = el.getBoundingClientRect();
+          if (r.right > left && r.left < left + width && r.bottom > vh - bottom - ASSIST_HEIGHT && r.top < visibleBottom && vh - r.top + ASSIST_GAP > bottom) { bottom = vh - r.top + ASSIST_GAP; moved = true; }
+        }
       }
       fab.style.right = 'max(' + right + 'px, env(safe-area-inset-right, 0px))';
       fab.style.bottom = 'calc(' + bottom + 'px + env(safe-area-inset-bottom, 0px))';
@@ -339,8 +343,9 @@ export const ASSISTANT = String.raw`
       const keyboard = assistTyping(document.activeElement) && !!window.visualViewport && window.visualViewport.height < window.innerHeight - 120;
       const typing = assistTyping(document.activeElement) && assistCoarse();
       let covers = false;
-      for (const form of document.querySelectorAll('form[id^="form-product-"]')) {
-        for (const control of form.querySelectorAll('button, label, select, input:not([type="hidden"])')) {
+      // (PDP atual da INK: as escolhas ficam num frame fora do <form>; modelo, cor e tamanho são links a[data-step].)
+      for (const form of document.querySelectorAll('form[id^="form-product-"], [data-buy-column] turbo-frame[id^="variant-selection-"]')) {
+        for (const control of form.querySelectorAll('button, label, select, input:not([type="hidden"]), a[data-step]')) {
           if (control.getClientRects().length > 0 && assistHits(ours, control.getBoundingClientRect())) { covers = true; break; }
         }
         if (covers) break;

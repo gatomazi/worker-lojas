@@ -80,20 +80,20 @@ async function run({ label, themeFeatures, viewports, shots }) {
       await page.waitForFunction(() => /01001-000/.test(document.querySelector('.o-cep-where')?.textContent || ''), null, { timeout: 20000 }).catch(() => {});
       check(tag + ': segundo cálculo atualiza o prazo', /CEP 01001-000 · Sé, São Paulo/.test(await page.locator('.o-cep-out').innerText().catch(() => '')));
 
-      // Cupons perto do preço: o frame (preguiçoso, lá embaixo) é pedido já; o botão aparece SEM rolar até ele.
+      // Cupons: "Cupons disponíveis" (fechado) depois das escolhas e do botão de compra, junto do prazo; o frame (preguiçoso, lá embaixo) é pedido já.
       await page.evaluate(() => document.querySelector('[data-ink-labs-anchor="product_price"]').scrollIntoView({ block: 'center', behavior: 'instant' }));
       await page.waitForSelector('.o-cpn-near', { timeout: 30000 }).catch(() => {});
       const cpn = await page.evaluate(() => {
         const box = document.querySelector('#product_promotions_frame > div.border');
         const near = document.querySelector('.o-cpn-near');
-        return { has: !!near, belowPrice: !!document.querySelector('[data-ink-labs-anchor="product_price"] + .o-cpn-near'), closed: !!near && near.querySelector('.o-cpn').hidden,
+        return { has: !!near, afterChoices: !!near && !!(document.querySelector('turbo-frame[id^="variant-selection-"]').compareDocumentPosition(near) & Node.DOCUMENT_POSITION_FOLLOWING) && !!near.closest('.container-form'), closed: !!near && near.querySelector('.o-cpn').hidden,
           nativeHidden: !!box && getComputedStyle(box).display === 'none', label: near ? near.querySelector('.o-cpn-toggle').textContent.trim() : '', tabs: [...document.querySelectorAll('.o-cpn-tab')].map((t) => t.textContent.trim()) };
       });
       const nativeCoupons = await page.evaluate(() => document.querySelectorAll('#product_promotions_frame [data-controller~="ink-store--clipboard"] input[type="hidden"]').length);
       if (!nativeCoupons) {
         // Produto sem cupom na INK: nada nosso, o frame fica como a INK o deixa.
         check(tag + ': sem cupom na INK, nenhum bloco nosso', !cpn.has, JSON.stringify(cpn));
-      } else check(tag + ': "Cupons disponíveis" logo abaixo do preço, fechado, sem rolar; o quadro nativo some', cpn.has && cpn.belowPrice && cpn.closed && cpn.nativeHidden && cpn.tabs.length === nativeCoupons, JSON.stringify(cpn));
+      } else check(tag + ': "Cupons disponíveis" depois das escolhas e do botão (com o prazo), fechado; o quadro nativo some', cpn.has && cpn.afterChoices && cpn.closed && cpn.nativeHidden && cpn.tabs.length === nativeCoupons, JSON.stringify(cpn));
       if (cpn.has) {
         await page.waitForTimeout(300);
         if (shots) await page.screenshot({ path: shots + '/cupons-fechado-' + vp.name + '.png' });

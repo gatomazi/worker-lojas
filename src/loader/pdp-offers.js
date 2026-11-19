@@ -304,9 +304,9 @@ export const PDP_CEP = String.raw`
 
 // pdp-coupons: o quadro "Cupom · Ver cupons disponíveis" (que abre um modal) vira abas, uma por código (o desenho do oria-worker, com o tema da
 // Use Origens): o que o cupom dá, quanto economiza nesta peça, as faixas do progressivo e "Copiar". Os dados são os do frame de cupons da própria
-// INK (#product_promotions_frame) — o modal oficial continua no DOM, só não é mais o caminho. Com o preço na página, as abas sobem para logo
-// abaixo dele, fechadas atrás de "Cupons disponíveis" (perto do preço, sem ocupar espaço): o frame, preguiçoso e lá embaixo, é pedido já, e o
-// quadro nativo some. Sem o preço, as abas ficam à vista dentro do frame, como antes.
+// INK (#product_promotions_frame) — o modal oficial continua no DOM, só não é mais o caminho. As abas ficam FECHADAS atrás de "Cupons disponíveis" (só
+// abrem no toque, sem ocupar espaço) logo abaixo do preço: o frame, preguiçoso e lá embaixo, é pedido já, e o quadro nativo some. Sem preço na página, o botão
+// entra depois do <form> (dentro do conjunto do prazo). Sem nenhum cupom legível, o quadro nativo fica.
 // Só copia: quem valida e aplica o cupom é a INK, no carrinho. Nunca diz que o desconto foi aplicado.
 export const PDP_COUPONS = String.raw`
   const CPN_STYLE_ID = 'o-cpn-style';
@@ -571,17 +571,20 @@ export const PDP_COUPONS = String.raw`
       const frame = document.querySelector(CPN_FRAME);
       const form = frame && frame.closest('form[id^="form-product-"]');
       if (!form) return;
-      const price = form.querySelector(CPN_PRICE);
-      // Perto do preço o frame tem de vir já: a INK só o carrega quando ele chega perto da tela, e ele fica lá embaixo. "eager" faz a própria
-      // INK (Turbo) pedir o mesmo endereço que pediria ao rolar.
-      if (price && frame.getAttribute('loading') === 'lazy' && frame.getAttribute('src')) frame.setAttribute('loading', 'eager');
+      // O botão "Cupons disponíveis" (fechado) fica logo abaixo do preço. Marcação antiga da INK: o preço morava DENTRO do <form>. Atual: ele é filho direto da coluna
+      // de compra (data-buy-column), fora do <form>. Sem preço em lugar nenhum, o botão entra logo depois do <form> (dentro do conjunto do prazo).
+      const column = frame.closest('[data-buy-column]') || (form.closest('.container-form') && form.closest('.container-form').parentElement);
+      const price = form.querySelector(CPN_PRICE) || (column && column.querySelector(':scope > ' + CPN_PRICE));
+      // O frame é preguiçoso e fica lá embaixo: a INK só o carregaria quando chegasse perto da tela. "eager" faz a própria INK (Turbo) pedir o mesmo endereço
+      // já, para o botão estar na página (e não aparecer depois, empurrando o que vem abaixo).
+      if (frame.getAttribute('loading') === 'lazy' && frame.getAttribute('src')) frame.setAttribute('loading', 'eager');
       if (frame.hasAttribute('busy') || frame.getAttribute('aria-busy') === 'true' || !frame.querySelector(':scope > div.border')) return;
-      if (price ? form.querySelector('.o-cpn-near') : frame.querySelector(':scope > .o-cpn')) return;
+      if (document.querySelector('.o-cpn-near')) return;
       const coupons = cpnParse(frame);
       if (!coupons.length) return; // sem cupom legível: o quadro nativo fica
       cpnEnsureStyle();
-      if (!price) { frame.appendChild(cpnBuild(this, coupons, 'o-cpn-ttl')); return; }
-      price.after(cpnNear(this, coupons, open));
+      const near = cpnNear(this, coupons, open);
+      if (price) price.after(near); else form.after(near);
       frame.setAttribute(CPN_MOVED, '');
     },
 

@@ -149,7 +149,8 @@ export const PDP_SHARE = String.raw`
   ].join('');
 
   function shareTitles() {
-    return Array.from(document.querySelectorAll(PDP_SCOPE + ' h1')).filter((h1) => !h1.closest(PDP_OUTSIDE));
+    // PDP atual: o título é h1[data-ink-labs-anchor="product_title"] (a classe .details-product não existe mais na INK).
+    return Array.from(document.querySelectorAll(PDP_SCOPE + ' h1, h1[data-ink-labs-anchor="product_title"]')).filter((h1) => !h1.closest(PDP_OUTSIDE));
   }
   // Nome real do produto: o nó de dados da própria INK; o título visível como reserva.
   function shareName() {

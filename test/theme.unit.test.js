@@ -105,9 +105,12 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter',
     'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > [data-controller="ink-store--checkout"],body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2',
     'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br',
-    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron',
-    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-model',
-    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type .form-product-options__select-type-size',
+    // O bloco do preço (riscado, preço e selo na mesma linha): um contêiner que a INK nunca esconde.
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-ink-labs-anchor="product_price"]',
+    // O cartão "Você está aqui" do "Também disponível em": são nós NOSSOS (theme-ui), não da INK.
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] li > .o-style-card',
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] .o-style-media img',
+    'body[data-origens-theme~="pdp"] [data-buy-column] [data-testid="product-styles"] .o-style-here',
     'body[data-origens-theme~="pdp"] .o-thumbs',
     'body[data-origens-theme~="pdp"] .o-thumb img'
   ].sort());
@@ -115,15 +118,14 @@ test('CSS: never hides INK purchase content; display/visibility only where liste
     'body[data-origens-theme~="checkout"][data-origens-step="confirmation"] > div.font-inter > div.md\\:w-1\\/2 > div:has(> a[href$="/users/signup"]) > br',
     'body[data-origens-theme~="cart"] .cart-drawer .empty-cart:has([data-origens-empty]) #most_sold_frame > div > span:first-child',
     'body[data-origens-theme~="cart"] .cart-drawer__footer__coupon[data-origens-collapsed]',
-    'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)',
-    'body[data-origens-theme~="pdp"] form[id^="form-product-"] .form-product-options__select-type #open-modal-size .o-size-chevron'
+    'body[data-origens-theme~="cart"] [data-origens-discovery="post-add"] :is(.o-eyebrow,.o-lead)'
   ].sort());
   // visibility:hidden só no que volta sozinho: barra fixa (CTA à vista/teclado), pontos da galeria (com as miniaturas no lugar), flutuantes durante a escolha
   // e o conteúdo do NOSSO incentivo enquanto a INK responde (a caixa fica, a altura não muda).
   const vis = selectorsWith('visibility:hidden');
   assert.equal(vis.length, 4);
   assert.ok(vis.some((v) => v.endsWith('[data-origens-incentive-box][data-loading] > *')));
-  assert.ok(vis.some((v) => v.includes(':is(.o-cta-inview,.o-typing)') && v.includes('.form-product-options__add-to-cart-mobile')));
+  assert.ok(vis.some((v) => v.includes('.o-typing') && v.includes('[data-video-gallery-floor]')), 'a barra de compra fixa da INK some com o teclado aberto (só no celular)');
   assert.ok(vis.some((v) => v.includes('.o-thumbs') && v.includes('ul.absolute.z-30')), 'native dots hidden only once the thumbnail grid is mounted');
   assert.ok(vis.some((v) => v.includes('.o-choosing') && v.includes('ink-store--help-button')));
   assert.ok(!/[;{]content:/.test(css), 'no generated text');
@@ -301,7 +303,8 @@ test('CSS: INK\'s cookie notice looks like the storefront\'s (black bar, white s
     const css = buildThemeCss(normalizeTheme(clone({ surfaces: { pdp: true, cart: true, checkout: true, account: true } })), surfaces);
     const rules = css.match(/[^{}]*\.cookie-acceptance[^{}]*\{[^}]*\}/g) || [];
     assert.ok(rules.length >= 4, surfaces.join(','));
-    for (const r of rules) assert.match(r.replace(/^@media[^{]*\{/, ''), /^body\[data-origens-theme\] \.cookie-acceptance/, 'only on themed pages: ' + r.slice(0, 60));
+    // (Na PDP do celular o aviso fica mais baixo, texto e botão na mesma linha, para a barra de compra fixa da INK sobrar acima dele: regra com o escopo "pdp".)
+    for (const r of rules) assert.match(r.replace(/^@media[^{]*\{/, ''), /^body\[data-origens-theme(?:~="pdp")?\] \.cookie-acceptance/, 'only on themed pages: ' + r.slice(0, 60));
     assert.doesNotMatch(rules.join(''), /[{;]\s*(?:display|visibility|content)\s*:/, 'the INK hidden attribute decides; no text of ours');
     assert.match(css, /\.cookie-acceptance\{[^}]*background:#000!important[^}]*\}/);
     assert.match(css, /\.cookie-acceptance button\{[^}]*border-radius:0!important[^}]*background:#fff!important[^}]*text-transform:uppercase/);

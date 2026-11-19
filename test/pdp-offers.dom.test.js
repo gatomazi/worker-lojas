@@ -195,12 +195,23 @@ test('pdp-cep: a re-rendered delivery frame gets the block back on turbo:frame-r
   assert.ok(t.doc.getElementById('cheapest-estimate-button'));
 });
 
-test('pdp-coupons: one tab per INK coupon, with what it gives, the savings, the progressive tiers and the conditions; the native box hidden only while ours is there', async () => {
+// Marcação atual da INK: sem o preço dentro do <form>, o botão "Cupons disponíveis" (fechado) entra logo depois dele.
+const nearOf = (t) => t.doc.querySelector('form[id^="form-product-"] + .o-cpn-near');
+const openNear = (t) => { const toggle = t.doc.querySelector('.o-cpn-toggle'); if (toggle.getAttribute('aria-expanded') !== 'true') toggle.click(); return nearOf(t).querySelector('.o-cpn'); };
+
+test('pdp-coupons: "Cupons disponíveis" FECHADO depois do formulário; ao tocar, uma aba por cupom, com o que dá, a economia, as faixas do progressivo e as condições; o quadro nativo some só enquanto o nosso está lá', async () => {
   const t = setup({ features: ['pdp-coupons'] });
   await tick();
-  const block = t.doc.querySelector('#product_promotions_frame > .o-cpn');
+  const near = nearOf(t);
+  assert.ok(near, 'logo depois do <form> do produto');
+  assert.equal(t.doc.querySelector('#product_promotions_frame > .o-cpn'), null, 'nada solto dentro do frame');
+  const toggle = near.querySelector('.o-cpn-toggle');
+  assert.equal(toggle.textContent.trim(), 'Cupons disponíveis2');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(near.querySelector('#o-cpn-box').hidden, true, 'fechado: só abre se a pessoa tocar');
+  const block = openNear(t);
   assert.ok(block);
-  assert.equal(block.querySelector('.o-cpn-ttl').textContent, 'Cupons para esta peça');
+  assert.equal(near.querySelector('#o-cpn-box').hidden, false);
   const tabs = [...block.querySelectorAll('.o-cpn-tab')];
   assert.deepEqual(tabs.map((b) => b.textContent.trim()), ['PRIMEIRACOMPRA', 'LEVEMAIS']);
   assert.deepEqual(tabs.map((b) => b.getAttribute('role')), ['tab', 'tab']);
@@ -215,7 +226,8 @@ test('pdp-coupons: one tab per INK coupon, with what it gives, the savings, the 
   assert.equal(panels[1].querySelector('.o-cpn-rules').textContent, 'Mínimo do carrinho: 3 itens');
   assert.ok(t.doc.getElementById('product-promotions-modal'), 'official modal kept in the DOM');
   assert.ok(t.doc.querySelector('#product_promotions_frame > div.border'), 'native box kept in the DOM');
-  assert.match(t.doc.getElementById('o-cpn-style').textContent, /turbo-frame#product_promotions_frame:has\(> \.o-cpn\) > div\.border,[^{]*\{display:none!important\}/);
+  assert.ok(t.doc.getElementById('product_promotions_frame').hasAttribute('data-o-cpn-moved'));
+  assert.match(t.doc.getElementById('o-cpn-style').textContent, /turbo-frame#product_promotions_frame\[data-o-cpn-moved\] > div\.border\{display:none!important\}/);
 });
 
 test('pdp-coupons: tabs switch by click and arrows; "Copiar" copies the code, says where to use it and measures only the code', async () => {
@@ -238,13 +250,13 @@ test('pdp-coupons: tabs switch by click and arrows; "Copiar" copies the code, sa
   assert.deepEqual(named(t, 'origens_coupon_copy').map((p) => p.coupon), ['PRIMEIRACOMPRA']);
 });
 
-test('pdp-coupons: a single coupon is a label, not a tablist (no tab roles); its panel and "Copiar" work the same', async () => {
+test('pdp-coupons: um cupom só é um rótulo, não uma lista de abas (sem papéis de aba); o painel e "Copiar" funcionam igual', async () => {
   const one = FIXTURE.replace(/<div class="items-center border border-gray-300 p-4 rounded-lg">\s*<div class="flex justify-between">\s*<span[^>]*>\s*LEVEMAIS[\s\S]*?Mínimo do carrinho: 3 itens\s*<\/li>\s*<\/ul>\s*<\/div>/, '');
   assert.ok(!one.includes('LEVEMAIS'), 'fixture reduced to one coupon');
   const t = setup({ features: ['pdp-coupons'], html: one });
   await tick();
-  const block = t.doc.querySelector('.o-cpn');
-  assert.equal(block.querySelector('.o-cpn-ttl').textContent, 'Cupom para esta peça');
+  assert.equal(t.doc.querySelector('.o-cpn-toggle').textContent.trim(), 'Cupom disponível');
+  const block = openNear(t);
   assert.equal(block.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"], [aria-selected]'), null);
   const label = block.querySelector('.o-cpn-tab');
   assert.equal(label.tagName, 'SPAN');
@@ -256,22 +268,24 @@ test('pdp-coupons: a single coupon is a label, not a tablist (no tab roles); its
   assert.deepEqual(t.copied, ['PRIMEIRACOMPRA']);
 });
 
-test('pdp-coupons: the lazy frame mounts as soon as the INK renders it; empty/unknown markup keeps the native box; teardown restores it', async () => {
+test('pdp-coupons: o frame preguiçoso monta assim que a INK o entrega; marcação vazia/desconhecida mantém o quadro nativo; desmontar devolve', async () => {
   const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"').replace(/<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame"/, '</turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
   const t = setup({ features: ['pdp-coupons'], html: lazy });
   await tick();
   const frame = t.doc.getElementById('product_promotions_frame');
   assert.equal(frame.children.length, 0);
-  assert.equal(t.doc.querySelector('.o-cpn'), null);
+  assert.equal(t.doc.querySelector('.o-cpn-near, .o-cpn'), null);
   frame.innerHTML = FIXTURE.match(/<turbo-frame id="product_promotions_frame"[^>]*>([\s\S]*?)<\/turbo-frame>\s*<turbo-frame loading="lazy"/)[1];
   frame.setAttribute('complete', '');
   frame.dispatchEvent(new t.w.CustomEvent('turbo:frame-render', { bubbles: true }));
-  assert.ok(frame.querySelector(':scope > .o-cpn'), 'mounted in the same instant');
+  assert.ok(nearOf(t), 'mounted in the same instant');
+  assert.ok(frame.hasAttribute('data-o-cpn-moved'));
   const u = setup({ features: ['pdp-coupons'], html: FIXTURE.replace(/data-controller="ink-store--clipboard"/g, 'data-controller="x"') });
   await tick();
-  assert.equal(u.doc.querySelector('.o-cpn'), null, 'no readable coupon: native box stays');
+  assert.equal(u.doc.querySelector('.o-cpn-near, .o-cpn'), null, 'no readable coupon: native box stays');
   t.doc.dispatchEvent(new t.w.Event('turbo:before-cache'));
-  assert.equal(t.doc.querySelector('.o-cpn'), null);
+  assert.equal(t.doc.querySelector('.o-cpn-near, .o-cpn'), null);
+  assert.equal(frame.hasAttribute('data-o-cpn-moved'), false, 'teardown gives the native box back');
   assert.equal(t.doc.getElementById('o-cpn-style'), null);
 });
 
@@ -354,11 +368,11 @@ test('pdp-coupons perto do preço: sem cupom na INK, nenhum botão (frame vazio 
   assert.equal(b.doc.getElementById('product_promotions_frame').hasAttribute('data-o-cpn-moved'), false, 'native box not hidden');
 });
 
-test('pdp-coupons sem o preço na página: o frame não é forçado (fica preguiçoso)', async () => {
-  const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
+test('pdp-coupons sem o preço dentro do <form> (marcação atual): o frame preguiçoso também é pedido já, para o botão estar na página desde o início', async () => {
+  const lazy = FIXTURE.replace(/(<turbo-frame id="product_promotions_frame"[^>]*?) complete="">[\s\S]*?(<\/turbo-frame>\s*<turbo-frame loading="lazy" id="product_variants_options_frame")/, '$1 loading="lazy" src="/usesul/products/1/product_promotions"></turbo-frame><turbo-frame loading="lazy" id="product_variants_options_frame"');
   const t = setup({ features: ['pdp-coupons'], html: lazy });
   await tick();
-  assert.equal(t.doc.getElementById('product_promotions_frame').getAttribute('loading'), 'lazy');
+  assert.equal(t.doc.getElementById('product_promotions_frame').getAttribute('loading'), 'eager');
 });
 
 test('flags: neither module (nor its CSS) without its flag; each one alone works', async () => {
